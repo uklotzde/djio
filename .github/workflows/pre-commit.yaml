@@ -22,6 +22,10 @@ jobs:
     name: Detecting code style issues
     runs-on: ubuntu-latest
     steps:
+      - name: Install ALSA and Jack dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y libasound2-dev libjack-jackd2-dev libudev-dev
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
