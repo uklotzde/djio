@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: The djio authors
+# SPDX-License-Identifier: MPL-2.0
+
+[package]
+name = "djio"
+description = "DJ Hardware Support"
+version = "0.0.0"
+license = "MPL-2.0"
+readme = "README.md"
+repository = "https://github.com/uklotzde/djio"
+keywords = ["dj", "midi", "hid"]
+categories = ["hardware-support"]
+edition = "2021"
+include = ["/src", "/README.md", "/LICENSES"]
+
+[dependencies]
+log = "0.4.18"
+thiserror = "1.0.40"
+
+# Optional dependencies
+midir = { version = "0.9.1", optional = true }
+hidapi = { version = "2.3.3", optional = true }
+
+[dev-dependencies]
+anyhow = "1.0.71"
+
+[features]
+default = ["hid", "midi"]
+hid = ["dep:hidapi"]
+midi = ["dep:midir"]
+
+[[example]]
+name = "midi-hotplug"
+path = "examples/midi_hotplug.rs"
+required-features = ["midi"]
