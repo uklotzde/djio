@@ -50,3 +50,10 @@ pub struct StepEncoder {
 pub struct SliderEncoder {
     pub delta: f32,
 }
+
+/// One half of a 14-bit value.
+#[derive(Debug, Clone, Copy)]
+pub enum HalfU14 {
+    Hi(u8),
+    Lo(u8),
+}
