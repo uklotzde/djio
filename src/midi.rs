@@ -184,7 +184,7 @@ where
         })
     }
 
-    fn input_port(&self, port_name: &str) -> Option<MidiInputPort> {
+    pub fn input_port(&self, port_name: &str) -> Option<MidiInputPort> {
         self.input.ports().into_iter().find(|port| {
             self.input
                 .port_name(port)
@@ -192,7 +192,7 @@ where
         })
     }
 
-    fn output_port(&self, port_name: &str) -> Option<MidiOutputPort> {
+    pub fn output_port(&self, port_name: &str) -> Option<MidiOutputPort> {
         self.output.ports().into_iter().find(|port| {
             self.output
                 .port_name(port)
