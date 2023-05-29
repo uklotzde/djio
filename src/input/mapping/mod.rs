@@ -15,6 +15,7 @@ pub fn u7_to_slider(input: u8) -> super::Slider {
 }
 
 #[must_use]
+#[allow(clippy::cast_possible_wrap)]
 pub fn u7_to_slider_encoder(input: u8) -> super::SliderEncoder {
     let delta = if input < 64 {
         f32::from(input) / 63.0
@@ -40,4 +41,17 @@ pub fn u7_to_center_slider(input: u8) -> super::CenterSlider {
 pub fn u14_to_center_slider(input: u16) -> super::CenterSlider {
     let position = f32::from(input) * 2.0 / 16383.0 - 1.0;
     super::CenterSlider { position }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn u7_to_slider_encoder_delta() {
+        debug_assert_eq!(0.0, u7_to_slider_encoder(0).delta);
+        debug_assert_eq!(1.0, u7_to_slider_encoder(63).delta);
+        debug_assert_eq!(-1.0, u7_to_slider_encoder(64).delta);
+    }
 }
