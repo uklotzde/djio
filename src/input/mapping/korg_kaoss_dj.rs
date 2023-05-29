@@ -13,6 +13,7 @@ pub enum Button {
     TouchPadUpperRight,
     TouchPadLowerLeft,
     TouchPadLowerRight,
+    BrowseEncoderShifted,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -23,6 +24,7 @@ pub enum CenterSlider {
 #[derive(Debug, Clone, Copy)]
 pub enum StepEncoder {
     BrowseKnob,
+    BrowseKnobShifted,
     ProgramKnob,
 }
 
@@ -155,6 +157,11 @@ impl InputEvent {
     #[allow(clippy::too_many_lines)]
     pub fn try_from_midi_message(input: &[u8]) -> Option<Self> {
         let mapped = match input {
+            [0x96, 0x07, data2] => InputEvent::Button {
+                ctrl: Button::BrowseEncoderShifted,
+                layer: Layer::Shifted,
+                input: u7_to_button(*data2),
+            },
             [0x96, 0x0b, data2] => InputEvent::Button {
                 ctrl: Button::Tap,
                 layer: Layer::Default,
