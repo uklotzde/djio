@@ -28,6 +28,7 @@ anyhow = "1.0.71"
 default = ["hid", "midi"]
 hid = ["dep:hidapi"]
 midi = ["dep:midir"]
+jack = ["midir?/jack"]
 
 [[example]]
 name = "midi-dj-controller-hotplug"
