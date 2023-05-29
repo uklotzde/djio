@@ -257,10 +257,12 @@ where
         })
     }
 
+    #[must_use]
     pub fn input_ports(&self) -> MidiInputPorts {
         self.input.ports()
     }
 
+    #[must_use]
     pub fn output_ports(&self) -> MidiOutputPorts {
         self.output.ports()
     }
@@ -287,6 +289,7 @@ where
         })
     }
 
+    #[must_use]
     pub fn detect_dj_controllers(&self) -> Vec<(DjControllerDescriptor, MidiDevice<InputHandler>)> {
         let mut input_ports = self
             .input_ports()
