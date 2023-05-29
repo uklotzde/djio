@@ -38,7 +38,7 @@ impl MidiInputHandler for LogMidiInput {
             );
         } else {
             println!(
-                "{device_name}@{stamp}: {data:?} (len = {data_len})",
+                "{device_name}@{stamp}: {data:x?} (len = {data_len})",
                 device_name = self.device_name,
                 data_len = data.len(),
             );
