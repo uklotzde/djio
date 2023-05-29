@@ -20,5 +20,7 @@
 // is not needed since the context is obvious.
 #![allow(clippy::default_trait_access)]
 
+pub mod input;
+
 #[cfg(feature = "midi")]
 pub mod midi;

@@ -3,7 +3,10 @@
 
 use std::io::{stdin, stdout, Write as _};
 
-use djio::midi::{GenericMidiDeviceManager, MidiInputHandler};
+use djio::{
+    input,
+    midi::{GenericMidiDeviceManager, MidiInputHandler},
+};
 use midir::MidiInputPort;
 
 #[derive(Debug, Clone, Default)]
@@ -27,11 +30,19 @@ impl MidiInputHandler for LogMidiInput {
     }
 
     fn handle_midi_input(&mut self, stamp: u64, data: &[u8]) {
-        println!(
-            "{device_name}@{stamp}: {data:?} (len = {data_len})",
-            device_name = self.device_name,
-            data_len = data.len(),
-        );
+        if let Some(event) = input::mapping::korg_kaoss_dj::InputEvent::try_from_midi_message(data)
+        {
+            println!(
+                "{device_name}@{stamp}: {event:?})",
+                device_name = self.device_name,
+            );
+        } else {
+            println!(
+                "{device_name}@{stamp}: {data:?} (len = {data_len})",
+                device_name = self.device_name,
+                data_len = data.len(),
+            );
+        }
     }
 }
 
