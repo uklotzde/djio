@@ -14,25 +14,25 @@ use midir::{
 };
 use thiserror::Error;
 
-#[derive(Debug)]
-struct DjControllerDescriptor {
-    brand_name: &'static str,
-    model_name: &'static str,
-    port_name_prefix: &'static str,
+#[derive(Debug, Clone)]
+pub struct DjControllerDescriptor {
+    pub vendor_name: &'static str,
+    pub model_name: &'static str,
+    pub port_name_prefix: &'static str,
 }
 
 impl DjControllerDescriptor {
     fn device_name(&self) -> Cow<'static, str> {
         let Self {
-            brand_name,
+            vendor_name,
             model_name,
             ..
         } = *self;
         debug_assert!(!model_name.is_empty());
-        if brand_name.is_empty() {
+        if vendor_name.is_empty() {
             model_name.into()
         } else {
-            format!("{brand_name} {model_name}").into()
+            format!("{vendor_name} {model_name}").into()
         }
     }
 }
@@ -40,12 +40,12 @@ impl DjControllerDescriptor {
 // Predefined port names of existing DJ controllers for auto-detection.
 const DJ_CONTROLLER_DESCRIPTORS: &[DjControllerDescriptor] = &[
     DjControllerDescriptor {
-        brand_name: "Pioneer",
+        vendor_name: "Pioneer",
         model_name: "DDJ-400",
         port_name_prefix: "DDJ-400",
     },
     DjControllerDescriptor {
-        brand_name: "Korg",
+        vendor_name: "Korg",
         model_name: "KAOSS DJ",
         port_name_prefix: "KAOSS DJ",
     },
@@ -287,7 +287,7 @@ where
         })
     }
 
-    pub fn detect_dj_controllers(&self) -> Vec<MidiDevice<InputHandler>> {
+    pub fn detect_dj_controllers(&self) -> Vec<(DjControllerDescriptor, MidiDevice<InputHandler>)> {
         let mut input_ports = self
             .input_ports()
             .into_iter()
@@ -332,11 +332,12 @@ where
                         "Found DJ controller device \"{device_name}\" (input port: \
                          \"{input_port_name}\", output port: \"{output_port_name}\")"
                     );
-                    MidiDevice::new(
+                    let device = MidiDevice::new(
                         device_name,
                         (input_port_name, input_port),
                         (output_port_name, output_port),
-                    )
+                    );
+                    (descriptor.clone(), device)
                 },
             )
             .collect()

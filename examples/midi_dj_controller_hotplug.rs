@@ -48,19 +48,19 @@ fn new_input_handler() -> Box<dyn MidiInputHandler> {
 
 fn run() -> anyhow::Result<()> {
     let device_manager = GenericMidiDeviceManager::new()?;
-    let mut devices = device_manager.detect_dj_controllers();
-    let mut device = match devices.len() {
+    let mut dj_controllers = device_manager.detect_dj_controllers();
+    let (_descriptor, mut device) = match dj_controllers.len() {
         0 => anyhow::bail!("No supported DJ controllers found"),
         1 => {
             println!(
                 "Choosing the only available DJ Controller: {device_name}",
-                device_name = devices[0].name(),
+                device_name = dj_controllers[0].1.name(),
             );
-            devices.remove(0)
+            dj_controllers.remove(0)
         }
         _ => {
             println!("\nAvailable devices:");
-            for (i, device) in devices.iter().enumerate() {
+            for (i, (_descriptor, device)) in dj_controllers.iter().enumerate() {
                 println!(
                     "{device_number}: {device_name}",
                     device_number = i + 1,
@@ -72,11 +72,11 @@ fn run() -> anyhow::Result<()> {
             let mut input = String::new();
             stdin().read_line(&mut input)?;
             let device_number = input.trim().parse::<usize>()?;
-            if device_number < 1 || device_number > devices.len() {
+            if device_number < 1 || device_number > dj_controllers.len() {
                 eprintln!("Unknown device number {device_number}");
                 return Ok(());
             }
-            devices.remove(device_number - 1)
+            dj_controllers.remove(device_number - 1)
         }
     };
 
