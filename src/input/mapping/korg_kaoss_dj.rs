@@ -124,6 +124,15 @@ fn u7_to_button(input: u8) -> input::Button {
     }
 }
 
+fn u7_to_step_encoder(input: u8) -> input::StepEncoder {
+    let delta = match input {
+        1 => 1,
+        127 => -1,
+        _ => unreachable!(),
+    };
+    input::StepEncoder { delta }
+}
+
 impl InputEvent {
     #[must_use]
     pub fn try_from_midi_message(input: &[u8]) -> Option<Self> {
@@ -147,6 +156,14 @@ impl InputEvent {
             [0xb6, 0x17, data2] => Self::CenterSlider {
                 ctrl: CenterSlider::CrossFader,
                 input: u7_to_center_slider(*data2),
+            },
+            [0xb6, 0x1e, data2] => Self::StepEncoder {
+                ctrl: StepEncoder::BrowseKnob,
+                input: u7_to_step_encoder(*data2),
+            },
+            [0xb6, 0x1f, data2] => Self::StepEncoder {
+                ctrl: StepEncoder::ProgramKnob,
+                input: u7_to_step_encoder(*data2),
             },
             [0xb7, 0x18, data2] => Self::Deck(
                 Deck::A,
