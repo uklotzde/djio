@@ -3,9 +3,8 @@
 
 use std::io::{stdin, stdout, Write as _};
 
+use djio::midi::{GenericMidiDeviceManager, MidiInputHandler};
 use midir::MidiInputPort;
-
-use djio::midi::{MidiDeviceManager, MidiInputHandler};
 
 #[derive(Debug, Clone, Default)]
 struct LogMidiInput {
@@ -37,9 +36,13 @@ fn main() {
     }
 }
 
+fn new_input_handler() -> Box<dyn MidiInputHandler> {
+    Box::<LogMidiInput>::default()
+}
+
 fn run() -> anyhow::Result<()> {
-    let manager = MidiDeviceManager::new()?;
-    let mut dj_controllers = manager.dj_controllers().collect::<Vec<_>>();
+    let device_manager = GenericMidiDeviceManager::new()?;
+    let mut dj_controllers = device_manager.dj_controllers().collect::<Vec<_>>();
     let mut device = match dj_controllers.len() {
         0 => anyhow::bail!("no port found"),
         1 => {
@@ -51,7 +54,7 @@ fn run() -> anyhow::Result<()> {
         }
         _ => {
             println!("\nAvailable devices:");
-            let mut devices = manager.devices().collect::<Vec<_>>();
+            let mut devices = device_manager.devices().collect::<Vec<_>>();
             for (i, device) in devices.iter().enumerate() {
                 println!("{i}: {port_name}", port_name = device.port_name());
             }
@@ -63,27 +66,27 @@ fn run() -> anyhow::Result<()> {
         }
     };
 
+    println!("{port_name}: connecting", port_name = device.port_name());
     device
-        .reconnect(Some(LogMidiInput::default))
+        .reconnect(Some(new_input_handler))
         .map_err(|err| anyhow::anyhow!("{err}"))?;
 
     println!("Starting endless loop, press CTRL-C to exit...");
-    let mut last_state = None;
     loop {
-        let current_state = manager.is_connected(device.port_name());
-        if last_state != Some(current_state) {
-            if current_state {
-                println!("{}: connected", device.port_name());
+        match (device.is_available(&device_manager), device.is_connected()) {
+            (true, false) => {
+                println!("{port_name}: reconnecting", port_name = device.port_name());
                 device
-                    .reconnect(Some(LogMidiInput::default))
+                    .reconnect(Some(new_input_handler))
                     .map_err(|err| anyhow::anyhow!("{err}"))?;
-            } else {
-                println!("{}: disconnected", device.port_name());
+            }
+            (false, true) => {
+                println!("{port_name}: disconnecting", port_name = device.port_name());
                 device.disconnect();
             }
-            last_state = Some(current_state);
+            (false, false) => println!("{port_name}: disconnected", port_name = device.port_name()),
+            (true, true) => println!("{port_name}: connected", port_name = device.port_name()),
         }
-        // Re-check connectivity periodically every second
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }
 }

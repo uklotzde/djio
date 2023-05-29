@@ -1,15 +1,21 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use midir::{
-    ConnectError, Ignore, InitError, MidiInput, MidiInputConnection, MidiInputPort, MidiOutput,
-    MidiOutputConnection, MidiOutputPort,
+    ConnectError, Ignore, InitError, MidiInput, MidiInputConnection, MidiInputPort, MidiInputPorts,
+    MidiOutput, MidiOutputConnection, MidiOutputPort, MidiOutputPorts,
 };
 use thiserror::Error;
 
-const DJ_CONTROLLER_PORT_NAME_PREFIXES: &[&str] = &["KAOSS DJ:KAOSS DJ KAOSS DJ _ SOUND"];
+// Predefined port names of existing DJ controllers for auto-detection.
+//
+// Should be extended as needed, preferably keeping the entries in lexicographical order.
+const DJ_CONTROLLER_PORT_NAME_PREFIXES: &[&str] = &["DDJ-400", "KAOSS DJ"];
 
 #[derive(Debug, Error)]
 pub enum PortError {
@@ -23,12 +29,27 @@ pub enum PortError {
     ConnectOutput(#[from] ConnectError<MidiOutput>),
 }
 
-pub trait MidiInputHandler {
+// Callbacks for handling MIDI input
+pub trait MidiInputHandler: Send {
     /// Invoked before (re-)connecting the port.
     fn connect_midi_input_port(&mut self, port_name: &str, port: &MidiInputPort);
 
     /// Invoked for each incoming message.
     fn handle_midi_input(&mut self, ts: u64, data: &[u8]);
+}
+
+impl<D> MidiInputHandler for D
+where
+    D: DerefMut + Send,
+    <D as Deref>::Target: MidiInputHandler,
+{
+    fn connect_midi_input_port(&mut self, port_name: &str, port: &MidiInputPort) {
+        self.deref_mut().connect_midi_input_port(port_name, port);
+    }
+
+    fn handle_midi_input(&mut self, ts: u64, data: &[u8]) {
+        self.deref_mut().handle_midi_input(ts, data);
+    }
 }
 
 #[allow(missing_debug_implementations)]
@@ -39,13 +60,12 @@ where
     port_name: String,
     input_port: MidiInputPort,
     output_port: MidiOutputPort,
-    input_connection: Option<MidiInputConnection<InputHandler>>,
-    output_connection: Option<MidiOutputConnection>,
+    connection: Option<(MidiInputConnection<InputHandler>, MidiOutputConnection)>,
 }
 
 impl<InputHandler> MidiDevice<InputHandler>
 where
-    InputHandler: MidiInputHandler + Send,
+    InputHandler: MidiInputHandler,
 {
     #[must_use]
     pub fn new(port_name: String, input_port: MidiInputPort, output_port: MidiOutputPort) -> Self {
@@ -53,8 +73,7 @@ where
             port_name,
             input_port,
             output_port,
-            input_connection: None,
-            output_connection: None,
+            connection: None,
         }
     }
 
@@ -62,27 +81,62 @@ where
         &self.port_name
     }
 
+    pub fn is_available<T>(&self, device_manager: &MidiDeviceManager<T>) -> bool
+    where
+        T: MidiInputHandler,
+    {
+        device_manager
+            .filter_input_ports_by_name(|port_name| port_name == self.port_name())
+            .next()
+            .is_some()
+            && device_manager
+                .filter_output_ports_by_name(|port_name| port_name == self.port_name())
+                .next()
+                .is_some()
+    }
+
+    pub fn is_connected(&self) -> bool {
+        self.connection.is_some()
+    }
+
     #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn reconnect(
         &mut self,
         new_input_handler: Option<impl FnOnce() -> InputHandler>,
     ) -> Result<(), PortError> {
-        self.reconnect_input(new_input_handler)?;
-        self.reconnect_output()?;
+        let (input_conn, output_conn) = self
+            .connection
+            .take()
+            .map_or((None, None), |(input_conn, output_conn)| {
+                (Some(input_conn), Some(output_conn))
+            });
+        debug_assert!(!self.is_connected());
+        let input_conn = self.reconnect_input(input_conn, new_input_handler)?;
+        let output_conn = self.reconnect_output(output_conn)?;
+        self.connection = Some((input_conn, output_conn));
+        debug_assert!(self.is_connected());
         Ok(())
     }
 
     pub fn disconnect(&mut self) {
-        self.disconnect_input();
-        self.disconnect_output();
+        let Some((input_conn, output_conn)) = self
+            .connection
+            .take()
+             else {
+                return;
+             };
+        input_conn.close();
+        output_conn.close();
+        debug_assert!(!self.is_connected());
     }
 
     fn reconnect_input(
         &mut self,
+        connection: Option<MidiInputConnection<InputHandler>>,
         new_input_handler: Option<impl FnOnce() -> InputHandler>,
-    ) -> Result<(), PortError> {
+    ) -> Result<MidiInputConnection<InputHandler>, PortError> {
         let (input, mut input_handler) =
-            if let Some((input, input_handler)) = self.disconnect_input() {
+            if let Some((input, input_handler)) = connection.map(MidiInputConnection::close) {
                 (input, input_handler)
             } else {
                 let Some(new_input_handler) = new_input_handler else {
@@ -93,36 +147,33 @@ where
                 (input, input_handler)
             };
         input_handler.connect_midi_input_port(&self.port_name, &self.input_port);
-        let input_connection = input.connect(
-            &self.input_port,
-            &self.port_name,
-            move |stamp, message, input_handler| input_handler.handle_midi_input(stamp, message),
-            input_handler,
-        )?;
-        self.input_connection = Some(input_connection);
-        Ok(())
+        input
+            .connect(
+                &self.input_port,
+                &self.port_name,
+                move |stamp, message, input_handler| {
+                    input_handler.handle_midi_input(stamp, message);
+                },
+                input_handler,
+            )
+            .map_err(Into::into)
     }
 
-    fn disconnect_input(&mut self) -> Option<(MidiInput, InputHandler)> {
-        self.input_connection.take().map(MidiInputConnection::close)
-    }
-
-    fn reconnect_output(&mut self) -> Result<(), PortError> {
-        let output = match self.disconnect_output() {
+    fn reconnect_output(
+        &self,
+        connection: Option<MidiOutputConnection>,
+    ) -> Result<MidiOutputConnection, PortError> {
+        let output = match connection.map(MidiOutputConnection::close) {
             Some(output) => output,
             None => MidiOutput::new(&self.port_name)?,
         };
-        let output_connection = output.connect(&self.output_port, &self.port_name)?;
-        self.output_connection = Some(output_connection);
-        Ok(())
-    }
-
-    fn disconnect_output(&mut self) -> Option<MidiOutput> {
-        self.output_connection
-            .take()
-            .map(MidiOutputConnection::close)
+        output
+            .connect(&self.output_port, &self.port_name)
+            .map_err(Into::into)
     }
 }
+
+pub type GenericMidiDevice = MidiDevice<Box<dyn MidiInputHandler>>;
 
 #[allow(missing_debug_implementations)]
 pub struct MidiDeviceManager<InputHandler> {
@@ -133,7 +184,7 @@ pub struct MidiDeviceManager<InputHandler> {
 
 impl<InputHandler> MidiDeviceManager<InputHandler>
 where
-    InputHandler: MidiInputHandler + Send,
+    InputHandler: MidiInputHandler,
 {
     #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn new() -> Result<Self, midir::InitError> {
@@ -144,6 +195,36 @@ where
             input,
             output,
             _input_handler: PhantomData,
+        })
+    }
+
+    pub fn input_ports(&self) -> MidiInputPorts {
+        self.input.ports()
+    }
+
+    pub fn filter_input_ports_by_name<'a>(
+        &'a self,
+        mut filter_port_name: impl FnMut(&str) -> bool + 'a,
+    ) -> impl Iterator<Item = MidiInputPort> + 'a {
+        self.input_ports().into_iter().filter(move |port| {
+            self.input
+                .port_name(port)
+                .map_or(false, |port_name| filter_port_name(&port_name))
+        })
+    }
+
+    pub fn output_ports(&self) -> MidiOutputPorts {
+        self.output.ports()
+    }
+
+    pub fn filter_output_ports_by_name<'a>(
+        &'a self,
+        mut filter_port_name: impl FnMut(&str) -> bool + 'a,
+    ) -> impl Iterator<Item = MidiOutputPort> + 'a {
+        self.output_ports().into_iter().filter(move |port| {
+            self.output
+                .port_name(port)
+                .map_or(false, |port_name| filter_port_name(&port_name))
         })
     }
 
@@ -183,24 +264,6 @@ where
                 .any(|prefix| device.port_name().starts_with(*prefix))
         })
     }
-
-    fn input_port(&self, port_name: &str) -> Option<MidiInputPort> {
-        self.input.ports().into_iter().find(|port| {
-            self.input
-                .port_name(port)
-                .map_or(false, |name| name == port_name)
-        })
-    }
-
-    fn output_port(&self, port_name: &str) -> Option<MidiOutputPort> {
-        self.output.ports().into_iter().find(|port| {
-            self.output
-                .port_name(port)
-                .map_or(false, |name| name == port_name)
-        })
-    }
-
-    pub fn is_connected(&self, port_name: &str) -> bool {
-        self.input_port(port_name).is_some() && self.output_port(port_name).is_some()
-    }
 }
+
+pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn MidiInputHandler>>;
