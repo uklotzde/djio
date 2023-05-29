@@ -30,6 +30,6 @@ hid = ["dep:hidapi"]
 midi = ["dep:midir"]
 
 [[example]]
-name = "midi-hotplug"
-path = "examples/midi_hotplug.rs"
+name = "midi-dj-controller-hotplug"
+path = "examples/midi_dj_controller_hotplug.rs"
 required-features = ["midi"]

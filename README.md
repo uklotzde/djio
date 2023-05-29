@@ -12,6 +12,14 @@
 
 DJ I/O
 
+## Examples
+
+### Hotplugging of DJ controllers
+
+```sh
+RUST_LOG=debug cargo run --example midi-dj-controller-hotplug
+```
+
 ## License
 
 Licensed under the Mozilla Public License 2.0 (MPL-2.0) (see [MPL-2.0.txt](LICENSES/MPL-2.0.txt) or <https://www.mozilla.org/MPL/2.0/>).

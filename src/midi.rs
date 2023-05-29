@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
+    borrow::Cow,
+    collections::HashMap,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -12,10 +14,42 @@ use midir::{
 };
 use thiserror::Error;
 
+#[derive(Debug)]
+struct DjControllerDescriptor {
+    brand_name: &'static str,
+    model_name: &'static str,
+    port_name_prefix: &'static str,
+}
+
+impl DjControllerDescriptor {
+    fn device_name(&self) -> Cow<'static, str> {
+        let Self {
+            brand_name,
+            model_name,
+            ..
+        } = *self;
+        debug_assert!(!model_name.is_empty());
+        if brand_name.is_empty() {
+            model_name.into()
+        } else {
+            format!("{brand_name} {model_name}").into()
+        }
+    }
+}
+
 // Predefined port names of existing DJ controllers for auto-detection.
-//
-// Should be extended as needed, preferably keeping the entries in lexicographical order.
-const DJ_CONTROLLER_PORT_NAME_PREFIXES: &[&str] = &["DDJ-400", "KAOSS DJ"];
+const DJ_CONTROLLER_DESCRIPTORS: &[DjControllerDescriptor] = &[
+    DjControllerDescriptor {
+        brand_name: "Pioneer",
+        model_name: "DDJ-400",
+        port_name_prefix: "DDJ-400",
+    },
+    DjControllerDescriptor {
+        brand_name: "Korg",
+        model_name: "KAOSS DJ",
+        port_name_prefix: "KAOSS DJ",
+    },
+];
 
 #[derive(Debug, Error)]
 pub enum PortError {
@@ -32,7 +66,7 @@ pub enum PortError {
 // Callbacks for handling MIDI input
 pub trait MidiInputHandler: Send {
     /// Invoked before (re-)connecting the port.
-    fn connect_midi_input_port(&mut self, port_name: &str, port: &MidiInputPort);
+    fn connect_midi_input_port(&mut self, device_name: &str, port_name: &str, port: &MidiInputPort);
 
     /// Invoked for each incoming message.
     fn handle_midi_input(&mut self, ts: u64, data: &[u8]);
@@ -43,8 +77,14 @@ where
     D: DerefMut + Send,
     <D as Deref>::Target: MidiInputHandler,
 {
-    fn connect_midi_input_port(&mut self, port_name: &str, port: &MidiInputPort) {
-        self.deref_mut().connect_midi_input_port(port_name, port);
+    fn connect_midi_input_port(
+        &mut self,
+        device_name: &str,
+        port_name: &str,
+        port: &MidiInputPort,
+    ) {
+        self.deref_mut()
+            .connect_midi_input_port(device_name, port_name, port);
     }
 
     fn handle_midi_input(&mut self, ts: u64, data: &[u8]) {
@@ -57,8 +97,10 @@ pub struct MidiDevice<InputHandler>
 where
     InputHandler: MidiInputHandler + 'static,
 {
-    port_name: String,
+    name: String,
+    input_port_name: String,
     input_port: MidiInputPort,
+    output_port_name: String,
     output_port: MidiOutputPort,
     connection: Option<(MidiInputConnection<InputHandler>, MidiOutputConnection)>,
 }
@@ -68,33 +110,50 @@ where
     InputHandler: MidiInputHandler,
 {
     #[must_use]
-    pub fn new(port_name: String, input_port: MidiInputPort, output_port: MidiOutputPort) -> Self {
+    fn new(name: String, input: (String, MidiInputPort), output: (String, MidiOutputPort)) -> Self {
+        let (input_port_name, input_port) = input;
+        let (output_port_name, output_port) = output;
         Self {
-            port_name,
+            name,
             input_port,
+            input_port_name,
             output_port,
+            output_port_name,
             connection: None,
         }
     }
 
-    pub fn port_name(&self) -> &str {
-        &self.port_name
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
+    #[must_use]
+    pub fn input_port_name(&self) -> &str {
+        &self.input_port_name
+    }
+
+    #[must_use]
+    pub fn output_port_name(&self) -> &str {
+        &self.output_port_name
+    }
+
+    #[must_use]
     pub fn is_available<T>(&self, device_manager: &MidiDeviceManager<T>) -> bool
     where
         T: MidiInputHandler,
     {
         device_manager
-            .filter_input_ports_by_name(|port_name| port_name == self.port_name())
+            .filter_input_ports_by_name(|port_name| port_name == self.input_port_name)
             .next()
             .is_some()
             && device_manager
-                .filter_output_ports_by_name(|port_name| port_name == self.port_name())
+                .filter_output_ports_by_name(|port_name| port_name == self.output_port_name)
                 .next()
                 .is_some()
     }
 
+    #[must_use]
     pub fn is_connected(&self) -> bool {
         self.connection.is_some()
     }
@@ -142,15 +201,15 @@ where
                 let Some(new_input_handler) = new_input_handler else {
                     return Err(PortError::Disconnected);
                 };
-                let input = MidiInput::new(&self.port_name)?;
+                let input = MidiInput::new(&self.name)?;
                 let input_handler = new_input_handler();
                 (input, input_handler)
             };
-        input_handler.connect_midi_input_port(&self.port_name, &self.input_port);
+        input_handler.connect_midi_input_port(&self.name, &self.input_port_name, &self.input_port);
         input
             .connect(
                 &self.input_port,
-                &self.port_name,
+                &self.input_port_name,
                 move |stamp, message, input_handler| {
                     input_handler.handle_midi_input(stamp, message);
                 },
@@ -165,10 +224,10 @@ where
     ) -> Result<MidiOutputConnection, PortError> {
         let output = match connection.map(MidiOutputConnection::close) {
             Some(output) => output,
-            None => MidiOutput::new(&self.port_name)?,
+            None => MidiOutput::new(&self.name)?,
         };
         output
-            .connect(&self.output_port, &self.port_name)
+            .connect(&self.output_port, &self.name)
             .map_err(Into::into)
     }
 }
@@ -202,6 +261,10 @@ where
         self.input.ports()
     }
 
+    pub fn output_ports(&self) -> MidiOutputPorts {
+        self.output.ports()
+    }
+
     pub fn filter_input_ports_by_name<'a>(
         &'a self,
         mut filter_port_name: impl FnMut(&str) -> bool + 'a,
@@ -211,10 +274,6 @@ where
                 .port_name(port)
                 .map_or(false, |port_name| filter_port_name(&port_name))
         })
-    }
-
-    pub fn output_ports(&self) -> MidiOutputPorts {
-        self.output.ports()
     }
 
     pub fn filter_output_ports_by_name<'a>(
@@ -228,41 +287,59 @@ where
         })
     }
 
-    pub fn devices(&self) -> impl Iterator<Item = MidiDevice<InputHandler>> + '_ {
-        self.input
-            .ports()
+    pub fn detect_dj_controllers(&self) -> Vec<MidiDevice<InputHandler>> {
+        let mut input_ports = self
+            .input_ports()
             .into_iter()
-            .filter_map(move |input_port| {
-                let port_name = self.input.port_name(&input_port).ok()?;
-                let output_port = {
-                    let mut matching_output_port = None;
-                    for output_port in self.output.ports() {
-                        let Some(output_port_name) = self.output.port_name(&output_port).ok() else {
-                            continue;
-                        };
-                        if output_port_name != port_name {
-                            continue;
-                        }
-                        matching_output_port = Some(output_port);
-                        break;
-                    }
-                    matching_output_port
-                }?;
-                let device = MidiDevice::new(port_name, input_port, output_port);
-                println!(
-                    "Found MIDI device {port_name}",
-                    port_name = device.port_name()
-                );
-                Some(device)
+            .filter_map(|port| {
+                let port_name = self.input.port_name(&port).ok()?;
+                let Some(descriptor) = DJ_CONTROLLER_DESCRIPTORS
+                    .iter()
+                    .find(|descriptor| port_name.starts_with(descriptor.port_name_prefix)) else {
+                    log::debug!("Input port \"{port_name}\" does not belong to a DJ controller");
+                    return None;
+                };
+                log::debug!("Detected input port \"{port_name}\" for {descriptor:?}");
+                Some((descriptor.port_name_prefix, (descriptor, port_name, port)))
             })
-    }
-
-    pub fn dj_controllers(&self) -> impl Iterator<Item = MidiDevice<InputHandler>> + '_ {
-        self.devices().filter(|device| {
-            DJ_CONTROLLER_PORT_NAME_PREFIXES
-                .iter()
-                .any(|prefix| device.port_name().starts_with(*prefix))
-        })
+            .collect::<HashMap<_, _>>();
+        let mut output_ports = self
+            .output_ports()
+            .into_iter()
+            .filter_map(|port| {
+                let port_name = self.output.port_name(&port).ok()?;
+                let Some(port_name_prefix) = input_ports
+                    .keys()
+                    .copied()
+                    .find(|port_name_prefix| port_name.starts_with(port_name_prefix)) else {
+                        log::debug!("Output port \"{port_name}\" does not belong to a DJ controller");
+                        return None;
+                    };
+                log::debug!("Detected output port \"{port_name}\" for DJ controller \"{port_name_prefix}\"");
+                Some((port_name_prefix, (port_name, port)))
+            })
+            .collect::<HashMap<_, _>>();
+        input_ports.retain(|key, _| output_ports.contains_key(key));
+        debug_assert_eq!(input_ports.len(), output_ports.len());
+        input_ports
+            .into_iter()
+            .map(
+                |(port_name_prefix, (descriptor, input_port_name, input_port))| {
+                    let (output_port_name, output_port) =
+                        output_ports.remove(port_name_prefix).expect("Some");
+                    let device_name = descriptor.device_name().into_owned();
+                    log::debug!(
+                        "Found DJ controller device \"{device_name}\" (input port: \
+                         \"{input_port_name}\", output port: \"{output_port_name}\")"
+                    );
+                    MidiDevice::new(
+                        device_name,
+                        (input_port_name, input_port),
+                        (output_port_name, output_port),
+                    )
+                },
+            )
+            .collect()
     }
 }
 
