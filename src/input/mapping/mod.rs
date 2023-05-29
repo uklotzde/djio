@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 pub mod korg_kaoss_dj;
+pub mod pioneer_ddj_400;
 
 #[must_use]
 pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {

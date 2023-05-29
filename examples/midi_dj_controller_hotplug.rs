@@ -30,19 +30,33 @@ impl MidiInputHandler for LogMidiInput {
     }
 
     fn handle_midi_input(&mut self, stamp: u64, data: &[u8]) {
-        if let Some(event) = input::mapping::korg_kaoss_dj::InputEvent::try_from_midi_message(data)
-        {
-            println!(
-                "{device_name}@{stamp}: {event:?})",
-                device_name = self.device_name,
-            );
-        } else {
-            println!(
-                "{device_name}@{stamp}: {data:x?} (len = {data_len})",
-                device_name = self.device_name,
-                data_len = data.len(),
-            );
+        if self.device_name.contains("KAOSS DJ") {
+            if let Some(event) =
+                input::mapping::korg_kaoss_dj::InputEvent::try_from_midi_message(data)
+            {
+                println!(
+                    "{device_name}@{stamp}: {event:?})",
+                    device_name = self.device_name,
+                );
+                return;
+            }
         }
+        if self.device_name.contains("DDJ-400") {
+            if let Some(event) =
+                input::mapping::pioneer_ddj_400::InputEvent::try_from_midi_message(data)
+            {
+                println!(
+                    "{device_name}@{stamp}: {event:?})",
+                    device_name = self.device_name,
+                );
+                return;
+            }
+        }
+        println!(
+            "{device_name}@{stamp}: {data:x?} (len = {data_len})",
+            device_name = self.device_name,
+            data_len = data.len(),
+        );
     }
 }
 
