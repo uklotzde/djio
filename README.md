@@ -10,15 +10,27 @@
 [![Continuous integration](https://github.com/uklotzde/djio/actions/workflows/continuous-integration.yaml/badge.svg)](https://github.com/uklotzde/djio/actions/workflows/continuous-integration.yaml)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
-DJ I/O
+Application-independent interfaces for accessing hardware DJ controllers through MIDI or HID.
+
+## Supported Controllers
+
+- Korg KAOSS DJ
+- Pioneer DDJ-400
+- ...to be continued...
 
 ## Examples
 
-### Hotplugging of DJ controllers
+### Hotplugging of DJ MIDI controllers
 
 ```sh
 RUST_LOG=debug cargo run --example midi-dj-controller-hotplug
 ```
+
+## Credits
+
+We have been inspired by and adopted some ideas from the following projects:
+
+- [Ctlra - A C Library for Controller Support](https://github.com/openAVproductions/openAV-Ctlra)
 
 ## License
 
