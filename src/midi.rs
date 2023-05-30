@@ -14,14 +14,16 @@ use midir::{
 };
 use thiserror::Error;
 
+use crate::input::TimeStamp;
+
 #[derive(Debug, Clone)]
-pub struct DjControllerDescriptor {
+pub struct DeviceDescriptor {
     pub vendor_name: &'static str,
     pub model_name: &'static str,
     pub port_name_prefix: &'static str,
 }
 
-impl DjControllerDescriptor {
+impl DeviceDescriptor {
     fn device_name(&self) -> Cow<'static, str> {
         let Self {
             vendor_name,
@@ -38,17 +40,9 @@ impl DjControllerDescriptor {
 }
 
 // Predefined port names of existing DJ controllers for auto-detection.
-const DJ_CONTROLLER_DESCRIPTORS: &[DjControllerDescriptor] = &[
-    DjControllerDescriptor {
-        vendor_name: "Pioneer",
-        model_name: "DDJ-400",
-        port_name_prefix: "DDJ-400",
-    },
-    DjControllerDescriptor {
-        vendor_name: "Korg",
-        model_name: "KAOSS DJ",
-        port_name_prefix: "KAOSS DJ",
-    },
+const DJ_CONTROLLER_DESCRIPTORS: &[DeviceDescriptor] = &[
+    crate::devices::pioneer_ddj_400::DEVICE_DESCRIPTOR,
+    crate::devices::korg_kaoss_dj::DEVICE_DESCRIPTOR,
 ];
 
 #[derive(Debug, Error)]
@@ -64,18 +58,18 @@ pub enum PortError {
 }
 
 // Callbacks for handling MIDI input
-pub trait MidiInputHandler: Send {
+pub trait InputHandler: Send {
     /// Invoked before (re-)connecting the port.
     fn connect_midi_input_port(&mut self, device_name: &str, port_name: &str, port: &MidiInputPort);
 
     /// Invoked for each incoming message.
-    fn handle_midi_input(&mut self, ts: u64, data: &[u8]);
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
 }
 
-impl<D> MidiInputHandler for D
+impl<D> InputHandler for D
 where
     D: DerefMut + Send,
-    <D as Deref>::Target: MidiInputHandler,
+    <D as Deref>::Target: InputHandler,
 {
     fn connect_midi_input_port(
         &mut self,
@@ -87,27 +81,27 @@ where
             .connect_midi_input_port(device_name, port_name, port);
     }
 
-    fn handle_midi_input(&mut self, ts: u64, data: &[u8]) {
-        self.deref_mut().handle_midi_input(ts, data);
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+        self.deref_mut().handle_midi_input(ts, input);
     }
 }
 
 #[allow(missing_debug_implementations)]
-pub struct MidiDevice<InputHandler>
+pub struct MidiDevice<I>
 where
-    InputHandler: MidiInputHandler + 'static,
+    I: InputHandler + 'static,
 {
     name: String,
     input_port_name: String,
     input_port: MidiInputPort,
     output_port_name: String,
     output_port: MidiOutputPort,
-    connection: Option<(MidiInputConnection<InputHandler>, MidiOutputConnection)>,
+    connection: Option<(MidiInputConnection<I>, MidiOutputConnection)>,
 }
 
-impl<InputHandler> MidiDevice<InputHandler>
+impl<I> MidiDevice<I>
 where
-    InputHandler: MidiInputHandler,
+    I: InputHandler,
 {
     #[must_use]
     fn new(name: String, input: (String, MidiInputPort), output: (String, MidiOutputPort)) -> Self {
@@ -139,9 +133,9 @@ where
     }
 
     #[must_use]
-    pub fn is_available<T>(&self, device_manager: &MidiDeviceManager<T>) -> bool
+    pub fn is_available<U>(&self, device_manager: &MidiDeviceManager<U>) -> bool
     where
-        T: MidiInputHandler,
+        U: InputHandler,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port_name)
@@ -161,7 +155,7 @@ where
     #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn reconnect(
         &mut self,
-        new_input_handler: Option<impl FnOnce() -> InputHandler>,
+        new_input_handler: Option<impl FnOnce() -> I>,
     ) -> Result<(), PortError> {
         let (input_conn, output_conn) = self
             .connection
@@ -191,9 +185,9 @@ where
 
     fn reconnect_input(
         &mut self,
-        connection: Option<MidiInputConnection<InputHandler>>,
-        new_input_handler: Option<impl FnOnce() -> InputHandler>,
-    ) -> Result<MidiInputConnection<InputHandler>, PortError> {
+        connection: Option<MidiInputConnection<I>>,
+        new_input_handler: Option<impl FnOnce() -> I>,
+    ) -> Result<MidiInputConnection<I>, PortError> {
         let (input, mut input_handler) =
             if let Some((input, input_handler)) = connection.map(MidiInputConnection::close) {
                 (input, input_handler)
@@ -210,8 +204,8 @@ where
             .connect(
                 &self.input_port,
                 &self.input_port_name,
-                move |stamp, message, input_handler| {
-                    input_handler.handle_midi_input(stamp, message);
+                move |micros, message, input_handler| {
+                    input_handler.handle_midi_input(TimeStamp::from_micros(micros), message);
                 },
                 input_handler,
             )
@@ -232,18 +226,18 @@ where
     }
 }
 
-pub type GenericMidiDevice = MidiDevice<Box<dyn MidiInputHandler>>;
+pub type GenericMidiDevice = MidiDevice<Box<dyn InputHandler>>;
 
 #[allow(missing_debug_implementations)]
-pub struct MidiDeviceManager<InputHandler> {
+pub struct MidiDeviceManager<I> {
     input: MidiInput,
     output: MidiOutput,
-    _input_handler: PhantomData<InputHandler>,
+    _input_handler: PhantomData<I>,
 }
 
-impl<InputHandler> MidiDeviceManager<InputHandler>
+impl<I> MidiDeviceManager<I>
 where
-    InputHandler: MidiInputHandler,
+    I: InputHandler,
 {
     #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn new() -> Result<Self, midir::InitError> {
@@ -290,7 +284,7 @@ where
     }
 
     #[must_use]
-    pub fn detect_dj_controllers(&self) -> Vec<(DjControllerDescriptor, MidiDevice<InputHandler>)> {
+    pub fn detect_dj_controllers(&self) -> Vec<(DeviceDescriptor, MidiDevice<I>)> {
         let mut input_ports = self
             .input_ports()
             .into_iter()
@@ -347,4 +341,4 @@ where
     }
 }
 
-pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn MidiInputHandler>>;
+pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn InputHandler>>;

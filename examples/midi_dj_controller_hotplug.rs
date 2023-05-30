@@ -4,8 +4,9 @@
 use std::io::{stdin, stdout, Write as _};
 
 use djio::{
-    input,
-    midi::{GenericMidiDeviceManager, MidiInputHandler},
+    devices,
+    input::TimeStamp,
+    midi::{GenericMidiDeviceManager, InputHandler},
 };
 use midir::MidiInputPort;
 
@@ -14,7 +15,7 @@ struct LogMidiInput {
     device_name: String,
 }
 
-impl MidiInputHandler for LogMidiInput {
+impl InputHandler for LogMidiInput {
     fn connect_midi_input_port(
         &mut self,
         device_name: &str,
@@ -29,33 +30,29 @@ impl MidiInputHandler for LogMidiInput {
         }
     }
 
-    fn handle_midi_input(&mut self, stamp: u64, data: &[u8]) {
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         if self.device_name.contains("KAOSS DJ") {
-            if let Some(event) =
-                input::mapping::korg_kaoss_dj::InputEvent::try_from_midi_message(data)
-            {
+            if let Some(input) = devices::korg_kaoss_dj::Input::try_from_midi_message(input) {
                 println!(
-                    "{device_name}@{stamp}: {event:?})",
+                    "{device_name} @ {ts}: {input:?})",
                     device_name = self.device_name,
                 );
                 return;
             }
         }
         if self.device_name.contains("DDJ-400") {
-            if let Some(event) =
-                input::mapping::pioneer_ddj_400::InputEvent::try_from_midi_message(data)
-            {
+            if let Some(input) = devices::pioneer_ddj_400::Input::try_from_midi_message(input) {
                 println!(
-                    "{device_name}@{stamp}: {event:?})",
+                    "{device_name} @ {ts}: {input:?})",
                     device_name = self.device_name,
                 );
                 return;
             }
         }
         println!(
-            "{device_name}@{stamp}: {data:x?} (len = {data_len})",
+            "{device_name} @ {ts}: {input:x?} (len = {input_len})",
             device_name = self.device_name,
-            data_len = data.len(),
+            input_len = input.len(),
         );
     }
 }
@@ -67,7 +64,7 @@ fn main() {
     }
 }
 
-fn new_input_handler() -> Box<dyn MidiInputHandler> {
+fn new_input_handler() -> Box<dyn InputHandler> {
     Box::<LogMidiInput>::default()
 }
 
