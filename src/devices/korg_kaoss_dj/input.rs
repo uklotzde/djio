@@ -40,7 +40,7 @@ pub enum Button {
     TouchPadUpperRight,
     TouchPadLowerLeft,
     TouchPadLowerRight,
-    BrowseEncoderShifted,
+    BrowseKnobShifted, // Encoder knob acts like a button when shifted
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -51,7 +51,6 @@ pub enum CenterSlider {
 #[derive(Debug, Clone, Copy)]
 pub enum StepEncoder {
     BrowseKnob,
-    BrowseKnobShifted,
     ProgramKnob,
 }
 
@@ -72,9 +71,6 @@ pub enum Layer {
 pub enum DeckButton {
     Load,
     Shift,
-    PlayPause,
-    Sync,
-    Cue,
     Monitor,
     Fx,
     TouchStripLeft,   // Pitch bend down
@@ -87,6 +83,13 @@ pub enum DeckButton {
     TouchStripHotCueCenter,
     TouchStripHotCueRight,
     TouchWheelScratch,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum DeckButtonLayered {
+    PlayPause,
+    Sync,
+    Cue,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -115,7 +118,6 @@ pub enum DeckCenterSlider {
 pub enum Input {
     Button {
         ctrl: Button,
-        layer: Layer,
         input: ButtonInput,
     },
     Slider {
@@ -130,14 +132,21 @@ pub enum Input {
         ctrl: StepEncoder,
         input: StepEncoderInput,
     },
-    Deck(Deck, DeckInput),
+    Deck {
+        deck: Deck,
+        input: DeckInput,
+    },
 }
 
 #[derive(Debug)]
 pub enum DeckInput {
     Button {
         ctrl: DeckButton,
+        input: ButtonInput,
+    },
+    ButtonLayered {
         layer: Layer,
+        ctrl: DeckButtonLayered,
         input: ButtonInput,
     },
     Slider {
@@ -163,43 +172,35 @@ impl Input {
                 // Global buttons (MIDI channel 7)
                 match data1 {
                     0x07 => Input::Button {
-                        ctrl: Button::BrowseEncoderShifted,
-                        layer: Layer::Shifted,
+                        ctrl: Button::BrowseKnobShifted,
                         input: u7_to_button(*data2),
                     },
                     0x0b => Input::Button {
                         ctrl: Button::Tap,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     0x21 => Input::Button {
                         ctrl: Button::TapHold,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     0x22 => Input::Button {
                         ctrl: Button::TouchPadMode,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     0x4a => Input::Button {
                         ctrl: Button::TouchPadUpperLeft,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     0x4b => Input::Button {
                         ctrl: Button::TouchPadUpperRight,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     0x4c => Input::Button {
                         ctrl: Button::TouchPadLowerLeft,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     0x4d => Input::Button {
                         ctrl: Button::TouchPadLowerRight,
-                        layer: Layer::Default,
                         input: u7_to_button(*data2),
                     },
                     _ => unreachable!(),
@@ -213,166 +214,152 @@ impl Input {
                     _ => unreachable!(),
                 };
                 match data1 {
-                    0x0e => Self::Deck(
+                    0x0e => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::Load,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x0f => Self::Deck(
+                    },
+                    0x0f => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLoopLeft,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x10 => Self::Deck(
+                    },
+                    0x10 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLoopCenter,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x11 => Self::Deck(
+                    },
+                    0x11 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLoopRight,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x12 => Self::Deck(
+                    },
+                    0x12 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripHotCueLeft,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x13 => Self::Deck(
+                    },
+                    0x13 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripHotCueCenter,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x14 => Self::Deck(
+                    },
+                    0x14 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripHotCueRight,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x15 => Self::Deck(
+                    },
+                    0x15 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLeft,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x16 => Self::Deck(
+                    },
+                    0x16 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripCenter,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x17 => Self::Deck(
+                    },
+                    0x17 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripRight,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x18 => Self::Deck(
+                    },
+                    0x18 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::Fx,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x19 => Self::Deck(
+                    },
+                    0x19 => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::Monitor,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x1a => Self::Deck(
+                    },
+                    0x1a => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::Shift,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x1b => Self::Deck(
+                    },
+                    0x1b => Self::Deck {
                         deck,
-                        DeckInput::Button {
-                            ctrl: DeckButton::PlayPause,
+                        input: DeckInput::ButtonLayered {
                             layer: Layer::Default,
+                            ctrl: DeckButtonLayered::PlayPause,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x1d => Self::Deck(
+                    },
+                    0x1d => Self::Deck {
                         deck,
-                        DeckInput::Button {
-                            ctrl: DeckButton::Sync,
+                        input: DeckInput::ButtonLayered {
                             layer: Layer::Default,
+                            ctrl: DeckButtonLayered::Sync,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x1e => Self::Deck(
+                    },
+                    0x1e => Self::Deck {
                         deck,
-                        DeckInput::Button {
-                            ctrl: DeckButton::Cue,
+                        input: DeckInput::ButtonLayered {
                             layer: Layer::Default,
+                            ctrl: DeckButtonLayered::Cue,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x1f => Self::Deck(
+                    },
+                    0x1f => Self::Deck {
                         deck,
-                        DeckInput::Button {
+                        input: DeckInput::Button {
                             ctrl: DeckButton::TouchWheelScratch,
-                            layer: Layer::Default,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x2e => Self::Deck(
+                    },
+                    0x2e => Self::Deck {
                         deck,
-                        DeckInput::Button {
-                            ctrl: DeckButton::PlayPause,
+                        input: DeckInput::ButtonLayered {
                             layer: Layer::Shifted,
+                            ctrl: DeckButtonLayered::PlayPause,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x2f => Self::Deck(
+                    },
+                    0x2f => Self::Deck {
                         deck,
-                        DeckInput::Button {
-                            ctrl: DeckButton::Sync,
+                        input: DeckInput::ButtonLayered {
                             layer: Layer::Shifted,
+                            ctrl: DeckButtonLayered::Sync,
                             input: u7_to_button(*data2),
                         },
-                    ),
-                    0x30 => Self::Deck(
+                    },
+                    0x30 => Self::Deck {
                         deck,
-                        DeckInput::Button {
-                            ctrl: DeckButton::Cue,
+                        input: DeckInput::ButtonLayered {
                             layer: Layer::Shifted,
+                            ctrl: DeckButtonLayered::Cue,
                             input: u7_to_button(*data2),
                         },
-                    ),
+                    },
                     _ => unreachable!(),
                 }
             }
@@ -426,76 +413,76 @@ impl Input {
                     _ => unreachable!(),
                 };
                 match *data1 {
-                    0x0e => Self::Deck(
+                    0x0e => Self::Deck {
                         deck,
-                        DeckInput::SliderEncoder {
+                        input: DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelBend,
                             input: u7_to_slider_encoder(*data2),
                         },
-                    ),
-                    0x0f => Self::Deck(
+                    },
+                    0x0f => Self::Deck {
                         deck,
-                        DeckInput::SliderEncoder {
+                        input: DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelSearch,
                             input: u7_to_slider_encoder(*data2),
                         },
-                    ),
-                    0x10 => Self::Deck(
+                    },
+                    0x10 => Self::Deck {
                         deck,
-                        DeckInput::SliderEncoder {
+                        input: DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelScratch,
                             input: u7_to_slider_encoder(*data2),
                         },
-                    ),
-                    0x18 => Self::Deck(
+                    },
+                    0x18 => Self::Deck {
                         deck,
-                        DeckInput::Slider {
+                        input: DeckInput::Slider {
                             ctrl: DeckSlider::LevelFader,
                             input: u7_to_slider(*data2),
                         },
-                    ),
-                    0x19 => Self::Deck(
+                    },
+                    0x19 => Self::Deck {
                         deck,
-                        DeckInput::CenterSlider {
+                        input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::PitchFader,
                             input: u7_to_center_slider(*data2),
                         },
-                    ),
-                    0x1a => Self::Deck(
+                    },
+                    0x1a => Self::Deck {
                         deck,
-                        DeckInput::CenterSlider {
+                        input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::GainKnob,
                             input: u7_to_center_slider(*data2),
                         },
-                    ),
-                    0x1b => Self::Deck(
+                    },
+                    0x1b => Self::Deck {
                         deck,
-                        DeckInput::CenterSlider {
+                        input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::HiEqKnob,
                             input: u7_to_center_slider(*data2),
                         },
-                    ),
-                    0x1c => Self::Deck(
+                    },
+                    0x1c => Self::Deck {
                         deck,
-                        DeckInput::CenterSlider {
+                        input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::MidEqKnob,
                             input: u7_to_center_slider(*data2),
                         },
-                    ),
-                    0x1d => Self::Deck(
+                    },
+                    0x1d => Self::Deck {
                         deck,
-                        DeckInput::CenterSlider {
+                        input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::LoEqKnob,
                             input: u7_to_center_slider(*data2),
                         },
-                    ),
-                    0x21 => Self::Deck(
+                    },
+                    0x21 => Self::Deck {
                         deck,
-                        DeckInput::Slider {
+                        input: DeckInput::Slider {
                             ctrl: DeckSlider::TouchStrip,
                             input: u7_to_slider(*data2),
                         },
-                    ),
+                    },
                     _ => unreachable!(),
                 }
             }
