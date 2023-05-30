@@ -1,9 +1,11 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+use super::Deck;
 use crate::{
-    input::{self, TimeStamp},
+    input::{u7_to_center_slider, u7_to_slider, u7_to_slider_encoder, EmitEvent, TimeStamp},
     midi::{DeviceDescriptor, InputHandler},
+    ButtonInput, CenterSliderInput, InputEvent, SliderEncoderInput, SliderInput, StepEncoderInput,
 };
 
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
@@ -11,6 +13,23 @@ pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     model_name: "KAOSS DJ",
     port_name_prefix: "KAOSS DJ",
 };
+
+fn u7_to_button(input: u8) -> ButtonInput {
+    match input {
+        0 => ButtonInput::Released,
+        127 => ButtonInput::Pressed,
+        _ => unreachable!(),
+    }
+}
+
+fn u7_to_step_encoder(input: u8) -> StepEncoderInput {
+    let delta = match input {
+        1 => 1,
+        127 => -1,
+        _ => unreachable!(),
+    };
+    StepEncoderInput { delta }
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum Button {
@@ -40,14 +59,6 @@ pub enum StepEncoder {
 pub enum Slider {
     TouchPadX,
     TouchPadY,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Deck {
-    /// Left deck
-    A,
-    /// Right deck
-    B,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -80,7 +91,7 @@ pub enum DeckButton {
 
 #[derive(Debug, Clone, Copy)]
 pub enum DeckSlider {
-    LineFader,
+    LevelFader,
     TouchStrip,
 }
 
@@ -105,19 +116,19 @@ pub enum Input {
     Button {
         ctrl: Button,
         layer: Layer,
-        input: input::Button,
+        input: ButtonInput,
     },
     Slider {
         ctrl: Slider,
-        input: input::Slider,
+        input: SliderInput,
     },
     CenterSlider {
         ctrl: CenterSlider,
-        input: input::CenterSlider,
+        input: CenterSliderInput,
     },
     StepEncoder {
         ctrl: StepEncoder,
-        input: input::StepEncoder,
+        input: StepEncoderInput,
     },
     Deck(Deck, DeckInput),
 }
@@ -127,37 +138,20 @@ pub enum DeckInput {
     Button {
         ctrl: DeckButton,
         layer: Layer,
-        input: input::Button,
+        input: ButtonInput,
     },
     Slider {
         ctrl: DeckSlider,
-        input: input::Slider,
+        input: SliderInput,
     },
     CenterSlider {
         ctrl: DeckCenterSlider,
-        input: input::CenterSlider,
+        input: CenterSliderInput,
     },
     SliderEncoder {
         ctrl: DeckSliderEncoder,
-        input: input::SliderEncoder,
+        input: SliderEncoderInput,
     },
-}
-
-fn u7_to_button(input: u8) -> input::Button {
-    match input {
-        0 => input::Button::Released,
-        127 => input::Button::Pressed,
-        _ => unreachable!(),
-    }
-}
-
-fn u7_to_step_encoder(input: u8) -> input::StepEncoder {
-    let delta = match input {
-        1 => 1,
-        127 => -1,
-        _ => unreachable!(),
-    };
-    input::StepEncoder { delta }
 }
 
 impl Input {
@@ -396,14 +390,14 @@ impl Input {
                 debug_assert_eq!(0xb7, *status);
                 Self::Slider {
                     ctrl: Slider::TouchPadX,
-                    input: input::u7_to_slider(*data2),
+                    input: u7_to_slider(*data2),
                 }
             }
             [0xb6 | 0xb7 | 0xb8, 0x0d, data2] => {
                 // See the comment above for the X slider.
                 Self::Slider {
                     ctrl: Slider::TouchPadY,
-                    input: input::u7_to_slider(*data2),
+                    input: u7_to_slider(*data2),
                 }
             }
             [0xb6, data1, data2] => {
@@ -411,7 +405,7 @@ impl Input {
                 match *data1 {
                     0x17 => Self::CenterSlider {
                         ctrl: CenterSlider::CrossFader,
-                        input: input::u7_to_center_slider(*data2),
+                        input: u7_to_center_slider(*data2),
                     },
                     0x1e => Self::StepEncoder {
                         ctrl: StepEncoder::BrowseKnob,
@@ -436,70 +430,70 @@ impl Input {
                         deck,
                         DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelBend,
-                            input: input::u7_to_slider_encoder(*data2),
+                            input: u7_to_slider_encoder(*data2),
                         },
                     ),
                     0x0f => Self::Deck(
                         deck,
                         DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelSearch,
-                            input: input::u7_to_slider_encoder(*data2),
+                            input: u7_to_slider_encoder(*data2),
                         },
                     ),
                     0x10 => Self::Deck(
                         deck,
                         DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelScratch,
-                            input: input::u7_to_slider_encoder(*data2),
+                            input: u7_to_slider_encoder(*data2),
                         },
                     ),
                     0x18 => Self::Deck(
                         deck,
                         DeckInput::Slider {
-                            ctrl: DeckSlider::LineFader,
-                            input: input::u7_to_slider(*data2),
+                            ctrl: DeckSlider::LevelFader,
+                            input: u7_to_slider(*data2),
                         },
                     ),
                     0x19 => Self::Deck(
                         deck,
                         DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::PitchFader,
-                            input: input::u7_to_center_slider(*data2),
+                            input: u7_to_center_slider(*data2),
                         },
                     ),
                     0x1a => Self::Deck(
                         deck,
                         DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::GainKnob,
-                            input: input::u7_to_center_slider(*data2),
+                            input: u7_to_center_slider(*data2),
                         },
                     ),
                     0x1b => Self::Deck(
                         deck,
                         DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::HiEqKnob,
-                            input: input::u7_to_center_slider(*data2),
+                            input: u7_to_center_slider(*data2),
                         },
                     ),
                     0x1c => Self::Deck(
                         deck,
                         DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::MidEqKnob,
-                            input: input::u7_to_center_slider(*data2),
+                            input: u7_to_center_slider(*data2),
                         },
                     ),
                     0x1d => Self::Deck(
                         deck,
                         DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::LoEqKnob,
-                            input: input::u7_to_center_slider(*data2),
+                            input: u7_to_center_slider(*data2),
                         },
                     ),
                     0x21 => Self::Deck(
                         deck,
                         DeckInput::Slider {
                             ctrl: DeckSlider::TouchStrip,
-                            input: input::u7_to_slider(*data2),
+                            input: u7_to_slider(*data2),
                         },
                     ),
                     _ => unreachable!(),
@@ -511,37 +505,46 @@ impl Input {
     }
 }
 
-pub type InputEvent = input::Event<Input>;
+pub type Event = InputEvent<Input>;
 
-#[derive(Debug)]
+#[allow(missing_debug_implementations)]
 pub struct Gateway<E> {
-    emit_input_event: E,
+    emit_event: E,
 }
 
 impl<E> Gateway<E> {
-    pub fn new(emit_input_event: E) -> Self {
-        Self { emit_input_event }
+    #[must_use]
+    pub fn attach(emit_event: E) -> Self {
+        Self { emit_event }
+    }
+
+    #[must_use]
+    pub fn detach(self) -> E {
+        let Self { emit_event } = self;
+        emit_event
     }
 }
 
 impl<E> InputHandler for Gateway<E>
 where
-    E: input::EmitEvent<Input> + Send,
+    E: EmitEvent<Input> + Send,
 {
     fn connect_midi_input_port(
         &mut self,
-        _device_name: &str,
-        _port_name: &str,
+        device_name: &str,
+        port_name: &str,
         _port: &midir::MidiInputPort,
     ) {
+        log::debug!("Device \"{device_name}\" is connected to port \"{port_name}\"");
     }
 
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         let Some(input) = Input::try_from_midi_message(input) else {
-            // Silently ignore received MIDI message
+            log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
             return;
         };
         let event = InputEvent { ts, input };
-        self.emit_input_event.emit_event(event);
+        log::debug!("Emitting {event:?}");
+        self.emit_event.emit_event(event);
     }
 }

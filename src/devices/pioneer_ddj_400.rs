@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::{
-    input::{self, TimeStamp},
+    input::{EmitEvent, TimeStamp},
     midi::{DeviceDescriptor, InputHandler},
+    ButtonInput,
 };
 
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
@@ -38,7 +39,7 @@ pub enum Deck {
 pub enum DeckInput {
     Button {
         ctrl: DeckButton,
-        input: input::Button,
+        input: ButtonInput,
     },
     PitchFader(HalfU14),
     JogWheel(WheelDirection),
@@ -68,10 +69,10 @@ pub enum MixerChannel {
     Right,
 }
 
-fn u7_to_button(input: u8) -> input::Button {
+fn u7_to_button(input: u8) -> ButtonInput {
     match input {
-        0 => input::Button::Released,
-        127 => input::Button::Pressed,
+        0 => ButtonInput::Released,
+        127 => ButtonInput::Pressed,
         _ => unreachable!(),
     }
 }
@@ -162,7 +163,7 @@ impl Input {
     }
 }
 
-pub type InputEvent = input::Event<Input>;
+pub type InputEvent = crate::input::Event<Input>;
 
 #[derive(Debug)]
 pub struct Gateway<E> {
@@ -177,7 +178,7 @@ impl<E> Gateway<E> {
 
 impl<E> InputHandler for Gateway<E>
 where
-    E: input::EmitEvent<Input> + Send,
+    E: EmitEvent<Input> + Send,
 {
     fn connect_midi_input_port(
         &mut self,

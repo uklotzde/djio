@@ -10,11 +10,11 @@ use std::{
 
 use midir::{
     ConnectError, Ignore, InitError, MidiInput, MidiInputConnection, MidiInputPort, MidiInputPorts,
-    MidiOutput, MidiOutputConnection, MidiOutputPort, MidiOutputPorts,
+    MidiOutput, MidiOutputConnection, MidiOutputPort, MidiOutputPorts, SendError,
 };
 use thiserror::Error;
 
-use crate::input::TimeStamp;
+use crate::{input::TimeStamp, OutputError};
 
 #[derive(Debug, Clone)]
 pub struct DeviceDescriptor {
@@ -57,6 +57,14 @@ pub enum PortError {
     ConnectOutput(#[from] ConnectError<MidiOutput>),
 }
 
+impl From<SendError> for OutputError {
+    fn from(err: SendError) -> Self {
+        OutputError::Send {
+            msg: err.to_string().into(),
+        }
+    }
+}
+
 // Callbacks for handling MIDI input
 pub trait InputHandler: Send {
     /// Invoked before (re-)connecting the port.
@@ -96,7 +104,7 @@ where
     input_port: MidiInputPort,
     output_port_name: String,
     output_port: MidiOutputPort,
-    connection: Option<(MidiInputConnection<I>, MidiOutputConnection)>,
+    input_connection: Option<MidiInputConnection<I>>,
 }
 
 impl<I> MidiDevice<I>
@@ -113,7 +121,7 @@ where
             input_port_name,
             output_port,
             output_port_name,
-            connection: None,
+            input_connection: None,
         }
     }
 
@@ -149,37 +157,33 @@ where
 
     #[must_use]
     pub fn is_connected(&self) -> bool {
-        self.connection.is_some()
+        self.input_connection.is_some()
     }
 
     #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn reconnect(
         &mut self,
         new_input_handler: Option<impl FnOnce() -> I>,
-    ) -> Result<(), PortError> {
-        let (input_conn, output_conn) = self
-            .connection
-            .take()
-            .map_or((None, None), |(input_conn, output_conn)| {
-                (Some(input_conn), Some(output_conn))
-            });
+        output_connection: Option<MidiOutputConnection>,
+    ) -> Result<MidiOutputConnection, PortError> {
+        let input_connection = self.input_connection.take();
         debug_assert!(!self.is_connected());
-        let input_conn = self.reconnect_input(input_conn, new_input_handler)?;
-        let output_conn = self.reconnect_output(output_conn)?;
-        self.connection = Some((input_conn, output_conn));
+        debug_assert_eq!(input_connection.is_some(), output_connection.is_some());
+        let input_connection = self.reconnect_input(input_connection, new_input_handler)?;
+        let output_connection = self.reconnect_output(output_connection)?;
+        self.input_connection = Some(input_connection);
         debug_assert!(self.is_connected());
-        Ok(())
+        Ok(output_connection)
     }
 
     pub fn disconnect(&mut self) {
-        let Some((input_conn, output_conn)) = self
-            .connection
+        let Some(input_connection) = self
+            .input_connection
             .take()
              else {
                 return;
              };
-        input_conn.close();
-        output_conn.close();
+        input_connection.close();
         debug_assert!(!self.is_connected());
     }
 

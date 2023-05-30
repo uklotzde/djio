@@ -4,11 +4,11 @@
 use std::io::{stdin, stdout, Write as _};
 
 use djio::{
-    devices,
-    input::TimeStamp,
-    midi::{GenericMidiDeviceManager, InputHandler},
+    devices::{korg_kaoss_dj, pioneer_ddj_400},
+    input::{EmitEvent, TimeStamp},
+    midi::{GenericMidiDeviceManager, InputHandler, MidiDevice},
 };
-use midir::MidiInputPort;
+use midir::{MidiInputPort, MidiOutputConnection};
 
 #[derive(Debug, Clone, Default)]
 struct LogMidiInput {
@@ -32,7 +32,7 @@ impl InputHandler for LogMidiInput {
 
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         if self.device_name.contains("KAOSS DJ") {
-            if let Some(input) = devices::korg_kaoss_dj::Input::try_from_midi_message(input) {
+            if let Some(input) = korg_kaoss_dj::input::Input::try_from_midi_message(input) {
                 println!(
                     "{device_name} @ {ts}: {input:?})",
                     device_name = self.device_name,
@@ -41,7 +41,7 @@ impl InputHandler for LogMidiInput {
             }
         }
         if self.device_name.contains("DDJ-400") {
-            if let Some(input) = devices::pioneer_ddj_400::Input::try_from_midi_message(input) {
+            if let Some(input) = pioneer_ddj_400::Input::try_from_midi_message(input) {
                 println!(
                     "{device_name} @ {ts}: {input:?})",
                     device_name = self.device_name,
@@ -57,6 +57,16 @@ impl InputHandler for LogMidiInput {
     }
 }
 
+struct KorgKaossDjLogInputEvent;
+
+impl EmitEvent<korg_kaoss_dj::Input> for KorgKaossDjLogInputEvent {
+    fn emit_event(&mut self, event: korg_kaoss_dj::InputEvent) {
+        println!("Received input {event:?}");
+    }
+}
+
+type KorgKaossDjInputGateway = korg_kaoss_dj::InputGateway<KorgKaossDjLogInputEvent>;
+
 fn main() {
     match run() {
         Ok(_) => (),
@@ -64,8 +74,78 @@ fn main() {
     }
 }
 
-fn new_input_handler() -> Box<dyn InputHandler> {
-    Box::<LogMidiInput>::default()
+#[must_use]
+fn new_midi_input_handler(device_name: &str) -> Box<dyn InputHandler> {
+    if device_name.contains("KAOSS DJ") {
+        Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
+    } else {
+        Box::<LogMidiInput>::default()
+    }
+}
+
+enum OutputGateway {
+    KorgKaossDj {
+        gateway: korg_kaoss_dj::OutputGateway,
+    },
+    Generic {
+        midi_output_connection: MidiOutputConnection,
+    },
+}
+
+impl OutputGateway {
+    #[must_use]
+    fn attach<T>(midi_device: &MidiDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
+    where
+        T: InputHandler,
+    {
+        if midi_device.name().contains("KAOSS DJ") {
+            let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
+            // FIXME: Remove this test code
+            gateway
+                .send_deck_led_output(
+                    korg_kaoss_dj::Deck::A,
+                    korg_kaoss_dj::output::DeckLed::PlayPauseButton,
+                    djio::LedOutput::On,
+                )
+                .unwrap();
+            gateway
+                .send_deck_led_output(
+                    korg_kaoss_dj::Deck::B,
+                    korg_kaoss_dj::output::DeckLed::PlayPauseButton,
+                    djio::LedOutput::Off,
+                )
+                .unwrap();
+            gateway
+                .send_deck_led_output(
+                    korg_kaoss_dj::Deck::A,
+                    korg_kaoss_dj::output::DeckLed::CueButton,
+                    djio::LedOutput::Off,
+                )
+                .unwrap();
+            gateway
+                .send_deck_led_output(
+                    korg_kaoss_dj::Deck::B,
+                    korg_kaoss_dj::output::DeckLed::CueButton,
+                    djio::LedOutput::On,
+                )
+                .unwrap();
+            Self::KorgKaossDj { gateway }
+        } else {
+            Self::Generic {
+                midi_output_connection,
+            }
+        }
+    }
+
+    #[must_use]
+    fn detach(self) -> MidiOutputConnection {
+        match self {
+            Self::KorgKaossDj { gateway } => gateway.detach(),
+            Self::Generic {
+                midi_output_connection,
+            } => midi_output_connection,
+        }
+    }
 }
 
 fn run() -> anyhow::Result<()> {
@@ -102,26 +182,37 @@ fn run() -> anyhow::Result<()> {
         }
     };
 
-    println!("{device_name}: connecting", device_name = device.name());
-    device
-        .reconnect(Some(new_input_handler))
+    let device_name = device.name().to_owned();
+    println!("{device_name}: connecting");
+    let midi_output_connection = device
+        .reconnect(Some(|| new_midi_input_handler(&device_name)), None)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
+    let mut output_gateway = Some(OutputGateway::attach(&device, midi_output_connection));
 
     println!("Starting endless loop, press CTRL-C to exit...");
     loop {
         match (device.is_available(&device_manager), device.is_connected()) {
             (true, false) => {
-                println!("{device_name}: Reconnecting", device_name = device.name());
-                device
-                    .reconnect(Some(new_input_handler))
+                println!("{device_name}: Reconnecting");
+                let midi_output_connection = output_gateway.take().map(OutputGateway::detach);
+                let midi_output_connection = device
+                    .reconnect(
+                        Some(|| new_midi_input_handler(&device_name)),
+                        midi_output_connection,
+                    )
                     .map_err(|err| anyhow::anyhow!("{err}"))?;
+                output_gateway = Some(OutputGateway::attach(&device, midi_output_connection));
             }
             (false, true) => {
-                println!("{device_name}: Disconnecting", device_name = device.name());
+                println!("{device_name}: Disconnecting");
+                output_gateway
+                    .take()
+                    .map(OutputGateway::detach)
+                    .map(MidiOutputConnection::close);
                 device.disconnect();
             }
-            (false, false) => println!("{device_name}: Disconnected", device_name = device.name()),
-            (true, true) => println!("{device_name}: Connected", device_name = device.name()),
+            (false, false) => println!("{device_name}: Disconnected"),
+            (true, true) => println!("{device_name}: Connected"),
         }
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }

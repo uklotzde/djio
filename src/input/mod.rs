@@ -43,14 +43,14 @@ pub trait EmitEvent<T> {
 }
 
 /// A simple two-state button.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Button {
     Pressed,
     Released,
 }
 
 /// A pad button with pressure information.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PadButton {
     Pressed {
         /// Pressure in the interval [0, 1]
@@ -60,14 +60,14 @@ pub enum PadButton {
 }
 
 /// A continuous fader or knob.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Slider {
     /// Position in the interval [0, 1]
     pub position: f32,
 }
 
 /// A continuous fader or knob with a symmetric center position.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CenterSlider {
     /// Position in the interval [-1, 1]
     pub position: f32,
@@ -75,7 +75,7 @@ pub struct CenterSlider {
 
 /// An endless encoder that sends discrete delta values when rotated
 /// in CW (positive) or CCW (negative) direction.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StepEncoder {
     pub delta: i32,
 }
@@ -85,7 +85,7 @@ pub struct StepEncoder {
 ///
 ///  1.0: One full CW rotation (360 degrees)
 /// -1.0: One full CCW rotation (360 degrees)
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SliderEncoder {
     pub delta: f32,
 }

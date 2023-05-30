@@ -21,7 +21,18 @@
 #![allow(clippy::default_trait_access)]
 
 pub mod devices;
+
 pub mod input;
+pub use crate::input::{
+    Button as ButtonInput, CenterSlider as CenterSliderInput, Event as InputEvent,
+    Slider as SliderInput, SliderEncoder as SliderEncoderInput, StepEncoder as StepEncoderInput,
+};
+
+pub mod output;
+pub use crate::output::{
+    DimLed as DimLedOutput, Error as OutputError, Led as LedOutput, Result as OutputResult,
+    RgbLed as RgbLedOutput,
+};
 
 #[cfg(feature = "midi")]
 pub mod midi;
