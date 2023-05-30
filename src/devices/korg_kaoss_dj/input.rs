@@ -63,7 +63,7 @@ pub enum Slider {
 #[derive(Debug, Clone, Copy, Default)]
 pub enum Layer {
     #[default]
-    Default,
+    Plain,
     Shifted,
 }
 
@@ -308,7 +308,7 @@ impl Input {
                     0x1b => Self::Deck {
                         deck,
                         input: DeckInput::ButtonLayered {
-                            layer: Layer::Default,
+                            layer: Layer::Plain,
                             ctrl: DeckButtonLayered::PlayPause,
                             input: u7_to_button(*data2),
                         },
@@ -316,7 +316,7 @@ impl Input {
                     0x1d => Self::Deck {
                         deck,
                         input: DeckInput::ButtonLayered {
-                            layer: Layer::Default,
+                            layer: Layer::Plain,
                             ctrl: DeckButtonLayered::Sync,
                             input: u7_to_button(*data2),
                         },
@@ -324,7 +324,7 @@ impl Input {
                     0x1e => Self::Deck {
                         deck,
                         input: DeckInput::ButtonLayered {
-                            layer: Layer::Default,
+                            layer: Layer::Plain,
                             ctrl: DeckButtonLayered::Cue,
                             input: u7_to_button(*data2),
                         },
