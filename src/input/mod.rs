@@ -105,6 +105,13 @@ pub fn u7_to_slider(input: u8) -> Slider {
 }
 
 #[must_use]
+pub fn u14_to_slider(input: u16) -> Slider {
+    debug_assert_eq!(input, input & 0x3fff);
+    let position = f32::from(input) / 16383.0;
+    Slider { position }
+}
+
+#[must_use]
 #[allow(clippy::cast_possible_wrap)]
 pub fn u7_to_slider_encoder(input: u8) -> SliderEncoder {
     debug_assert_eq!(input, input & 0x7f);
@@ -117,23 +124,38 @@ pub fn u7_to_slider_encoder(input: u8) -> SliderEncoder {
 }
 
 #[must_use]
-pub fn u14_to_slider(input: u16) -> Slider {
+#[allow(clippy::cast_possible_wrap)]
+pub fn u14_to_slider_encoder(input: u16) -> SliderEncoder {
     debug_assert_eq!(input, input & 0x3fff);
-    let position = f32::from(input) / 16383.0;
-    Slider { position }
+    let delta = if input < 8192 {
+        f32::from(input) / 8191.0
+    } else {
+        f32::from(input.wrapping_sub(16384) as i16) / 8192.0
+    };
+    SliderEncoder { delta }
 }
 
 #[must_use]
+#[allow(clippy::cast_possible_wrap)]
 pub fn u7_to_center_slider(input: u8) -> CenterSlider {
     debug_assert_eq!(input, input & 0x7f);
-    let position = f32::from(input) * 2.0 / 127.0 - 1.0;
+    let position = if input < 64 {
+        f32::from(input as i8 - 64) / 64.0
+    } else {
+        f32::from(input - 64) / 63.0
+    };
     CenterSlider { position }
 }
 
 #[must_use]
+#[allow(clippy::cast_possible_wrap)]
 pub fn u14_to_center_slider(input: u16) -> CenterSlider {
     debug_assert_eq!(input, input & 0x3fff);
-    let position = f32::from(input) * 2.0 / 16383.0 - 1.0;
+    let position = if input < 8192 {
+        f32::from(input as i16 - 8192) / 8192.0
+    } else {
+        f32::from(input - 8192) / 8191.0
+    };
     CenterSlider { position }
 }
 
@@ -143,9 +165,47 @@ mod tests {
 
     #[test]
     #[allow(clippy::float_cmp)]
+    fn u7_to_slider_position() {
+        debug_assert_eq!(0.0, u7_to_slider(0).position);
+        debug_assert_eq!(1.0, u7_to_slider(127).position);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn u14_to_slider_position() {
+        debug_assert_eq!(0.0, u14_to_slider(0).position);
+        debug_assert_eq!(1.0, u14_to_slider(16383).position);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn u7_to_center_slider_position() {
+        debug_assert_eq!(-1.0, u7_to_center_slider(0).position);
+        debug_assert_eq!(0.0, u7_to_center_slider(64).position);
+        debug_assert_eq!(1.0, u7_to_center_slider(127).position);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn u14_to_center_slider_position() {
+        debug_assert_eq!(-1.0, u14_to_center_slider(0).position);
+        debug_assert_eq!(0.0, u14_to_center_slider(8192).position);
+        debug_assert_eq!(1.0, u14_to_center_slider(16383).position);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
     fn u7_to_slider_encoder_delta() {
         debug_assert_eq!(0.0, u7_to_slider_encoder(0).delta);
         debug_assert_eq!(1.0, u7_to_slider_encoder(63).delta);
         debug_assert_eq!(-1.0, u7_to_slider_encoder(64).delta);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn u14_to_slider_encoder_delta() {
+        debug_assert_eq!(0.0, u14_to_slider_encoder(0).delta);
+        debug_assert_eq!(1.0, u14_to_slider_encoder(8191).delta);
+        debug_assert_eq!(-1.0, u14_to_slider_encoder(8192).delta);
     }
 }
