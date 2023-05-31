@@ -5,7 +5,7 @@ use super::Deck;
 use crate::{
     input::TimeStamp,
     midi::{DeviceDescriptor, InputHandler},
-    ButtonInput, CenterSliderInput, EmitInputEvent, InputEvent, SliderEncoderInput, SliderInput,
+    ButtonInput, CenterSliderInput, EmitInputEvent, SliderEncoderInput, SliderInput,
     StepEncoderInput,
 };
 
@@ -493,27 +493,27 @@ impl Input {
     }
 }
 
-pub type Event = InputEvent<Input>;
+pub type InputEvent = crate::InputEvent<Input>;
 
 #[allow(missing_debug_implementations)]
-pub struct Gateway<E> {
-    emit_event: E,
+pub struct InputGateway<E> {
+    emit_input_event: E,
 }
 
-impl<E> Gateway<E> {
+impl<E> InputGateway<E> {
     #[must_use]
-    pub fn attach(emit_event: E) -> Self {
-        Self { emit_event }
+    pub fn attach(emit_input_event: E) -> Self {
+        Self { emit_input_event }
     }
 
     #[must_use]
     pub fn detach(self) -> E {
-        let Self { emit_event } = self;
-        emit_event
+        let Self { emit_input_event } = self;
+        emit_input_event
     }
 }
 
-impl<E> InputHandler for Gateway<E>
+impl<E> InputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
@@ -533,6 +533,6 @@ where
         };
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
-        self.emit_event.emit_input_event(event);
+        self.emit_input_event.emit_input_event(event);
     }
 }

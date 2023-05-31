@@ -4,7 +4,7 @@
 use crate::midi::DeviceDescriptor;
 
 pub mod input;
-pub use self::input::{Event as InputEvent, Gateway as InputGateway, Input};
+pub use self::input::{Input, InputEvent, InputGateway};
 
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     vendor_name: "Pioneer",

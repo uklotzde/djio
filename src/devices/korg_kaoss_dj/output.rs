@@ -47,11 +47,11 @@ fn led_to_u7(output: LedOutput) -> u8 {
 }
 
 #[allow(missing_debug_implementations)]
-pub struct Gateway {
+pub struct OutputGateway {
     midi_output_connection: MidiOutputConnection,
 }
 
-impl Gateway {
+impl OutputGateway {
     #[must_use]
     pub fn attach(midi_output_connection: MidiOutputConnection) -> Self {
         Self {

@@ -4,10 +4,10 @@
 use crate::midi::DeviceDescriptor;
 
 pub mod input;
-pub use self::input::{Event as InputEvent, Gateway as InputGateway, Input};
+pub use self::input::{Input, InputEvent, InputGateway};
 
 pub mod output;
-pub use self::output::Gateway as OutputGateway;
+pub use self::output::OutputGateway;
 
 pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
     vendor_name: "Korg",

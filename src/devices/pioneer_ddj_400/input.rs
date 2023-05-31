@@ -5,14 +5,14 @@ use super::Deck;
 use crate::{
     input::{u7_be_to_u14, TimeStamp},
     midi::InputHandler,
-    ButtonInput, CenterSliderInput, EmitInputEvent, InputEvent, SliderInput,
+    ButtonInput, CenterSliderInput, EmitInputEvent, SliderInput,
 };
 
-pub type Event = InputEvent<Input>;
+pub type InputEvent = crate::InputEvent<Input>;
 
 /// One half of a 14-bit value.
 ///
-/// TODO: Combine 14-bit values from two 7-bit values in `Gateway`
+/// TODO: Combine 14-bit values from two 7-bit values in `InputGateway`
 /// and remove `pub`.
 #[derive(Debug, Clone, Copy)]
 pub enum HalfU14 {
@@ -160,13 +160,13 @@ impl Input {
 }
 
 #[derive(Debug)]
-pub struct Gateway<E> {
+pub struct InputGateway<E> {
     crossfader: Fader,
     volume_fader_ch_1: Fader,
     volume_fader_ch_2: Fader,
     pitch_fader_left: Fader,
     pitch_fader_right: Fader,
-    emit_event: E,
+    emit_input_event: E,
 }
 
 #[derive(Debug, Default)]
@@ -175,11 +175,11 @@ struct Fader {
     lo: u8,
 }
 
-impl<E> Gateway<E> {
+impl<E> InputGateway<E> {
     #[must_use]
-    pub fn attach(emit_event: E) -> Self {
+    pub fn attach(emit_input_event: E) -> Self {
         Self {
-            emit_event,
+            emit_input_event,
             crossfader: Default::default(),
             volume_fader_ch_1: Default::default(),
             volume_fader_ch_2: Default::default(),
@@ -190,12 +190,14 @@ impl<E> Gateway<E> {
 
     #[must_use]
     pub fn detach(self) -> E {
-        let Self { emit_event, .. } = self;
-        emit_event
+        let Self {
+            emit_input_event, ..
+        } = self;
+        emit_input_event
     }
 }
 
-impl<E> InputHandler for Gateway<E>
+impl<E> InputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
@@ -268,6 +270,6 @@ where
         };
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
-        self.emit_event.emit_input_event(event);
+        self.emit_input_event.emit_input_event(event);
     }
 }

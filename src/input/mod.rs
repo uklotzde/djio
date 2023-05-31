@@ -186,6 +186,16 @@ pub enum Input {
     SliderEncoder(SliderEncoderInput),
 }
 
+pub type ControlIndex = u32;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ControlInput {
+    pub index: ControlIndex,
+    pub input: Input,
+}
+
+pub type ControlInputEvent = InputEvent<ControlInput>;
+
 #[must_use]
 pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
     debug_assert_eq!(hi, hi & 0x7f);
