@@ -24,7 +24,8 @@ pub struct DeviceDescriptor {
 }
 
 impl DeviceDescriptor {
-    fn device_name(&self) -> Cow<'static, str> {
+    #[must_use]
+    pub fn device_name(&self) -> Cow<'static, str> {
         let Self {
             vendor_name,
             model_name,
