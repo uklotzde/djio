@@ -24,8 +24,8 @@ pub mod devices;
 
 pub mod input;
 pub use crate::input::{
-    Button as ButtonInput, CenterSlider as CenterSliderInput, Event as InputEvent,
-    Slider as SliderInput, SliderEncoder as SliderEncoderInput, StepEncoder as StepEncoderInput,
+    ButtonInput, CenterSliderInput, EmitInputEvent, InputEvent, PadButtonInput, SliderEncoderInput,
+    SliderInput, StepEncoderInput,
 };
 
 pub mod output;

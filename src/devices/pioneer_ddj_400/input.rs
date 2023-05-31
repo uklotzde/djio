@@ -3,12 +3,9 @@
 
 use super::Deck;
 use crate::{
-    input::{
-        u14_to_center_slider, u14_to_slider, u7_be_to_u14, CenterSlider, EmitEvent, Slider,
-        TimeStamp,
-    },
+    input::{u7_be_to_u14, TimeStamp},
     midi::InputHandler,
-    ButtonInput, InputEvent,
+    ButtonInput, CenterSliderInput, EmitInputEvent, InputEvent, SliderInput,
 };
 
 pub type Event = InputEvent<Input>;
@@ -35,7 +32,7 @@ pub enum DeckInput {
         ctrl: DeckButton,
         input: ButtonInput,
     },
-    PitchFader(CenterSlider),
+    PitchFader(CenterSliderInput),
     PitchFaderRaw(HalfU14),
     JogWheel(WheelDirection),
 }
@@ -54,9 +51,9 @@ pub enum WheelDirection {
 
 #[derive(Debug)]
 pub enum MixerInput {
-    Crossfader(Slider),
+    Crossfader(SliderInput),
     CrossfaderRaw(HalfU14),
-    VolumeFader(MixerChannel, Slider),
+    VolumeFader(MixerChannel, SliderInput),
     VolumeFaderRaw(MixerChannel, HalfU14),
 }
 
@@ -200,7 +197,7 @@ impl<E> Gateway<E> {
 
 impl<E> InputHandler for Gateway<E>
 where
-    E: EmitEvent<Input> + Send,
+    E: EmitInputEvent<Input> + Send,
 {
     fn connect_midi_input_port(
         &mut self,
@@ -228,7 +225,7 @@ where
                         }
                     }
                     let slider =
-                        u14_to_slider(u7_be_to_u14(self.crossfader.hi, self.crossfader.lo));
+                        SliderInput::from_u14(u7_be_to_u14(self.crossfader.hi, self.crossfader.lo));
                     Input::Mixer(MixerInput::Crossfader(slider))
                 }
                 MixerInput::VolumeFaderRaw(channel, half_u14) => {
@@ -244,7 +241,7 @@ where
                             fader.hi = val;
                         }
                     }
-                    let slider = u14_to_slider(u7_be_to_u14(fader.hi, fader.lo));
+                    let slider = SliderInput::from_u14(u7_be_to_u14(fader.hi, fader.lo));
                     Input::Mixer(MixerInput::VolumeFader(channel, slider))
                 }
                 _ => Input::Mixer(ev),
@@ -263,7 +260,7 @@ where
                             fader.hi = val;
                         }
                     }
-                    let slider = u14_to_center_slider(u7_be_to_u14(fader.hi, fader.lo));
+                    let slider = CenterSliderInput::from_u14(u7_be_to_u14(fader.hi, fader.lo));
                     Input::Deck(deck, DeckInput::PitchFader(slider))
                 }
                 _ => Input::Deck(deck, input),
@@ -271,6 +268,6 @@ where
         };
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
-        self.emit_event.emit_event(event);
+        self.emit_event.emit_input_event(event);
     }
 }

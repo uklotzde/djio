@@ -5,8 +5,9 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     devices::{korg_kaoss_dj, pioneer_ddj_400},
-    input::{EmitEvent, TimeStamp},
+    input::TimeStamp,
     midi::{GenericMidiDeviceManager, InputHandler, MidiDevice},
+    EmitInputEvent,
 };
 use midir::{MidiInputPort, MidiOutputConnection};
 
@@ -63,14 +64,14 @@ struct PioneerDdj400LogInputEvent;
 type KorgKaossDjInputGateway = korg_kaoss_dj::InputGateway<KorgKaossDjLogInputEvent>;
 type PioneerDdJ400InputGateway = pioneer_ddj_400::InputGateway<PioneerDdj400LogInputEvent>;
 
-impl EmitEvent<korg_kaoss_dj::Input> for KorgKaossDjLogInputEvent {
-    fn emit_event(&mut self, event: korg_kaoss_dj::InputEvent) {
+impl EmitInputEvent<korg_kaoss_dj::Input> for KorgKaossDjLogInputEvent {
+    fn emit_input_event(&mut self, event: korg_kaoss_dj::InputEvent) {
         println!("Received input {event:?}");
     }
 }
 
-impl EmitEvent<pioneer_ddj_400::Input> for PioneerDdj400LogInputEvent {
-    fn emit_event(&mut self, event: pioneer_ddj_400::InputEvent) {
+impl EmitInputEvent<pioneer_ddj_400::Input> for PioneerDdj400LogInputEvent {
+    fn emit_input_event(&mut self, event: pioneer_ddj_400::InputEvent) {
         println!("Received input {event:?}");
     }
 }
