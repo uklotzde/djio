@@ -57,10 +57,14 @@ pub struct PadButtonInput {
 }
 
 impl PadButtonInput {
+    pub const MIN_PRESSURE: f32 = 0.0;
+    pub const MAX_PRESSURE: f32 = 1.0;
+
     #[must_use]
     pub fn is_pressed(self) -> bool {
-        debug_assert!(self.pressure >= 0.0);
-        self.pressure != 0.0
+        debug_assert!(self.pressure >= Self::MIN_PRESSURE);
+        debug_assert!(self.pressure <= Self::MAX_PRESSURE);
+        self.pressure != Self::MIN_PRESSURE
     }
 
     #[must_use]
@@ -86,6 +90,9 @@ pub struct SliderInput {
 }
 
 impl SliderInput {
+    pub const MIN_POSITION: f32 = 0.0;
+    pub const MAX_POSITION: f32 = 1.0;
+
     #[must_use]
     pub fn from_u7(input: u8) -> Self {
         debug_assert_eq!(input, input & 0x7f);
@@ -109,6 +116,10 @@ pub struct CenterSliderInput {
 }
 
 impl CenterSliderInput {
+    pub const MIN_POSITION: f32 = -1.0;
+    pub const MAX_POSITION: f32 = 1.0;
+    pub const CENTER_POSITION: f32 = 0.0;
+
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     pub fn from_u7(input: u8) -> Self {
@@ -152,6 +163,9 @@ pub struct SliderEncoderInput {
 }
 
 impl SliderEncoderInput {
+    pub const DELTA_PER_CW_REV: f32 = 1.0;
+    pub const DELTA_PER_CCW_REV: f32 = -1.0;
+
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     pub fn from_u7(input: u8) -> Self {
@@ -209,61 +223,109 @@ mod tests {
 
     #[test]
     #[allow(clippy::float_cmp)]
-    fn slider_from_u7() {
-        debug_assert_eq!(0.0, SliderInput::from_u7(0).position);
-        debug_assert_eq!(1.0, SliderInput::from_u7(127).position);
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn slider_from_u14() {
-        debug_assert_eq!(0.0, SliderInput::from_u14(0).position);
-        debug_assert_eq!(1.0, SliderInput::from_u14(16383).position);
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)]
     fn pad_button_from_u7() {
-        debug_assert_eq!(0.0, PadButtonInput::from_u7(0).pressure);
-        debug_assert_eq!(1.0, PadButtonInput::from_u7(127).pressure);
+        debug_assert_eq!(
+            PadButtonInput::MIN_PRESSURE,
+            PadButtonInput::from_u7(0).pressure
+        );
+        debug_assert_eq!(
+            PadButtonInput::MAX_PRESSURE,
+            PadButtonInput::from_u7(127).pressure
+        );
     }
 
     #[test]
     #[allow(clippy::float_cmp)]
     fn pad_button_from_u14() {
-        debug_assert_eq!(0.0, PadButtonInput::from_u14(0).pressure);
-        debug_assert_eq!(1.0, PadButtonInput::from_u14(16383).pressure);
+        debug_assert_eq!(
+            PadButtonInput::MIN_PRESSURE,
+            PadButtonInput::from_u14(0).pressure
+        );
+        debug_assert_eq!(
+            PadButtonInput::MAX_PRESSURE,
+            PadButtonInput::from_u14(16383).pressure
+        );
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn slider_from_u7() {
+        debug_assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u7(0).position);
+        debug_assert_eq!(
+            SliderInput::MAX_POSITION,
+            SliderInput::from_u7(127).position
+        );
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn slider_from_u14() {
+        debug_assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u14(0).position);
+        debug_assert_eq!(
+            SliderInput::MAX_POSITION,
+            SliderInput::from_u14(16383).position
+        );
     }
 
     #[test]
     #[allow(clippy::float_cmp)]
     fn center_slider_from_u7() {
-        debug_assert_eq!(-1.0, CenterSliderInput::from_u7(0).position);
-        debug_assert_eq!(0.0, CenterSliderInput::from_u7(64).position);
-        debug_assert_eq!(1.0, CenterSliderInput::from_u7(127).position);
+        debug_assert_eq!(
+            CenterSliderInput::MIN_POSITION,
+            CenterSliderInput::from_u7(0).position
+        );
+        debug_assert_eq!(
+            CenterSliderInput::CENTER_POSITION,
+            CenterSliderInput::from_u7(64).position
+        );
+        debug_assert_eq!(
+            CenterSliderInput::MAX_POSITION,
+            CenterSliderInput::from_u7(127).position
+        );
     }
 
     #[test]
     #[allow(clippy::float_cmp)]
     fn center_slider_from_u14() {
-        debug_assert_eq!(-1.0, CenterSliderInput::from_u14(0).position);
-        debug_assert_eq!(0.0, CenterSliderInput::from_u14(8192).position);
-        debug_assert_eq!(1.0, CenterSliderInput::from_u14(16383).position);
+        debug_assert_eq!(
+            CenterSliderInput::MIN_POSITION,
+            CenterSliderInput::from_u14(0).position
+        );
+        debug_assert_eq!(
+            CenterSliderInput::CENTER_POSITION,
+            CenterSliderInput::from_u14(8192).position
+        );
+        debug_assert_eq!(
+            CenterSliderInput::MAX_POSITION,
+            CenterSliderInput::from_u14(16383).position
+        );
     }
 
     #[test]
     #[allow(clippy::float_cmp)]
     fn slider_encoder_from_u7() {
         debug_assert_eq!(0.0, SliderEncoderInput::from_u7(0).delta);
-        debug_assert_eq!(1.0, SliderEncoderInput::from_u7(63).delta);
-        debug_assert_eq!(-1.0, SliderEncoderInput::from_u7(64).delta);
+        debug_assert_eq!(
+            SliderEncoderInput::DELTA_PER_CW_REV,
+            SliderEncoderInput::from_u7(63).delta
+        );
+        debug_assert_eq!(
+            SliderEncoderInput::DELTA_PER_CCW_REV,
+            SliderEncoderInput::from_u7(64).delta
+        );
     }
 
     #[test]
     #[allow(clippy::float_cmp)]
     fn slider_encoder_from_u14() {
         debug_assert_eq!(0.0, SliderEncoderInput::from_u14(0).delta);
-        debug_assert_eq!(1.0, SliderEncoderInput::from_u14(8191).delta);
-        debug_assert_eq!(-1.0, SliderEncoderInput::from_u14(8192).delta);
+        debug_assert_eq!(
+            SliderEncoderInput::DELTA_PER_CW_REV,
+            SliderEncoderInput::from_u14(8191).delta
+        );
+        debug_assert_eq!(
+            SliderEncoderInput::DELTA_PER_CCW_REV,
+            SliderEncoderInput::from_u14(8192).delta
+        );
     }
 }
