@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::fmt;
+use std::{fmt, ops::RangeInclusive};
 
 /// Time stamp with microsecond precision
 ///
@@ -59,6 +59,7 @@ pub struct PadButtonInput {
 impl PadButtonInput {
     pub const MIN_PRESSURE: f32 = 0.0;
     pub const MAX_PRESSURE: f32 = 1.0;
+    pub const PRESSURE_RANGE: RangeInclusive<f32> = Self::MIN_PRESSURE..=Self::MAX_PRESSURE;
 
     #[must_use]
     pub fn is_pressed(self) -> bool {
@@ -92,6 +93,7 @@ pub struct SliderInput {
 impl SliderInput {
     pub const MIN_POSITION: f32 = 0.0;
     pub const MAX_POSITION: f32 = 1.0;
+    pub const POSITION_RANGE: RangeInclusive<f32> = Self::MIN_POSITION..=Self::MAX_POSITION;
 
     #[must_use]
     pub fn from_u7(input: u8) -> Self {
@@ -118,6 +120,7 @@ pub struct CenterSliderInput {
 impl CenterSliderInput {
     pub const MIN_POSITION: f32 = -1.0;
     pub const MAX_POSITION: f32 = 1.0;
+    pub const POSITION_RANGE: RangeInclusive<f32> = Self::MIN_POSITION..=Self::MAX_POSITION;
     pub const CENTER_POSITION: f32 = 0.0;
 
     #[must_use]
