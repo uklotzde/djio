@@ -177,6 +177,15 @@ impl SliderEncoderInput {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Input {
+    Button(ButtonInput),
+    PadButton(PadButtonInput),
+    Slider(SliderInput),
+    CenterSlider(CenterSliderInput),
+    SliderEncoder(SliderEncoderInput),
+}
+
 #[must_use]
 pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
     debug_assert_eq!(hi, hi & 0x7f);
