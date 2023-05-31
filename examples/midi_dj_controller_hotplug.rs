@@ -58,6 +58,10 @@ impl InputHandler for LogMidiInput {
 }
 
 struct KorgKaossDjLogInputEvent;
+struct PioneerDdj400LogInputEvent;
+
+type KorgKaossDjInputGateway = korg_kaoss_dj::InputGateway<KorgKaossDjLogInputEvent>;
+type PioneerDdJ400InputGateway = pioneer_ddj_400::InputGateway<PioneerDdj400LogInputEvent>;
 
 impl EmitEvent<korg_kaoss_dj::Input> for KorgKaossDjLogInputEvent {
     fn emit_event(&mut self, event: korg_kaoss_dj::InputEvent) {
@@ -65,7 +69,11 @@ impl EmitEvent<korg_kaoss_dj::Input> for KorgKaossDjLogInputEvent {
     }
 }
 
-type KorgKaossDjInputGateway = korg_kaoss_dj::InputGateway<KorgKaossDjLogInputEvent>;
+impl EmitEvent<pioneer_ddj_400::Input> for PioneerDdj400LogInputEvent {
+    fn emit_event(&mut self, event: pioneer_ddj_400::InputEvent) {
+        println!("Received input {event:?}");
+    }
+}
 
 fn main() {
     match run() {
@@ -78,6 +86,10 @@ fn main() {
 fn new_midi_input_handler(device_name: &str) -> Box<dyn InputHandler> {
     if device_name.contains("KAOSS DJ") {
         Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
+    } else if device_name.contains("DDJ-400") {
+        Box::new(PioneerDdJ400InputGateway::attach(
+            PioneerDdj400LogInputEvent,
+        ))
     } else {
         Box::<LogMidiInput>::default()
     }
