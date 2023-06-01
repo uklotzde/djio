@@ -14,9 +14,15 @@ Application-independent interfaces for accessing hardware DJ controllers through
 
 ## Supported Controllers
 
+### MIDI
+
+- Denon DJ MC6000MK2
 - Korg KAOSS DJ
 - Pioneer DDJ-400
-- ...to be continued...
+
+### HID
+
+- Native Instruments TRAKTOR KONTROL S4MK3
 
 ## Examples
 

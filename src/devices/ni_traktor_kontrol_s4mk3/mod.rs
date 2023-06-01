@@ -22,7 +22,7 @@ use crate::{
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &DeviceDescriptor {
     vendor_name: Cow::Borrowed("Native Instruments"),
-    product_name: Cow::Borrowed("TRAKTOR S4MK3"),
+    product_name: Cow::Borrowed("TRAKTOR KONTROL S4MK3"),
 };
 
 #[derive(Debug, Clone, Default)]
