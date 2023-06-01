@@ -176,7 +176,44 @@ pub enum Input {
     PadButton(PadButtonInput),
     Slider(SliderInput),
     CenterSlider(CenterSliderInput),
+    StepEncoder(StepEncoderInput),
     SliderEncoder(SliderEncoderInput),
+}
+
+impl From<ButtonInput> for Input {
+    fn from(input: ButtonInput) -> Self {
+        Self::Button(input)
+    }
+}
+
+impl From<PadButtonInput> for Input {
+    fn from(input: PadButtonInput) -> Self {
+        Self::PadButton(input)
+    }
+}
+
+impl From<SliderInput> for Input {
+    fn from(input: SliderInput) -> Self {
+        Self::Slider(input)
+    }
+}
+
+impl From<CenterSliderInput> for Input {
+    fn from(input: CenterSliderInput) -> Self {
+        Self::CenterSlider(input)
+    }
+}
+
+impl From<StepEncoderInput> for Input {
+    fn from(input: StepEncoderInput) -> Self {
+        Self::StepEncoder(input)
+    }
+}
+
+impl From<SliderEncoderInput> for Input {
+    fn from(input: SliderEncoderInput) -> Self {
+        Self::SliderEncoder(input)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
