@@ -14,6 +14,7 @@ edition = "2021"
 include = ["/src", "/README.md", "/LICENSES"]
 
 [dependencies]
+anyhow = "1.0.71"
 log = "0.4.18"
 num-derive = "0.3.3"
 num-traits = "0.2.15"
@@ -23,14 +24,17 @@ thiserror = "1.0.40"
 midir = { version = "0.9.1", optional = true }
 hidapi = { version = "2.3.3", optional = true }
 
+serde = { version = "1.0", optional = true, features = ["derive"] }
+
 [dev-dependencies]
 anyhow = "1.0.71"
 
 [features]
-default = ["hid", "midi"]
+default = ["hid", "midi", "serde"]
 hid = ["dep:hidapi"]
-midi = ["dep:midir"]
 jack = ["midir?/jack"]
+midi = ["dep:midir"]
+serde = ["dep:serde"]
 
 [[example]]
 name = "midi-dj-controller-hotplug"

@@ -127,7 +127,10 @@ pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
 }
 
 #[cfg(feature = "hid")]
-mod hid;
+pub mod hid;
+
+#[cfg(feature = "hid")]
+pub use hid::{HidApi, HidDevice, HidDeviceError, HidError, HidResult, HidThread, HidUsagePage};
 
 #[cfg(feature = "midi")]
 mod midi;
