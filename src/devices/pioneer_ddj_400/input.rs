@@ -3,8 +3,8 @@
 
 use super::Deck;
 use crate::{
-    u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiInputHandler, SliderInput,
-    TimeStamp,
+    u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiDeviceDescriptor,
+    MidiInputHandler, SliderInput, TimeStamp,
 };
 
 pub type InputEvent = crate::InputEvent<Input>;
@@ -202,11 +202,12 @@ where
 {
     fn connect_midi_input_port(
         &mut self,
-        device_name: &str,
+        _device_descriptor: &MidiDeviceDescriptor,
+        client_name: &str,
         port_name: &str,
         _port: &midir::MidiInputPort,
     ) {
-        log::debug!("Device \"{device_name}\" is connected to port \"{port_name}\"");
+        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
     }
 
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {

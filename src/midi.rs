@@ -50,7 +50,13 @@ impl From<SendError> for OutputError {
 // Callbacks for handling MIDI input
 pub trait MidiInputHandler: Send {
     /// Invoked before (re-)connecting the port.
-    fn connect_midi_input_port(&mut self, device_name: &str, port_name: &str, port: &MidiInputPort);
+    fn connect_midi_input_port(
+        &mut self,
+        device_descriptor: &MidiDeviceDescriptor,
+        client_name: &str,
+        port_name: &str,
+        port: &MidiInputPort,
+    );
 
     /// Invoked for each incoming message.
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
@@ -63,12 +69,13 @@ where
 {
     fn connect_midi_input_port(
         &mut self,
-        device_name: &str,
+        device_descriptor: &MidiDeviceDescriptor,
+        client_name: &str,
         port_name: &str,
         port: &MidiInputPort,
     ) {
         self.deref_mut()
-            .connect_midi_input_port(device_name, port_name, port);
+            .connect_midi_input_port(device_descriptor, client_name, port_name, port);
     }
 
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
@@ -178,7 +185,7 @@ where
         connection: Option<MidiInputConnection<I>>,
         new_input_handler: Option<impl FnOnce() -> I>,
     ) -> Result<MidiInputConnection<I>, MidiPortError> {
-        let device_name = self.descriptor.device.name();
+        let client_name = self.descriptor.device.name();
         let (input, mut input_handler) =
             if let Some((input, input_handler)) = connection.map(MidiInputConnection::close) {
                 (input, input_handler)
@@ -186,12 +193,13 @@ where
                 let Some(new_input_handler) = new_input_handler else {
                     return Err(MidiPortError::Disconnected);
                 };
-                let input = MidiInput::new(&device_name)?;
+                let input = MidiInput::new(&client_name)?;
                 let input_handler = new_input_handler();
                 (input, input_handler)
             };
         input_handler.connect_midi_input_port(
-            &device_name,
+            &self.descriptor,
+            &client_name,
             &self.input_port_name,
             &self.input_port,
         );
@@ -211,13 +219,13 @@ where
         &self,
         connection: Option<MidiOutputConnection>,
     ) -> Result<MidiOutputConnection, MidiPortError> {
-        let device_name = self.descriptor.device.name();
+        let client_name = self.descriptor.device.name();
         let output = match connection.map(MidiOutputConnection::close) {
             Some(output) => output,
-            None => MidiOutput::new(&device_name)?,
+            None => MidiOutput::new(&client_name)?,
         };
         output
-            .connect(&self.output_port, &device_name)
+            .connect(&self.output_port, &client_name)
             .map_err(Into::into)
     }
 }

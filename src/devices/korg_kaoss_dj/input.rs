@@ -6,8 +6,9 @@ use num_traits::ToPrimitive as _;
 
 use super::Deck;
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInput, EmitInputEvent, MidiInputHandler,
-    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
+    ButtonInput, CenterSliderInput, ControlIndex, ControlInput, EmitInputEvent,
+    MidiDeviceDescriptor, MidiInputHandler, SliderEncoderInput, SliderInput, StepEncoderInput,
+    TimeStamp,
 };
 
 fn u7_to_button(input: u8) -> ButtonInput {
@@ -515,11 +516,12 @@ where
 {
     fn connect_midi_input_port(
         &mut self,
-        device_name: &str,
+        _device_descriptor: &MidiDeviceDescriptor,
+        client_name: &str,
         port_name: &str,
         _port: &midir::MidiInputPort,
     ) {
-        log::debug!("Device \"{device_name}\" is connected to port \"{port_name}\"");
+        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
     }
 
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
