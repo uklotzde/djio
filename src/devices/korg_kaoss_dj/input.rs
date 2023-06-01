@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::ToPrimitive as _;
+use num_traits::{FromPrimitive as _, ToPrimitive as _};
 
 use super::Deck;
 use crate::{
@@ -641,6 +641,14 @@ pub enum Sensor {
 impl From<Sensor> for ControlIndex {
     fn from(value: Sensor) -> Self {
         ControlIndex::new(value.to_u32().expect("u32"))
+    }
+}
+
+impl TryFrom<ControlIndex> for Sensor {
+    type Error = ();
+
+    fn try_from(index: ControlIndex) -> Result<Self, Self::Error> {
+        Self::from_u32(index.value()).ok_or(())
     }
 }
 
