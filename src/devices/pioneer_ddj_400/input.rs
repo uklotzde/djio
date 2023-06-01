@@ -4,7 +4,7 @@
 use super::Deck;
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiDeviceDescriptor,
-    MidiInputHandler, SliderInput, TimeStamp,
+    MidiInputConnector, MidiInputHandler, SliderInput, TimeStamp,
 };
 
 pub type InputEvent = crate::InputEvent<Input>;
@@ -200,16 +200,6 @@ impl<E> MidiInputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
-    fn connect_midi_input_port(
-        &mut self,
-        _device_descriptor: &MidiDeviceDescriptor,
-        client_name: &str,
-        port_name: &str,
-        _port: &midir::MidiInputPort,
-    ) {
-        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
-    }
-
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         let Some(input) = Input::try_from_midi_message(input) else {
             log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
@@ -271,5 +261,20 @@ where
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
         self.emit_input_event.emit_input_event(event);
+    }
+}
+
+impl<E> MidiInputConnector for InputGateway<E>
+where
+    E: Send,
+{
+    fn connect_midi_input_port(
+        &mut self,
+        _device_descriptor: &MidiDeviceDescriptor,
+        client_name: &str,
+        port_name: &str,
+        _port: &midir::MidiInputPort,
+    ) {
+        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
     }
 }
