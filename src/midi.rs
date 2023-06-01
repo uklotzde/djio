@@ -21,12 +21,6 @@ pub struct MidiDeviceDescriptor {
     pub port_name_prefix: &'static str,
 }
 
-// Predefined port names of existing DJ controllers for auto-detection.
-const DJ_CONTROLLER_DESCRIPTORS: &[&MidiDeviceDescriptor] = &[
-    crate::devices::korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR,
-    crate::devices::pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR,
-];
-
 #[derive(Debug, Error)]
 pub enum MidiPortError {
     #[error("disconnected")]
@@ -298,21 +292,24 @@ where
     }
 
     #[must_use]
-    pub fn detect_dj_controllers(&self) -> Vec<(MidiDeviceDescriptor, MidirDevice<I>)> {
+    pub fn detect_dj_controllers(
+        &self,
+        device_descriptors: &[&MidiDeviceDescriptor],
+    ) -> Vec<(MidiDeviceDescriptor, MidirDevice<I>)> {
         let mut input_ports = self
             .input_ports()
             .into_iter()
             .filter_map(|port| {
                 let port_name = self.input.port_name(&port).ok()?;
-                let Some(descriptor) = DJ_CONTROLLER_DESCRIPTORS
+                let Some(device_descriptor) = device_descriptors
                     .iter()
                     .copied()
-                    .find(|descriptor| port_name.starts_with(descriptor.port_name_prefix)) else {
+                    .find(|device_descriptor| port_name.starts_with(device_descriptor.port_name_prefix)) else {
                     log::debug!("Input port \"{port_name}\" does not belong to a DJ controller");
                     return None;
                 };
-                log::debug!("Detected input port \"{port_name}\" for {descriptor:?}");
-                Some((descriptor.port_name_prefix, (descriptor, port_name, port)))
+                log::debug!("Detected input port \"{port_name}\" for {device_descriptor:?}");
+                Some((device_descriptor.port_name_prefix, (device_descriptor, port_name, port)))
             })
             .collect::<HashMap<_, _>>();
         let mut output_ports = self

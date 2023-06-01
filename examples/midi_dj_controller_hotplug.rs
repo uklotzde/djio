@@ -4,7 +4,7 @@
 use std::io::{stdin, stdout, Write as _};
 
 use djio::{
-    devices::{korg_kaoss_dj, pioneer_ddj_400},
+    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     EmitInputEvent, GenericMidiDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
     MidiInputHandler, MidirDevice, TimeStamp,
 };
@@ -158,7 +158,7 @@ impl OutputGateway {
 
 fn run() -> anyhow::Result<()> {
     let device_manager = GenericMidiDeviceManager::new()?;
-    let mut dj_controllers = device_manager.detect_dj_controllers();
+    let mut dj_controllers = device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS);
     let (_descriptor, mut device) = match dj_controllers.len() {
         0 => anyhow::bail!("No supported DJ controllers found"),
         1 => {
