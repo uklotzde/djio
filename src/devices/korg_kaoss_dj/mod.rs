@@ -16,7 +16,7 @@ pub use self::output::{Actuator, DeckLed, Led, OutputGateway};
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
         vendor_name: Cow::Borrowed("Korg"),
-        model_name: Cow::Borrowed("KAOSS DJ"),
+        product_name: Cow::Borrowed("KAOSS DJ"),
     },
     port_name_prefix: "KAOSS DJ",
 };

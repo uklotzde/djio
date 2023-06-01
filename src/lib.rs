@@ -36,7 +36,7 @@ pub use self::output::{DimLedOutput, LedOutput, OutputError, OutputResult, RgbLe
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceDescriptor {
     pub vendor_name: Cow<'static, str>,
-    pub model_name: Cow<'static, str>,
+    pub product_name: Cow<'static, str>,
 }
 
 impl DeviceDescriptor {
@@ -45,14 +45,14 @@ impl DeviceDescriptor {
     pub fn name(&self) -> Cow<'static, str> {
         let Self {
             vendor_name,
-            model_name,
+            product_name,
             ..
         } = self;
-        debug_assert!(!model_name.is_empty());
+        debug_assert!(!product_name.is_empty());
         if vendor_name.is_empty() {
-            model_name.clone()
+            product_name.clone()
         } else {
-            format!("{vendor_name} {model_name}").into()
+            format!("{vendor_name} {product_name}").into()
         }
     }
 }
