@@ -1,36 +1,12 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{fmt, ops::RangeInclusive};
+//! Receiving and processing sensor data from devices
+//! .
 
-/// Time stamp with microsecond precision
-///
-/// The actual value has no meaning, i.e. the origin with value 0 is arbitrary.
-/// Only the difference between two time stamps should be considered.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct TimeStamp(u64);
+use std::ops::RangeInclusive;
 
-impl TimeStamp {
-    #[must_use]
-    pub const fn from_micros(micros: u64) -> Self {
-        Self(micros)
-    }
-
-    #[must_use]
-    pub const fn to_micros(self) -> u64 {
-        let Self(micros) = self;
-        micros
-    }
-}
-
-impl fmt::Display for TimeStamp {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_fmt(format_args!(
-            "{micros} \u{00B5}s",
-            micros = self.to_micros()
-        ))
-    }
-}
+use crate::{ControlIndex, TimeStamp};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputEvent<T> {
@@ -203,8 +179,6 @@ pub enum Input {
     SliderEncoder(SliderEncoderInput),
 }
 
-pub type ControlIndex = u32;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ControlInput {
     pub index: ControlIndex,
@@ -212,13 +186,6 @@ pub struct ControlInput {
 }
 
 pub type ControlInputEvent = InputEvent<ControlInput>;
-
-#[must_use]
-pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
-    debug_assert_eq!(hi, hi & 0x7f);
-    debug_assert_eq!(lo, lo & 0x7f);
-    u16::from(hi) << 7 | u16::from(lo)
-}
 
 #[cfg(test)]
 mod tests {

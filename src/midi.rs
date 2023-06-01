@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    borrow::Cow,
     collections::HashMap,
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -14,40 +13,22 @@ use midir::{
 };
 use thiserror::Error;
 
-use crate::{input::TimeStamp, OutputError};
+use crate::{DeviceDescriptor, OutputError, TimeStamp};
 
-#[derive(Debug, Clone)]
-pub struct DeviceDescriptor {
-    pub vendor_name: &'static str,
-    pub model_name: &'static str,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MidiDeviceDescriptor {
+    pub device: DeviceDescriptor,
     pub port_name_prefix: &'static str,
 }
 
-impl DeviceDescriptor {
-    #[must_use]
-    pub fn device_name(&self) -> Cow<'static, str> {
-        let Self {
-            vendor_name,
-            model_name,
-            ..
-        } = *self;
-        debug_assert!(!model_name.is_empty());
-        if vendor_name.is_empty() {
-            model_name.into()
-        } else {
-            format!("{vendor_name} {model_name}").into()
-        }
-    }
-}
-
 // Predefined port names of existing DJ controllers for auto-detection.
-const DJ_CONTROLLER_DESCRIPTORS: &[DeviceDescriptor] = &[
-    crate::devices::pioneer_ddj_400::DEVICE_DESCRIPTOR,
-    crate::devices::korg_kaoss_dj::DEVICE_DESCRIPTOR,
+const DJ_CONTROLLER_DESCRIPTORS: &[&MidiDeviceDescriptor] = &[
+    crate::devices::korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR,
+    crate::devices::pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR,
 ];
 
 #[derive(Debug, Error)]
-pub enum PortError {
+pub enum MidiPortError {
     #[error("disconnected")]
     Disconnected,
     #[error(transparent)]
@@ -67,7 +48,7 @@ impl From<SendError> for OutputError {
 }
 
 // Callbacks for handling MIDI input
-pub trait InputHandler: Send {
+pub trait MidiInputHandler: Send {
     /// Invoked before (re-)connecting the port.
     fn connect_midi_input_port(&mut self, device_name: &str, port_name: &str, port: &MidiInputPort);
 
@@ -75,10 +56,10 @@ pub trait InputHandler: Send {
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
 }
 
-impl<D> InputHandler for D
+impl<D> MidiInputHandler for D
 where
     D: DerefMut + Send,
-    <D as Deref>::Target: InputHandler,
+    <D as Deref>::Target: MidiInputHandler,
 {
     fn connect_midi_input_port(
         &mut self,
@@ -98,9 +79,9 @@ where
 #[allow(missing_debug_implementations)]
 pub struct MidiDevice<I>
 where
-    I: InputHandler + 'static,
+    I: MidiInputHandler + 'static,
 {
-    name: String,
+    descriptor: MidiDeviceDescriptor,
     input_port_name: String,
     input_port: MidiInputPort,
     output_port_name: String,
@@ -110,14 +91,18 @@ where
 
 impl<I> MidiDevice<I>
 where
-    I: InputHandler,
+    I: MidiInputHandler,
 {
     #[must_use]
-    fn new(name: String, input: (String, MidiInputPort), output: (String, MidiOutputPort)) -> Self {
+    fn new(
+        descriptor: MidiDeviceDescriptor,
+        input: (String, MidiInputPort),
+        output: (String, MidiOutputPort),
+    ) -> Self {
         let (input_port_name, input_port) = input;
         let (output_port_name, output_port) = output;
         Self {
-            name,
+            descriptor,
             input_port,
             input_port_name,
             output_port,
@@ -127,8 +112,8 @@ where
     }
 
     #[must_use]
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn descriptor(&self) -> &MidiDeviceDescriptor {
+        &self.descriptor
     }
 
     #[must_use]
@@ -144,7 +129,7 @@ where
     #[must_use]
     pub fn is_available<U>(&self, device_manager: &MidiDeviceManager<U>) -> bool
     where
-        U: InputHandler,
+        U: MidiInputHandler,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port_name)
@@ -166,7 +151,7 @@ where
         &mut self,
         new_input_handler: Option<impl FnOnce() -> I>,
         output_connection: Option<MidiOutputConnection>,
-    ) -> Result<MidiOutputConnection, PortError> {
+    ) -> Result<MidiOutputConnection, MidiPortError> {
         let input_connection = self.input_connection.take();
         debug_assert!(!self.is_connected());
         debug_assert_eq!(input_connection.is_some(), output_connection.is_some());
@@ -192,19 +177,24 @@ where
         &mut self,
         connection: Option<MidiInputConnection<I>>,
         new_input_handler: Option<impl FnOnce() -> I>,
-    ) -> Result<MidiInputConnection<I>, PortError> {
+    ) -> Result<MidiInputConnection<I>, MidiPortError> {
+        let device_name = self.descriptor.device.name();
         let (input, mut input_handler) =
             if let Some((input, input_handler)) = connection.map(MidiInputConnection::close) {
                 (input, input_handler)
             } else {
                 let Some(new_input_handler) = new_input_handler else {
-                    return Err(PortError::Disconnected);
+                    return Err(MidiPortError::Disconnected);
                 };
-                let input = MidiInput::new(&self.name)?;
+                let input = MidiInput::new(&device_name)?;
                 let input_handler = new_input_handler();
                 (input, input_handler)
             };
-        input_handler.connect_midi_input_port(&self.name, &self.input_port_name, &self.input_port);
+        input_handler.connect_midi_input_port(
+            &device_name,
+            &self.input_port_name,
+            &self.input_port,
+        );
         input
             .connect(
                 &self.input_port,
@@ -220,18 +210,19 @@ where
     fn reconnect_output(
         &self,
         connection: Option<MidiOutputConnection>,
-    ) -> Result<MidiOutputConnection, PortError> {
+    ) -> Result<MidiOutputConnection, MidiPortError> {
+        let device_name = self.descriptor.device.name();
         let output = match connection.map(MidiOutputConnection::close) {
             Some(output) => output,
-            None => MidiOutput::new(&self.name)?,
+            None => MidiOutput::new(&device_name)?,
         };
         output
-            .connect(&self.output_port, &self.name)
+            .connect(&self.output_port, &device_name)
             .map_err(Into::into)
     }
 }
 
-pub type GenericMidiDevice = MidiDevice<Box<dyn InputHandler>>;
+pub type GenericMidiDevice = MidiDevice<Box<dyn MidiInputHandler>>;
 
 #[allow(missing_debug_implementations)]
 pub struct MidiDeviceManager<I> {
@@ -242,7 +233,7 @@ pub struct MidiDeviceManager<I> {
 
 impl<I> MidiDeviceManager<I>
 where
-    I: InputHandler,
+    I: MidiInputHandler,
 {
     #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn new() -> Result<Self, midir::InitError> {
@@ -289,7 +280,7 @@ where
     }
 
     #[must_use]
-    pub fn detect_dj_controllers(&self) -> Vec<(DeviceDescriptor, MidiDevice<I>)> {
+    pub fn detect_dj_controllers(&self) -> Vec<(MidiDeviceDescriptor, MidiDevice<I>)> {
         let mut input_ports = self
             .input_ports()
             .into_iter()
@@ -297,6 +288,7 @@ where
                 let port_name = self.input.port_name(&port).ok()?;
                 let Some(descriptor) = DJ_CONTROLLER_DESCRIPTORS
                     .iter()
+                    .copied()
                     .find(|descriptor| port_name.starts_with(descriptor.port_name_prefix)) else {
                     log::debug!("Input port \"{port_name}\" does not belong to a DJ controller");
                     return None;
@@ -329,13 +321,13 @@ where
                 |(port_name_prefix, (descriptor, input_port_name, input_port))| {
                     let (output_port_name, output_port) =
                         output_ports.remove(port_name_prefix).expect("Some");
-                    let device_name = descriptor.device_name().into_owned();
                     log::debug!(
                         "Found DJ controller device \"{device_name}\" (input port: \
-                         \"{input_port_name}\", output port: \"{output_port_name}\")"
+                         \"{input_port_name}\", output port: \"{output_port_name}\")",
+                        device_name = descriptor.device.name()
                     );
                     let device = MidiDevice::new(
-                        device_name,
+                        descriptor.clone(),
                         (input_port_name, input_port),
                         (output_port_name, output_port),
                     );
@@ -346,4 +338,4 @@ where
     }
 }
 
-pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn InputHandler>>;
+pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn MidiInputHandler>>;

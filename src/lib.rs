@@ -20,19 +20,119 @@
 // is not needed since the context is obvious.
 #![allow(clippy::default_trait_access)]
 
+use std::{borrow::Cow, fmt, time::Duration};
+
 pub mod devices;
 
-pub mod input;
-pub use crate::input::{
-    ButtonInput, CenterSliderInput, EmitInputEvent, InputEvent, PadButtonInput, SliderEncoderInput,
-    SliderInput, StepEncoderInput,
+mod input;
+pub use self::input::{
+    ButtonInput, CenterSliderInput, ControlInput, ControlInputEvent, EmitInputEvent, Input,
+    InputEvent, PadButtonInput, SliderEncoderInput, SliderInput, StepEncoderInput,
 };
 
-pub mod output;
-pub use crate::output::{
-    DimLed as DimLedOutput, Error as OutputError, Led as LedOutput, Result as OutputResult,
-    RgbLed as RgbLedOutput,
-};
+mod output;
+pub use self::output::{DimLedOutput, LedOutput, OutputError, OutputResult, RgbLedOutput};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeviceDescriptor {
+    pub vendor_name: Cow<'static, str>,
+    pub model_name: Cow<'static, str>,
+}
+
+impl DeviceDescriptor {
+    /// The qualified device name including both vendor and model name.
+    #[must_use]
+    pub fn name(&self) -> Cow<'static, str> {
+        let Self {
+            vendor_name,
+            model_name,
+            ..
+        } = self;
+        debug_assert!(!model_name.is_empty());
+        if vendor_name.is_empty() {
+            model_name.clone()
+        } else {
+            format!("{vendor_name} {model_name}").into()
+        }
+    }
+}
+
+/// Index for addressing either or both device inputs and outputs
+/// in a generic manner.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct ControlIndex {
+    value: u32,
+}
+
+impl ControlIndex {
+    #[must_use]
+    pub const fn new(value: u32) -> Self {
+        Self { value }
+    }
+
+    #[must_use]
+    pub const fn value(self) -> u32 {
+        let Self { value } = self;
+        value
+    }
+
+    #[must_use]
+    pub const fn as_usize(self) -> usize {
+        self.value() as usize
+    }
+}
+
+/// Time stamp with microsecond precision
+///
+/// The actual value has no meaning, i.e. the origin with value 0 is arbitrary.
+/// Only the difference between two time stamps should be considered.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TimeStamp(u64);
+
+impl TimeStamp {
+    #[must_use]
+    pub const fn from_micros(micros: u64) -> Self {
+        Self(micros)
+    }
+
+    #[must_use]
+    pub const fn to_micros(self) -> u64 {
+        let Self(micros) = self;
+        micros
+    }
+
+    #[must_use]
+    pub const fn to_duration(self) -> Duration {
+        Duration::from_micros(self.to_micros())
+    }
+}
+
+impl fmt::Display for TimeStamp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_fmt(format_args!(
+            "{micros} \u{00B5}s",
+            micros = self.to_micros()
+        ))
+    }
+}
+
+/// A commonly needed conversion for MIDI and (maybe other) devices.
+#[must_use]
+pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
+    debug_assert_eq!(hi, hi & 0x7f);
+    debug_assert_eq!(lo, lo & 0x7f);
+    u16::from(hi) << 7 | u16::from(lo)
+}
+
+#[cfg(feature = "hid")]
+mod hid;
 
 #[cfg(feature = "midi")]
-pub mod midi;
+mod midi;
+
+#[cfg(feature = "midi")]
+pub use self::midi::{
+    GenericMidiDevice, GenericMidiDeviceManager, MidiDevice, MidiDeviceDescriptor,
+    MidiDeviceManager, MidiInputHandler, MidiPortError,
+};

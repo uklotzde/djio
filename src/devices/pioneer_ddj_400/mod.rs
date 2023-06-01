@@ -1,14 +1,18 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::midi::DeviceDescriptor;
+use std::borrow::Cow;
+
+use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 pub mod input;
 pub use self::input::{Input, InputEvent, InputGateway};
 
-pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
-    vendor_name: "Pioneer",
-    model_name: "DDJ-400",
+pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
+    device: DeviceDescriptor {
+        vendor_name: Cow::Borrowed("Pioneer"),
+        model_name: Cow::Borrowed("DDJ-400"),
+    },
     port_name_prefix: "DDJ-400",
 };
 

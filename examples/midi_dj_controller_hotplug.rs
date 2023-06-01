@@ -5,9 +5,7 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     devices::{korg_kaoss_dj, pioneer_ddj_400},
-    input::TimeStamp,
-    midi::{GenericMidiDeviceManager, InputHandler, MidiDevice},
-    EmitInputEvent,
+    EmitInputEvent, GenericMidiDeviceManager, MidiDevice, MidiInputHandler, TimeStamp,
 };
 use midir::{MidiInputPort, MidiOutputConnection};
 
@@ -16,7 +14,7 @@ struct LogMidiInput {
     device_name: String,
 }
 
-impl InputHandler for LogMidiInput {
+impl MidiInputHandler for LogMidiInput {
     fn connect_midi_input_port(
         &mut self,
         device_name: &str,
@@ -33,7 +31,7 @@ impl InputHandler for LogMidiInput {
 
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         if self.device_name.contains("KAOSS DJ") {
-            if let Some(input) = korg_kaoss_dj::input::Input::try_from_midi_message(input) {
+            if let Some(input) = korg_kaoss_dj::Input::try_from_midi_message(input) {
                 println!(
                     "{device_name} @ {ts}: {input:?})",
                     device_name = self.device_name,
@@ -84,7 +82,7 @@ fn main() {
 }
 
 #[must_use]
-fn new_midi_input_handler(device_name: &str) -> Box<dyn InputHandler> {
+fn new_midi_input_handler(device_name: &str) -> Box<dyn MidiInputHandler> {
     if device_name.contains("KAOSS DJ") {
         Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
     } else if device_name.contains("DDJ-400") {
@@ -109,36 +107,36 @@ impl OutputGateway {
     #[must_use]
     fn attach<T>(midi_device: &MidiDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
     where
-        T: InputHandler,
+        T: MidiInputHandler,
     {
-        if midi_device.name().contains("KAOSS DJ") {
+        if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
             // FIXME: Remove this test code
             gateway
                 .send_deck_led_output(
                     korg_kaoss_dj::Deck::A,
-                    korg_kaoss_dj::output::DeckLed::PlayPauseButton,
+                    korg_kaoss_dj::DeckLed::PlayPauseButton,
                     djio::LedOutput::On,
                 )
                 .unwrap();
             gateway
                 .send_deck_led_output(
                     korg_kaoss_dj::Deck::B,
-                    korg_kaoss_dj::output::DeckLed::PlayPauseButton,
+                    korg_kaoss_dj::DeckLed::PlayPauseButton,
                     djio::LedOutput::Off,
                 )
                 .unwrap();
             gateway
                 .send_deck_led_output(
                     korg_kaoss_dj::Deck::A,
-                    korg_kaoss_dj::output::DeckLed::CueButton,
+                    korg_kaoss_dj::DeckLed::CueButton,
                     djio::LedOutput::Off,
                 )
                 .unwrap();
             gateway
                 .send_deck_led_output(
                     korg_kaoss_dj::Deck::B,
-                    korg_kaoss_dj::output::DeckLed::CueButton,
+                    korg_kaoss_dj::DeckLed::CueButton,
                     djio::LedOutput::On,
                 )
                 .unwrap();
@@ -169,7 +167,7 @@ fn run() -> anyhow::Result<()> {
         1 => {
             println!(
                 "Choosing the only available DJ Controller: {device_name}",
-                device_name = dj_controllers[0].1.name(),
+                device_name = dj_controllers[0].1.descriptor().device.name(),
             );
             dj_controllers.remove(0)
         }
@@ -179,7 +177,7 @@ fn run() -> anyhow::Result<()> {
                 println!(
                     "{device_number}: {device_name}",
                     device_number = i + 1,
-                    device_name = device.name()
+                    device_name = device.descriptor().device.name()
                 );
             }
             print!("Please select a device: ");
@@ -195,7 +193,7 @@ fn run() -> anyhow::Result<()> {
         }
     };
 
-    let device_name = device.name().to_owned();
+    let device_name = device.descriptor().device.name();
     println!("{device_name}: connecting");
     let midi_output_connection = device
         .reconnect(Some(|| new_midi_input_handler(&device_name)), None)

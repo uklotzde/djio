@@ -1,18 +1,13 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::ToPrimitive as _;
+
 use super::Deck;
 use crate::{
-    input::TimeStamp,
-    midi::{DeviceDescriptor, InputHandler},
-    ButtonInput, CenterSliderInput, EmitInputEvent, SliderEncoderInput, SliderInput,
-    StepEncoderInput,
-};
-
-pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
-    vendor_name: "Korg",
-    model_name: "KAOSS DJ",
-    port_name_prefix: "KAOSS DJ",
+    ButtonInput, CenterSliderInput, ControlIndex, ControlInput, EmitInputEvent, MidiInputHandler,
+    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
 };
 
 fn u7_to_button(input: u8) -> ButtonInput {
@@ -100,6 +95,7 @@ pub enum DeckSlider {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[allow(clippy::enum_variant_names)]
 pub enum DeckSliderEncoder {
     TouchWheelBend,
     TouchWheelScratch,
@@ -513,7 +509,7 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> InputHandler for InputGateway<E>
+impl<E> MidiInputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
@@ -534,5 +530,124 @@ where
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
         self.emit_input_event.emit_input_event(event);
+    }
+}
+
+/// Flattened enumeration of all input controls
+#[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
+pub enum Control {
+    // Button
+    TapButton,
+    TapHoldButton,
+    TouchPadModeButton,
+    TouchPadUpperLeftButton,
+    TouchPadUpperRightButton,
+    TouchPadLowerLeftButton,
+    TouchPadLowerRightButton,
+    BrowseKnobShiftedButton,
+    // CenterSlider
+    CrossFaderCenterSlider,
+    // StepEncoder
+    BrowseKnobStepEncoder,
+    ProgramKnobStepEncoder,
+    // Slider
+    TouchPadXSlider,
+    TouchPadYSlider,
+    // Deck A: Button
+    DeckALoadButton,
+    DeckAShiftButton,
+    DeckAMonitorButton,
+    DeckAFxButton,
+    DeckATouchStripLeftButton,
+    DeckATouchStripCenterButton,
+    DeckATouchStripRightButton,
+    DeckATouchStripLoopLeftButton,
+    DeckATouchStripLoopCenterButton,
+    DeckATouchStripLoopRightButton,
+    DeckATouchStripHotCueLeftButton,
+    DeckATouchStripHotCueCenterButton,
+    DeckATouchStripHotCueRightButton,
+    DeckATouchWheelScratchButton,
+    // Deck A: Button (Plain)
+    DeckAPlayPauseButton,
+    DeckASyncButton,
+    DeckACueButton,
+    // Deck A: Button (Shifted)
+    DeckAShiftPlayPauseButton,
+    DeckAShiftSyncButton,
+    DeckAShiftCueButton,
+    // Deck A: Slider
+    DeckALevelFaderSlider,
+    DeckATouchStripSlider,
+    // Deck A: SliderEncoder
+    DeckATouchWheelBendSliderEncoder,
+    DeckATouchWheelScratchSliderEncoder,
+    DeckATouchWheelSearchSliderEncoder,
+    // Deck A: CenterSlider
+    DeckAPitchFaderCenterSlider,
+    DeckAGainKnobCenterSlider,
+    DeckALoEqKnobCenterSlider,
+    DeckAMidEqKnobCenterSlider,
+    DeckAHiEqKnobCenterSlider,
+    // Deck B: Button
+    DeckBLoadButton,
+    DeckBShiftButton,
+    DeckBMonitorButton,
+    DeckBFxButton,
+    DeckBTouchStripLeftButton,
+    DeckBTouchStripCenterButton,
+    DeckBTouchStripRightButton,
+    DeckBTouchStripLoopLeftButton,
+    DeckBTouchStripLoopCenterButton,
+    DeckBTouchStripLoopRightButton,
+    DeckBTouchStripHotCueLeftButton,
+    DeckBTouchStripHotCueCenterButton,
+    DeckBTouchStripHotCueRightButton,
+    DeckBTouchWheelScratchButton,
+    // Deck B: Button (Plain)
+    DeckBPlayPauseButton,
+    DeckBSyncButton,
+    DeckBCueButton,
+    // Deck B: Button (Shifted)
+    DeckBShiftPlayPauseButton,
+    DeckBShiftSyncButton,
+    DeckBShiftCueButton,
+    // Deck B: Slider
+    DeckBLevelFaderSlider,
+    DeckBTouchStripSlider,
+    // Deck B: SliderEncoder
+    DeckBTouchWheelBendSliderEncoder,
+    DeckBTouchWheelScratchSliderEncoder,
+    DeckBTouchWheelSearchSliderEncoder,
+    // Deck B: CenterSlider
+    DeckBPitchFaderCenterSlider,
+    DeckBGainKnobCenterSlider,
+    DeckBLoEqKnobCenterSlider,
+    DeckBMidEqKnobCenterSlider,
+    DeckBHiEqKnobCenterSlider,
+}
+
+impl From<Control> for ControlIndex {
+    fn from(value: Control) -> Self {
+        ControlIndex::new(value.to_u32().expect("u32"))
+    }
+}
+
+impl From<Input> for ControlInput {
+    fn from(from: Input) -> Self {
+        let (ctrl, input) = match from {
+            Input::Button { ctrl, input } => {
+                let input = crate::Input::Button(input);
+                match ctrl {
+                    Button::Tap => (Control::TapButton, input),
+                    _ => unimplemented!(),
+                }
+            }
+            _ => unimplemented!("TODO"),
+        };
+        Self {
+            index: ctrl.into(),
+            input,
+        }
     }
 }

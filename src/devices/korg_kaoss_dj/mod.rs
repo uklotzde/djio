@@ -1,19 +1,25 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::midi::DeviceDescriptor;
+use std::borrow::Cow;
 
-pub mod input;
+use crate::{DeviceDescriptor, MidiDeviceDescriptor};
+
+mod input;
 pub use self::input::{Input, InputEvent, InputGateway};
 
-pub mod output;
-pub use self::output::OutputGateway;
+mod output;
+pub use self::output::{DeckLed, Led, OutputGateway};
 
-pub const DEVICE_DESCRIPTOR: DeviceDescriptor = DeviceDescriptor {
-    vendor_name: "Korg",
-    model_name: "KAOSS DJ",
+pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
+    device: DeviceDescriptor {
+        vendor_name: Cow::Borrowed("Korg"),
+        model_name: Cow::Borrowed("KAOSS DJ"),
+    },
     port_name_prefix: "KAOSS DJ",
 };
+
+pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Deck {

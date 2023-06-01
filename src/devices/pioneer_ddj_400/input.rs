@@ -3,9 +3,8 @@
 
 use super::Deck;
 use crate::{
-    input::{u7_be_to_u14, TimeStamp},
-    midi::InputHandler,
-    ButtonInput, CenterSliderInput, EmitInputEvent, SliderInput,
+    u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiInputHandler, SliderInput,
+    TimeStamp,
 };
 
 pub type InputEvent = crate::InputEvent<Input>;
@@ -197,7 +196,7 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> InputHandler for InputGateway<E>
+impl<E> MidiInputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
