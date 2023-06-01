@@ -6,7 +6,9 @@ use std::borrow::Cow;
 use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
-pub use self::input::{Input, InputEvent, InputGateway};
+pub use self::input::{
+    Button, CenterSlider, DeckCenterSlider, Input, Control, InputEvent, InputGateway,
+};
 
 mod output;
 pub use self::output::{DeckLed, Led, OutputGateway};
