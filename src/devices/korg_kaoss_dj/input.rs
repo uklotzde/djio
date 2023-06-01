@@ -6,7 +6,7 @@ use num_traits::ToPrimitive as _;
 
 use super::Deck;
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInput, EmitInputEvent,
+    ButtonInput, CenterSliderInput, ControlIndex, ControlInput, ControlInputEvent, EmitInputEvent,
     MidiDeviceDescriptor, MidiInputHandler, SliderEncoderInput, SliderInput, StepEncoderInput,
     TimeStamp,
 };
@@ -491,6 +491,16 @@ impl Input {
 }
 
 pub type InputEvent = crate::InputEvent<Input>;
+
+impl From<InputEvent> for ControlInputEvent {
+    fn from(from: InputEvent) -> Self {
+        let InputEvent { ts, input } = from;
+        Self {
+            ts,
+            input: input.into(),
+        }
+    }
+}
 
 #[allow(missing_debug_implementations)]
 pub struct InputGateway<E> {
