@@ -47,8 +47,7 @@ impl From<SendError> for OutputError {
     }
 }
 
-// Callbacks for handling MIDI input
-pub trait MidiInputHandler: Send {
+pub trait MidiInputConnector: Send {
     /// Invoked before (re-)connecting the port.
     fn connect_midi_input_port(
         &mut self,
@@ -57,7 +56,10 @@ pub trait MidiInputHandler: Send {
         port_name: &str,
         port: &MidiInputPort,
     );
+}
 
+// Callbacks for handling MIDI input
+pub trait MidiInputHandler: Send {
     /// Invoked for each incoming message.
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
 }
@@ -66,6 +68,16 @@ impl<D> MidiInputHandler for D
 where
     D: DerefMut + Send,
     <D as Deref>::Target: MidiInputHandler,
+{
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+        self.deref_mut().handle_midi_input(ts, input);
+    }
+}
+
+impl<D> MidiInputConnector for D
+where
+    D: DerefMut + Send,
+    <D as Deref>::Target: MidiInputConnector,
 {
     fn connect_midi_input_port(
         &mut self,
@@ -77,16 +89,12 @@ where
         self.deref_mut()
             .connect_midi_input_port(device_descriptor, client_name, port_name, port);
     }
-
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
-        self.deref_mut().handle_midi_input(ts, input);
-    }
 }
 
 #[allow(missing_debug_implementations)]
-pub struct MidiDevice<I>
+pub struct MidirDevice<I>
 where
-    I: MidiInputHandler + 'static,
+    I: MidiInputHandler + MidiInputConnector + 'static,
 {
     descriptor: MidiDeviceDescriptor,
     input_port_name: String,
@@ -96,9 +104,9 @@ where
     input_connection: Option<MidiInputConnection<I>>,
 }
 
-impl<I> MidiDevice<I>
+impl<I> MidirDevice<I>
 where
-    I: MidiInputHandler,
+    I: MidiDevice,
 {
     #[must_use]
     fn new(
@@ -136,7 +144,7 @@ where
     #[must_use]
     pub fn is_available<U>(&self, device_manager: &MidiDeviceManager<U>) -> bool
     where
-        U: MidiInputHandler,
+        U: MidiInputHandler + MidiInputConnector,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port_name)
@@ -229,7 +237,11 @@ where
     }
 }
 
-pub type GenericMidiDevice = MidiDevice<Box<dyn MidiInputHandler>>;
+pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
+
+impl<I> MidiDevice for I where I: MidiInputHandler + MidiInputConnector {}
+
+pub type GenericMidiDevice = MidirDevice<Box<dyn MidiDevice>>;
 
 #[allow(missing_debug_implementations)]
 pub struct MidiDeviceManager<I> {
@@ -240,7 +252,7 @@ pub struct MidiDeviceManager<I> {
 
 impl<I> MidiDeviceManager<I>
 where
-    I: MidiInputHandler,
+    I: MidiInputHandler + MidiInputConnector,
 {
     pub fn new() -> Result<Self, midir::InitError> {
         let mut input = MidiInput::new("input port watcher")?;
@@ -286,7 +298,7 @@ where
     }
 
     #[must_use]
-    pub fn detect_dj_controllers(&self) -> Vec<(MidiDeviceDescriptor, MidiDevice<I>)> {
+    pub fn detect_dj_controllers(&self) -> Vec<(MidiDeviceDescriptor, MidirDevice<I>)> {
         let mut input_ports = self
             .input_ports()
             .into_iter()
@@ -332,7 +344,7 @@ where
                          \"{input_port_name}\", output port: \"{output_port_name}\")",
                         device_name = descriptor.device.name()
                     );
-                    let device = MidiDevice::new(
+                    let device = MidirDevice::new(
                         descriptor.clone(),
                         (input_port_name, input_port),
                         (output_port_name, output_port),
@@ -344,4 +356,4 @@ where
     }
 }
 
-pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn MidiInputHandler>>;
+pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn MidiDevice>>;

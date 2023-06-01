@@ -5,8 +5,8 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     devices::{korg_kaoss_dj, pioneer_ddj_400},
-    EmitInputEvent, GenericMidiDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputHandler,
-    TimeStamp,
+    EmitInputEvent, GenericMidiDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
+    MidiInputHandler, MidirDevice, TimeStamp,
 };
 use midir::{MidiInputPort, MidiOutputConnection};
 
@@ -17,18 +17,6 @@ struct LogMidiInput {
 }
 
 impl MidiInputHandler for LogMidiInput {
-    fn connect_midi_input_port(
-        &mut self,
-        device_descriptor: &MidiDeviceDescriptor,
-        client_name: &str,
-        port_name: &str,
-        _port: &MidiInputPort,
-    ) {
-        println!("{client_name}: Connecting input port \"{port_name}\"");
-        self.device_descriptor = Some(device_descriptor.to_owned());
-        self.client_name = client_name.to_owned();
-    }
-
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         let device_descriptor = self.device_descriptor.as_ref().unwrap();
         let client_name = &self.client_name;
@@ -48,6 +36,20 @@ impl MidiInputHandler for LogMidiInput {
             "{client_name} @ {ts}: {input:x?} (len = {input_len})",
             input_len = input.len()
         );
+    }
+}
+
+impl MidiInputConnector for LogMidiInput {
+    fn connect_midi_input_port(
+        &mut self,
+        device_descriptor: &MidiDeviceDescriptor,
+        client_name: &str,
+        port_name: &str,
+        _port: &MidiInputPort,
+    ) {
+        println!("{client_name}: Connecting input port \"{port_name}\"");
+        self.device_descriptor = Some(device_descriptor.to_owned());
+        self.client_name = client_name.to_owned();
     }
 }
 
@@ -77,7 +79,7 @@ fn main() {
 }
 
 #[must_use]
-fn new_midi_input_handler(device_descriptor: &MidiDeviceDescriptor) -> Box<dyn MidiInputHandler> {
+fn new_midi_input_handler(device_descriptor: &MidiDeviceDescriptor) -> Box<dyn MidiDevice> {
     if device_descriptor == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
         Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
     } else if device_descriptor == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
@@ -100,9 +102,9 @@ enum OutputGateway {
 
 impl OutputGateway {
     #[must_use]
-    fn attach<T>(midi_device: &MidiDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
+    fn attach<T>(midi_device: &MidirDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
     where
-        T: MidiInputHandler,
+        T: MidiInputHandler + MidiInputConnector,
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
