@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use midir::MidiOutputConnection;
+use num_derive::{FromPrimitive, ToPrimitive};
+use num_traits::ToPrimitive as _;
 
 use super::Deck;
-use crate::{LedOutput, OutputResult};
+use crate::{ControlIndex, LedOutput, OutputResult};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Led {
@@ -37,6 +39,63 @@ pub enum DeckLed {
     LoEqKnob,
     MidEqKnob,
     HiEqKnob,
+}
+
+#[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
+pub enum Actuator {
+    // Led
+    MonitorLevelKnobLed,
+    MonitorMixKnobLed,
+    MasterLevelKnobLed,
+    TabButtonLed,
+    TabHoldButtonLed,
+    HoldButtonLed,
+    // Deck A: Led
+    DeckAShiftButtonLed,
+    DeckAPlayPauseButtonLed,
+    DeckASyncButtonLed,
+    DeckACueButtonLed,
+    DeckAMonitorButtonLed,
+    DeckAFxButtonLed,
+    DeckATouchStripLeftLed,
+    DeckATouchStripCenterLed,
+    DeckATouchStripRightLed,
+    DeckATouchStripLoopLeftLed,
+    DeckATouchStripLoopCenterLed,
+    DeckATouchStripLoopRightLed,
+    DeckATouchStripHotCueLeftLed,
+    DeckATouchStripHotCueCenterLed,
+    DeckATouchStripHotCueRightLed,
+    DeckAGainKnobLed,
+    DeckALoEqKnobLed,
+    DeckAMidEqKnobLed,
+    DeckAHiEqKnobLed,
+    // Deck B: Led
+    DeckBShiftButtonLed,
+    DeckBPlayPauseButtonLed,
+    DeckBSyncButtonLed,
+    DeckBCueButtonLed,
+    DeckBMonitorButtonLed,
+    DeckBFxButtonLed,
+    DeckBTouchStripLeftLed,
+    DeckBTouchStripCenterLed,
+    DeckBTouchStripRightLed,
+    DeckBTouchStripLoopLeftLed,
+    DeckBTouchStripLoopCenterLed,
+    DeckBTouchStripLoopRightLed,
+    DeckBTouchStripHotCueLeftLed,
+    DeckBTouchStripHotCueCenterLed,
+    DeckBTouchStripHotCueRightLed,
+    DeckBGainKnobLed,
+    DeckBLoEqKnobLed,
+    DeckBMidEqKnobLed,
+    DeckBHiEqKnobLed,
+}
+
+impl From<Actuator> for ControlIndex {
+    fn from(value: Actuator) -> Self {
+        ControlIndex::new(value.to_u32().expect("u32"))
+    }
 }
 
 fn led_to_u7(output: LedOutput) -> u8 {

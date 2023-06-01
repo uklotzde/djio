@@ -7,11 +7,11 @@ use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
 pub use self::input::{
-    Button, CenterSlider, DeckCenterSlider, Input, Sensor, InputEvent, InputGateway,
+    Button, CenterSlider, DeckCenterSlider, Input, InputEvent, InputGateway, Sensor,
 };
 
 mod output;
-pub use self::output::{DeckLed, Led, OutputGateway};
+pub use self::output::{Actuator, DeckLed, Led, OutputGateway};
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
