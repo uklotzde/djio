@@ -127,7 +127,6 @@ impl OutputGateway {
         midi_output_connection
     }
 
-    #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn send_led_output(&mut self, led: Led, output: LedOutput) -> OutputResult<()> {
         #[allow(clippy::match_single_binding)] // FIXME
         match led {
@@ -135,7 +134,6 @@ impl OutputGateway {
         }
     }
 
-    #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn send_deck_led_output(
         &mut self,
         deck: Deck,

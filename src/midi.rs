@@ -153,7 +153,6 @@ where
         self.input_connection.is_some()
     }
 
-    #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn reconnect(
         &mut self,
         new_input_handler: Option<impl FnOnce() -> I>,
@@ -243,7 +242,6 @@ impl<I> MidiDeviceManager<I>
 where
     I: MidiInputHandler,
 {
-    #[allow(clippy::missing_errors_doc)] // FIXME
     pub fn new() -> Result<Self, midir::InitError> {
         let mut input = MidiInput::new("input port watcher")?;
         input.ignore(Ignore::None);
