@@ -42,6 +42,7 @@ pub enum DeckLed {
 }
 
 #[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
+#[repr(u32)]
 pub enum Actuator {
     // Led
     MonitorLevelKnobLed,

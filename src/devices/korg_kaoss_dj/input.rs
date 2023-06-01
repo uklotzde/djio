@@ -537,6 +537,7 @@ where
 
 /// Flattened enumeration of all input controls
 #[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
+#[repr(u32)]
 pub enum Sensor {
     // Button
     TapButton,
