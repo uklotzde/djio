@@ -7,7 +7,7 @@ use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
 pub use self::input::{
-    Button, CenterSlider, DeckCenterSlider, Input, Control, InputEvent, InputGateway,
+    Button, CenterSlider, DeckCenterSlider, Input, Sensor, InputEvent, InputGateway,
 };
 
 mod output;

@@ -537,7 +537,7 @@ where
 
 /// Flattened enumeration of all input controls
 #[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
-pub enum Control {
+pub enum Sensor {
     // Button
     TapButton,
     TapHoldButton,
@@ -629,8 +629,8 @@ pub enum Control {
     DeckBHiEqKnobCenterSlider,
 }
 
-impl From<Control> for ControlIndex {
-    fn from(value: Control) -> Self {
+impl From<Sensor> for ControlIndex {
+    fn from(value: Sensor) -> Self {
         ControlIndex::new(value.to_u32().expect("u32"))
     }
 }
@@ -641,7 +641,7 @@ impl From<Input> for ControlInput {
             Input::Button { ctrl, input } => {
                 let input = crate::Input::Button(input);
                 match ctrl {
-                    Button::Tap => (Control::TapButton, input),
+                    Button::Tap => (Sensor::TapButton, input),
                     _ => unimplemented!(),
                 }
             }
