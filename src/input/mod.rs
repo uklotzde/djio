@@ -8,13 +8,16 @@ use std::ops::RangeInclusive;
 
 use crate::{ControlIndex, TimeStamp};
 
+/// Time-stamped input event
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InputEvent<T> {
     pub ts: TimeStamp,
     pub input: T,
 }
 
+/// Emit input events after parsing the corresponding hardware-inputs
 pub trait EmitInputEvent<T> {
+    /// Emit an input event
     fn emit_input_event(&mut self, event: InputEvent<T>);
 }
 
@@ -124,15 +127,26 @@ impl CenterSliderInput {
     }
 }
 
-/// An endless encoder that sends discrete delta values when rotated
-/// in CW (positive) or CCW (negative) direction.
+/// An endless encoder that sends discrete delta values
+///
+/// Usually implemented by a hardware knob/pot that sends either
+/// positive or negative delta values while rotated in clockwise (CW)
+/// or counter-clockwise (CCS) direction respectively.
+///
+/// The number of ticks per revolution or twist is device-dependent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct StepEncoderInput {
     pub delta: i32,
 }
 
-/// An endless encoder that sends continuous delta values when rotated
-/// in CW (positive) or CCW (negative) direction.
+/// An endless encoder that sends continuous delta values
+///
+/// Usually implemented by a hardware knob/pot that sends either
+/// positive or negative delta values while rotated in clockwise (CW)
+/// or counter-clockwise (CCS) direction respectively.
+///
+/// The scaling is device-dependent, but the following values are
+/// recommended both for reference and for maximum portability:
 ///
 ///  1.0: One full CW rotation (360 degrees)
 /// -1.0: One full CCW rotation (360 degrees)
@@ -170,6 +184,7 @@ impl SliderEncoderInput {
     }
 }
 
+/// Generic input
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Input {
     Button(ButtonInput),
@@ -216,6 +231,7 @@ impl From<SliderEncoderInput> for Input {
     }
 }
 
+/// Input from a single, generic control.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ControlInput {
     pub index: ControlIndex,

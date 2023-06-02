@@ -34,6 +34,7 @@ pub use self::input::{
 mod output;
 pub use self::output::{DimLedOutput, LedOutput, OutputError, OutputResult, RgbLedOutput};
 
+/// Common, information properties about a device.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceDescriptor {
     pub vendor_name: Cow<'static, str>,

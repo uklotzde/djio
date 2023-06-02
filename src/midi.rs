@@ -15,6 +15,7 @@ use thiserror::Error;
 
 use crate::{DeviceDescriptor, OutputError, TimeStamp};
 
+/// MIDI-related, extended [`DeviceDescriptor`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MidiDeviceDescriptor {
     pub device: DeviceDescriptor,
@@ -52,7 +53,7 @@ pub trait MidirInputConnector: Send {
     );
 }
 
-// Callbacks for handling MIDI input
+/// Callbacks for handling MIDI input
 pub trait MidiInputHandler: Send {
     /// Invoked for each incoming message.
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
@@ -85,6 +86,7 @@ where
     }
 }
 
+/// MIDI device driven by [`midir`].
 #[allow(missing_debug_implementations)]
 pub struct MidirDevice<I>
 where
@@ -237,6 +239,7 @@ impl<I> MidiDevice for I where I: MidiInputHandler + MidirInputConnector {}
 
 pub type GenericMidiDevice = MidirDevice<Box<dyn MidiDevice>>;
 
+/// Identifies and connects [`MidirDevice`]s.
 #[allow(missing_debug_implementations)]
 pub struct MidirDeviceManager<I> {
     input: MidiInput,
