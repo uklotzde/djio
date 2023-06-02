@@ -5,8 +5,8 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    EmitInputEvent, GenericMidiDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputHandler, MidirDevice, TimeStamp,
+    EmitInputEvent, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputHandler,
+    MidirDevice, MidirInputConnector, TimeStamp,
 };
 use midir::{MidiInputPort, MidiOutputConnection};
 
@@ -39,7 +39,7 @@ impl MidiInputHandler for LogMidiInput {
     }
 }
 
-impl MidiInputConnector for LogMidiInput {
+impl MidirInputConnector for LogMidiInput {
     fn connect_midi_input_port(
         &mut self,
         device_descriptor: &MidiDeviceDescriptor,
@@ -104,7 +104,7 @@ impl OutputGateway {
     #[must_use]
     fn attach<T>(midi_device: &MidirDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
     where
-        T: MidiInputHandler + MidiInputConnector,
+        T: MidiInputHandler + MidirInputConnector,
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
@@ -157,7 +157,7 @@ impl OutputGateway {
 }
 
 fn run() -> anyhow::Result<()> {
-    let device_manager = GenericMidiDeviceManager::new()?;
+    let device_manager = GenericMidirDeviceManager::new()?;
     let mut dj_controllers = device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS);
     let (_descriptor, mut device) = match dj_controllers.len() {
         0 => anyhow::bail!("No supported DJ controllers found"),

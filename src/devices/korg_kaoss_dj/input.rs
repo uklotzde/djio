@@ -7,7 +7,7 @@ use num_traits::{FromPrimitive as _, ToPrimitive as _};
 use super::Deck;
 use crate::{
     ButtonInput, CenterSliderInput, ControlIndex, ControlInput, ControlInputEvent, EmitInputEvent,
-    MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, SliderEncoderInput, SliderInput,
+    MidiDeviceDescriptor, MidiInputHandler, MidirInputConnector, SliderEncoderInput, SliderInput,
     StepEncoderInput, TimeStamp,
 };
 
@@ -535,7 +535,7 @@ where
     }
 }
 
-impl<E> MidiInputConnector for InputGateway<E>
+impl<E> MidirInputConnector for InputGateway<E>
 where
     E: Send,
 {

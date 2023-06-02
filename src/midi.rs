@@ -41,7 +41,7 @@ impl From<SendError> for OutputError {
     }
 }
 
-pub trait MidiInputConnector: Send {
+pub trait MidirInputConnector: Send {
     /// Invoked before (re-)connecting the port.
     fn connect_midi_input_port(
         &mut self,
@@ -68,10 +68,10 @@ where
     }
 }
 
-impl<D> MidiInputConnector for D
+impl<D> MidirInputConnector for D
 where
     D: DerefMut + Send,
-    <D as Deref>::Target: MidiInputConnector,
+    <D as Deref>::Target: MidirInputConnector,
 {
     fn connect_midi_input_port(
         &mut self,
@@ -88,7 +88,7 @@ where
 #[allow(missing_debug_implementations)]
 pub struct MidirDevice<I>
 where
-    I: MidiInputHandler + MidiInputConnector + 'static,
+    I: MidiInputHandler + MidirInputConnector + 'static,
 {
     descriptor: MidiDeviceDescriptor,
     input_port_name: String,
@@ -136,9 +136,9 @@ where
     }
 
     #[must_use]
-    pub fn is_available<U>(&self, device_manager: &MidiDeviceManager<U>) -> bool
+    pub fn is_available<U>(&self, device_manager: &MidirDeviceManager<U>) -> bool
     where
-        U: MidiInputHandler + MidiInputConnector,
+        U: MidiInputHandler + MidirInputConnector,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port_name)
@@ -231,28 +231,28 @@ where
     }
 }
 
-pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
+pub trait MidiDevice: MidiInputHandler + MidirInputConnector {}
 
-impl<I> MidiDevice for I where I: MidiInputHandler + MidiInputConnector {}
+impl<I> MidiDevice for I where I: MidiInputHandler + MidirInputConnector {}
 
 pub type GenericMidiDevice = MidirDevice<Box<dyn MidiDevice>>;
 
 #[allow(missing_debug_implementations)]
-pub struct MidiDeviceManager<I> {
+pub struct MidirDeviceManager<I> {
     input: MidiInput,
     output: MidiOutput,
     _input_handler: PhantomData<I>,
 }
 
-impl<I> MidiDeviceManager<I>
+impl<I> MidirDeviceManager<I>
 where
-    I: MidiInputHandler + MidiInputConnector,
+    I: MidiInputHandler + MidirInputConnector,
 {
     pub fn new() -> Result<Self, midir::InitError> {
         let mut input = MidiInput::new("input port watcher")?;
         input.ignore(Ignore::None);
         let output = MidiOutput::new("output port watcher")?;
-        Ok(MidiDeviceManager {
+        Ok(MidirDeviceManager {
             input,
             output,
             _input_handler: PhantomData,
@@ -353,4 +353,4 @@ where
     }
 }
 
-pub type GenericMidiDeviceManager = MidiDeviceManager<Box<dyn MidiDevice>>;
+pub type GenericMidirDeviceManager = MidirDeviceManager<Box<dyn MidiDevice>>;

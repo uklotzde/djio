@@ -4,7 +4,7 @@
 use super::Deck;
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiDeviceDescriptor,
-    MidiInputConnector, MidiInputHandler, SliderInput, TimeStamp,
+    MidiInputHandler, MidirInputConnector, SliderInput, TimeStamp,
 };
 
 pub type InputEvent = crate::InputEvent<Input>;
@@ -266,7 +266,7 @@ where
     }
 }
 
-impl<E> MidiInputConnector for InputGateway<E>
+impl<E> MidirInputConnector for InputGateway<E>
 where
     E: Send,
 {
