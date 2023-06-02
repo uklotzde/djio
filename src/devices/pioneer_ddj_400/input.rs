@@ -50,7 +50,7 @@ pub enum WheelDirection {
 
 #[derive(Debug)]
 pub enum MixerInput {
-    Crossfader(SliderInput),
+    Crossfader(CenterSliderInput),
     CrossfaderRaw(HalfU14),
     VolumeFader(MixerChannel, SliderInput),
     VolumeFaderRaw(MixerChannel, HalfU14),
@@ -216,9 +216,11 @@ where
                             self.crossfader.hi = val;
                         }
                     }
-                    let slider =
-                        SliderInput::from_u14(u7_be_to_u14(self.crossfader.hi, self.crossfader.lo));
-                    Input::Mixer(MixerInput::Crossfader(slider))
+                    let center_slider = CenterSliderInput::from_u14(u7_be_to_u14(
+                        self.crossfader.hi,
+                        self.crossfader.lo,
+                    ));
+                    Input::Mixer(MixerInput::Crossfader(center_slider))
                 }
                 MixerInput::VolumeFaderRaw(channel, half_u14) => {
                     let fader = match channel {
