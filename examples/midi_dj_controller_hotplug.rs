@@ -110,30 +110,38 @@ impl OutputGateway {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
             // FIXME: Remove this test code
             gateway
-                .send_deck_led_output(
-                    korg_kaoss_dj::Deck::A,
-                    korg_kaoss_dj::DeckLed::PlayPauseButton,
+                .send_led_output(
+                    korg_kaoss_dj::Led::Deck(
+                        korg_kaoss_dj::Deck::A,
+                        korg_kaoss_dj::DeckButtonLed::PlayPause.into(),
+                    ),
                     djio::LedOutput::On,
                 )
                 .unwrap();
             gateway
-                .send_deck_led_output(
-                    korg_kaoss_dj::Deck::B,
-                    korg_kaoss_dj::DeckLed::PlayPauseButton,
+                .send_led_output(
+                    korg_kaoss_dj::Led::Deck(
+                        korg_kaoss_dj::Deck::B,
+                        korg_kaoss_dj::DeckButtonLed::PlayPause.into(),
+                    ),
                     djio::LedOutput::Off,
                 )
                 .unwrap();
             gateway
-                .send_deck_led_output(
-                    korg_kaoss_dj::Deck::A,
-                    korg_kaoss_dj::DeckLed::CueButton,
+                .send_led_output(
+                    korg_kaoss_dj::Led::Deck(
+                        korg_kaoss_dj::Deck::A,
+                        korg_kaoss_dj::DeckButtonLed::Cue.into(),
+                    ),
                     djio::LedOutput::Off,
                 )
                 .unwrap();
             gateway
-                .send_deck_led_output(
-                    korg_kaoss_dj::Deck::B,
-                    korg_kaoss_dj::DeckLed::CueButton,
+                .send_led_output(
+                    korg_kaoss_dj::Led::Deck(
+                        korg_kaoss_dj::Deck::B,
+                        korg_kaoss_dj::DeckButtonLed::Cue.into(),
+                    ),
                     djio::LedOutput::On,
                 )
                 .unwrap();

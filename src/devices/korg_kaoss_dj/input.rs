@@ -4,7 +4,25 @@
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive as _, ToPrimitive as _};
 
-use super::Deck;
+use super::{
+    Deck, MIDI_BROWSE_KNOB, MIDI_BROWSE_KNOB_SHIFT_BUTTON, MIDI_CROSSFADER, MIDI_DECK_CUE_BUTTON,
+    MIDI_DECK_CUE_SHIFT_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB,
+    MIDI_DECK_FX_BUTTON, MIDI_DECK_GAIN_KNOB, MIDI_DECK_LEVEL_FADER, MIDI_DECK_LOAD_BUTTON,
+    MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PITCH_FADER, MIDI_DECK_PLAYPAUSE_BUTTON,
+    MIDI_DECK_PLAYPAUSE_SHIFT_BUTTON, MIDI_DECK_SHIFT_BUTTON, MIDI_DECK_SYNC_BUTTON,
+    MIDI_DECK_SYNC_SHIFT_BUTTON, MIDI_DECK_TOUCHSTRIP, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
+    MIDI_DECK_TOUCHWHEEL_BEND, MIDI_DECK_TOUCHWHEEL_SCRATCH, MIDI_DECK_TOUCHWHEEL_SCRATCH_BUTTON,
+    MIDI_DECK_TOUCHWHEEL_SEARCH, MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB,
+    MIDI_MONITOR_MIX_KNOB, MIDI_PROGRAM_KNOB, MIDI_STATUS_BUTTON, MIDI_STATUS_BUTTON_DECK_A,
+    MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_CC, MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B,
+    MIDI_TAP_BUTTON, MIDI_TAP_HOLD_BUTTON, MIDI_TOUCHPAD_LOWER_LEFT_BUTTON,
+    MIDI_TOUCHPAD_LOWER_RIGHT_BUTTON, MIDI_TOUCHPAD_MODE_BUTTON, MIDI_TOUCHPAD_UPPER_LEFT_BUTTON,
+    MIDI_TOUCHPAD_UPPER_RIGHT_BUTTON, MIDI_TOUCHPAD_X, MIDI_TOUCHPAD_Y,
+};
 use crate::{
     ButtonInput, CenterSliderInput, ControlIndex, ControlInput, ControlInputEvent, EmitInputEvent,
     MidiDeviceDescriptor, MidiInputHandler, MidirInputConnector, SliderEncoderInput, SliderInput,
@@ -13,16 +31,16 @@ use crate::{
 
 fn u7_to_button(input: u8) -> ButtonInput {
     match input {
-        0 => ButtonInput::Released,
-        127 => ButtonInput::Pressed,
+        0x00 => ButtonInput::Released,
+        0x7f => ButtonInput::Pressed,
         _ => unreachable!(),
     }
 }
 
 fn u7_to_step_encoder(input: u8) -> StepEncoderInput {
     let delta = match input {
-        1 => 1,
-        127 => -1,
+        0x01 => 1,
+        0x7f => -1,
         _ => unreachable!(),
     };
     StepEncoderInput { delta }
@@ -53,6 +71,9 @@ pub enum StepEncoder {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Slider {
+    AudiolessMonitorLevel,
+    AudiolessMonitorMix,
+    AudiolessMasterLevel,
     TouchPadX,
     TouchPadY,
 }
@@ -106,9 +127,9 @@ pub enum DeckSliderEncoder {
 #[derive(Debug, Clone, Copy)]
 pub enum DeckCenterSlider {
     GainKnob,
-    HiEqKnob,
-    LoEqKnob,
-    MidEqKnob,
+    EqHiKnob,
+    EqLoKnob,
+    EqMidKnob,
     PitchFader,
 }
 
@@ -165,320 +186,327 @@ impl Input {
     #[must_use]
     #[allow(clippy::too_many_lines)]
     pub fn try_from_midi_message(input: &[u8]) -> Option<Self> {
-        let mapped = match input {
-            [0x96, data1, data2] => {
-                // Global buttons (MIDI channel 7)
-                match data1 {
-                    0x07 => Input::Button {
-                        ctrl: Button::BrowseKnobShift,
-                        input: u7_to_button(*data2),
-                    },
-                    0x0b => Input::Button {
-                        ctrl: Button::Tap,
-                        input: u7_to_button(*data2),
-                    },
-                    0x21 => Input::Button {
-                        ctrl: Button::TapHold,
-                        input: u7_to_button(*data2),
-                    },
-                    0x22 => Input::Button {
-                        ctrl: Button::TouchPadMode,
-                        input: u7_to_button(*data2),
-                    },
-                    0x4a => Input::Button {
-                        ctrl: Button::TouchPadUpperLeft,
-                        input: u7_to_button(*data2),
-                    },
-                    0x4b => Input::Button {
-                        ctrl: Button::TouchPadUpperRight,
-                        input: u7_to_button(*data2),
-                    },
-                    0x4c => Input::Button {
-                        ctrl: Button::TouchPadLowerLeft,
-                        input: u7_to_button(*data2),
-                    },
-                    0x4d => Input::Button {
-                        ctrl: Button::TouchPadLowerRight,
-                        input: u7_to_button(*data2),
-                    },
-                    _ => unreachable!(),
-                }
-            }
-            [status @ (0x97 | 0x98), data1, data2] => {
-                // Deck buttons (MIDI channel 8/9)
-                let deck = match *status {
-                    0x97 => Deck::A,
-                    0x98 => Deck::B,
+        let mapped = match *input {
+            [MIDI_STATUS_BUTTON, data1, data2] => match data1 {
+                MIDI_BROWSE_KNOB_SHIFT_BUTTON => Input::Button {
+                    ctrl: Button::BrowseKnobShift,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TAP_BUTTON => Input::Button {
+                    ctrl: Button::Tap,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TAP_HOLD_BUTTON => Input::Button {
+                    ctrl: Button::TapHold,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TOUCHPAD_MODE_BUTTON => Input::Button {
+                    ctrl: Button::TouchPadMode,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TOUCHPAD_UPPER_LEFT_BUTTON => Input::Button {
+                    ctrl: Button::TouchPadUpperLeft,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TOUCHPAD_UPPER_RIGHT_BUTTON => Input::Button {
+                    ctrl: Button::TouchPadUpperRight,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TOUCHPAD_LOWER_LEFT_BUTTON => Input::Button {
+                    ctrl: Button::TouchPadLowerLeft,
+                    input: u7_to_button(data2),
+                },
+                MIDI_TOUCHPAD_LOWER_RIGHT_BUTTON => Input::Button {
+                    ctrl: Button::TouchPadLowerRight,
+                    input: u7_to_button(data2),
+                },
+                _ => unreachable!(),
+            },
+            [status @ (MIDI_STATUS_BUTTON_DECK_A | MIDI_STATUS_BUTTON_DECK_B), data1, data2] => {
+                let deck = match status {
+                    MIDI_STATUS_BUTTON_DECK_A => Deck::A,
+                    MIDI_STATUS_BUTTON_DECK_B => Deck::B,
                     _ => unreachable!(),
                 };
                 match data1 {
-                    0x0e => Self::Deck {
+                    MIDI_DECK_LOAD_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::Load,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x0f => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLoopLeft,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x10 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLoopCenter,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x11 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLoopRight,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x12 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripHotCueLeft,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x13 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripHotCueCenter,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x14 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripHotCueRight,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x15 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripLeft,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x16 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripCenter,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x17 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchStripRight,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x18 => Self::Deck {
+                    MIDI_DECK_FX_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::Fx,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x19 => Self::Deck {
+                    MIDI_DECK_MONITOR_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::Monitor,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x1a => Self::Deck {
+                    MIDI_DECK_SHIFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::Shift,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x1b => Self::Deck {
+                    MIDI_DECK_PLAYPAUSE_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::LayerButton {
                             ctrl: DeckLayerButton::PlayPause,
                             layer: Layer::Plain,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x1d => Self::Deck {
+                    MIDI_DECK_SYNC_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::LayerButton {
                             ctrl: DeckLayerButton::Sync,
                             layer: Layer::Plain,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x1e => Self::Deck {
+                    MIDI_DECK_CUE_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::LayerButton {
                             ctrl: DeckLayerButton::Cue,
                             layer: Layer::Plain,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x1f => Self::Deck {
+                    MIDI_DECK_TOUCHWHEEL_SCRATCH_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::Button {
                             ctrl: DeckButton::TouchWheelScratch,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x2e => Self::Deck {
+                    MIDI_DECK_PLAYPAUSE_SHIFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::LayerButton {
                             ctrl: DeckLayerButton::PlayPause,
                             layer: Layer::Shift,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x2f => Self::Deck {
+                    MIDI_DECK_SYNC_SHIFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::LayerButton {
                             ctrl: DeckLayerButton::Sync,
                             layer: Layer::Shift,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
-                    0x30 => Self::Deck {
+                    MIDI_DECK_CUE_SHIFT_BUTTON => Self::Deck {
                         deck,
                         input: DeckInput::LayerButton {
                             ctrl: DeckLayerButton::Cue,
                             layer: Layer::Shift,
-                            input: u7_to_button(*data2),
+                            input: u7_to_button(data2),
                         },
                     },
                     _ => unreachable!(),
                 }
             }
-            [0xb8, 0x0c, _data2] => {
+            [MIDI_STATUS_CC_DECK_B, MIDI_TOUCHPAD_X | MIDI_TOUCHPAD_Y, _data2] => {
                 // Filter duplicate touch pad messages for deck B,
                 // see the comments in next match expression.
                 return None;
             }
-            [status @ (0xb6 | 0xb7), 0x0c, data2] => {
+            [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), MIDI_TOUCHPAD_X, data2] => {
                 // The X/Y coordinates of the touch pad are always sent twice for
                 // unknown reasons. According to the documentation they should
-                // be sent on channel 7 (0xb6) instead of on channel 8 (0xb7)
-                // and channel 9 (0xb8) for both decks.
-                debug_assert_ne!(0xb6, *status);
-                debug_assert_eq!(0xb7, *status);
+                // be sent on the main channel instead of on both deck channels.
+                debug_assert_ne!(MIDI_STATUS_CC, status);
+                debug_assert_eq!(MIDI_STATUS_CC_DECK_A, status);
                 Self::Slider {
                     ctrl: Slider::TouchPadX,
-                    input: SliderInput::from_u7(*data2),
+                    input: SliderInput::from_u7(data2),
                 }
             }
-            [0xb6 | 0xb7 | 0xb8, 0x0d, data2] => {
-                // See the comment above for the X slider.
+            [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), MIDI_TOUCHPAD_Y, data2] => {
+                // The X/Y coordinates of the touch pad are always sent twice for
+                // unknown reasons. According to the documentation they should
+                // be sent on the main channel instead of on both deck channels.
+                debug_assert_ne!(MIDI_STATUS_CC, status);
+                debug_assert_eq!(MIDI_STATUS_CC_DECK_A, status);
                 Self::Slider {
                     ctrl: Slider::TouchPadY,
-                    input: SliderInput::from_u7(*data2),
+                    input: SliderInput::from_u7(data2),
                 }
             }
-            [0xb6, data1, data2] => {
-                // Global sliders and encoders (MIDI channel 7)
-                match *data1 {
-                    0x17 => Self::CenterSlider {
-                        ctrl: CenterSlider::CrossFader,
-                        input: CenterSliderInput::from_u7(*data2),
-                    },
-                    0x1e => Self::StepEncoder {
-                        ctrl: StepEncoder::BrowseKnob,
-                        input: u7_to_step_encoder(*data2),
-                    },
-                    0x1f => Self::StepEncoder {
-                        ctrl: StepEncoder::ProgramKnob,
-                        input: u7_to_step_encoder(*data2),
-                    },
-                    _ => unreachable!(),
-                }
-            }
-            [status @ (0xb7 | 0xb8), data1, data2] => {
-                // Deck sliders and encoders (MIDI channel 8/9)
-                let deck = match *status {
-                    0xb7 => Deck::A,
-                    0xb8 => Deck::B,
+            [MIDI_STATUS_CC, data1, data2] => match data1 {
+                MIDI_MONITOR_LEVEL_KNOB => Self::Slider {
+                    ctrl: Slider::AudiolessMonitorLevel,
+                    input: SliderInput::from_u7(data2),
+                },
+                MIDI_MONITOR_MIX_KNOB => Self::Slider {
+                    ctrl: Slider::AudiolessMonitorMix,
+                    input: SliderInput::from_u7(data2),
+                },
+                MIDI_MASTER_LEVEL_KNOB => Self::Slider {
+                    ctrl: Slider::AudiolessMasterLevel,
+                    input: SliderInput::from_u7(data2),
+                },
+                MIDI_CROSSFADER => Self::CenterSlider {
+                    ctrl: CenterSlider::CrossFader,
+                    input: CenterSliderInput::from_u7(data2),
+                },
+                MIDI_BROWSE_KNOB => Self::StepEncoder {
+                    ctrl: StepEncoder::BrowseKnob,
+                    input: u7_to_step_encoder(data2),
+                },
+                MIDI_PROGRAM_KNOB => Self::StepEncoder {
+                    ctrl: StepEncoder::ProgramKnob,
+                    input: u7_to_step_encoder(data2),
+                },
+                _ => unreachable!(),
+            },
+            [status @ (MIDI_STATUS_CC_DECK_A | MIDI_STATUS_CC_DECK_B), data1, data2] => {
+                let deck = match status {
+                    MIDI_STATUS_CC_DECK_A => Deck::A,
+                    MIDI_STATUS_CC_DECK_B => Deck::B,
                     _ => unreachable!(),
                 };
-                match *data1 {
-                    0x0e => Self::Deck {
+                match data1 {
+                    MIDI_DECK_TOUCHWHEEL_BEND => Self::Deck {
                         deck,
                         input: DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelBend,
-                            input: SliderEncoderInput::from_u7(*data2),
+                            input: SliderEncoderInput::from_u7(data2),
                         },
                     },
-                    0x0f => Self::Deck {
+                    MIDI_DECK_TOUCHWHEEL_SEARCH => Self::Deck {
                         deck,
                         input: DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelSearch,
-                            input: SliderEncoderInput::from_u7(*data2),
+                            input: SliderEncoderInput::from_u7(data2),
                         },
                     },
-                    0x10 => Self::Deck {
+                    MIDI_DECK_TOUCHWHEEL_SCRATCH => Self::Deck {
                         deck,
                         input: DeckInput::SliderEncoder {
                             ctrl: DeckSliderEncoder::TouchWheelScratch,
-                            input: SliderEncoderInput::from_u7(*data2),
+                            input: SliderEncoderInput::from_u7(data2),
                         },
                     },
-                    0x18 => Self::Deck {
+                    MIDI_DECK_LEVEL_FADER => Self::Deck {
                         deck,
                         input: DeckInput::Slider {
                             ctrl: DeckSlider::LevelFader,
-                            input: SliderInput::from_u7(*data2),
+                            input: SliderInput::from_u7(data2),
                         },
                     },
-                    0x19 => Self::Deck {
+                    MIDI_DECK_PITCH_FADER => Self::Deck {
                         deck,
                         input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::PitchFader,
-                            input: CenterSliderInput::from_u7(*data2),
+                            input: CenterSliderInput::from_u7(data2),
                         },
                     },
-                    0x1a => Self::Deck {
+                    MIDI_DECK_GAIN_KNOB => Self::Deck {
                         deck,
                         input: DeckInput::CenterSlider {
                             ctrl: DeckCenterSlider::GainKnob,
-                            input: CenterSliderInput::from_u7(*data2),
+                            input: CenterSliderInput::from_u7(data2),
                         },
                     },
-                    0x1b => Self::Deck {
+                    MIDI_DECK_EQ_HI_KNOB => Self::Deck {
                         deck,
                         input: DeckInput::CenterSlider {
-                            ctrl: DeckCenterSlider::HiEqKnob,
-                            input: CenterSliderInput::from_u7(*data2),
+                            ctrl: DeckCenterSlider::EqHiKnob,
+                            input: CenterSliderInput::from_u7(data2),
                         },
                     },
-                    0x1c => Self::Deck {
+                    MIDI_DECK_EQ_MID_KNOB => Self::Deck {
                         deck,
                         input: DeckInput::CenterSlider {
-                            ctrl: DeckCenterSlider::MidEqKnob,
-                            input: CenterSliderInput::from_u7(*data2),
+                            ctrl: DeckCenterSlider::EqMidKnob,
+                            input: CenterSliderInput::from_u7(data2),
                         },
                     },
-                    0x1d => Self::Deck {
+                    MIDI_DECK_EQ_LO_KNOB => Self::Deck {
                         deck,
                         input: DeckInput::CenterSlider {
-                            ctrl: DeckCenterSlider::LoEqKnob,
-                            input: CenterSliderInput::from_u7(*data2),
+                            ctrl: DeckCenterSlider::EqLoKnob,
+                            input: CenterSliderInput::from_u7(data2),
                         },
                     },
-                    0x21 => Self::Deck {
+                    MIDI_DECK_TOUCHSTRIP => Self::Deck {
                         deck,
                         input: DeckInput::Slider {
                             ctrl: DeckSlider::TouchStrip,
-                            input: SliderInput::from_u7(*data2),
+                            input: SliderInput::from_u7(data2),
                         },
                     },
                     _ => unreachable!(),
@@ -569,6 +597,9 @@ pub enum Sensor {
     BrowseKnobStepEncoder,
     ProgramKnobStepEncoder,
     // Slider
+    AudiolessMonitorLevel,
+    AudiolessMonitorMix,
+    AudiolessMasterLevel,
     TouchPadXSlider,
     TouchPadYSlider,
     // Deck A: Button
@@ -602,9 +633,9 @@ pub enum Sensor {
     DeckATouchWheelSearchSliderEncoder,
     // Deck A: CenterSlider
     DeckAGainKnobCenterSlider,
-    DeckAHiEqKnobCenterSlider,
-    DeckALoEqKnobCenterSlider,
-    DeckAMidEqKnobCenterSlider,
+    DeckAEqHiKnobCenterSlider,
+    DeckAEqLoKnobCenterSlider,
+    DeckAEqMidKnobCenterSlider,
     DeckAPitchFaderCenterSlider,
     // Deck B: Button
     DeckBFxButton,
@@ -637,9 +668,9 @@ pub enum Sensor {
     DeckBTouchWheelSearchSliderEncoder,
     // Deck B: CenterSlider
     DeckBGainKnobCenterSlider,
-    DeckBHiEqKnobCenterSlider,
-    DeckBLoEqKnobCenterSlider,
-    DeckBMidEqKnobCenterSlider,
+    DeckBEqHiKnobCenterSlider,
+    DeckBEqLoKnobCenterSlider,
+    DeckBEqMidKnobCenterSlider,
     DeckBPitchFaderCenterSlider,
 }
 
@@ -660,251 +691,216 @@ impl TryFrom<ControlIndex> for Sensor {
 impl From<Input> for ControlInput {
     #[allow(clippy::too_many_lines)]
     fn from(from: Input) -> Self {
-        let (ctrl, input) = match from {
+        let (sensor, input) = match from {
             Input::Button { ctrl, input } => {
                 let input = input.into();
-                match ctrl {
-                    Button::BrowseKnobShift => (Sensor::BrowseKnobShiftButton, input),
-                    Button::Tap => (Sensor::TapButton, input),
-                    Button::TapHold => (Sensor::TapHoldButton, input),
-                    Button::TouchPadMode => (Sensor::TouchPadModeButton, input),
-                    Button::TouchPadLowerLeft => (Sensor::TouchPadLowerLeftButton, input),
-                    Button::TouchPadLowerRight => (Sensor::TouchPadLowerRightButton, input),
-                    Button::TouchPadUpperLeft => (Sensor::TouchPadUpperLeftButton, input),
-                    Button::TouchPadUpperRight => (Sensor::TouchPadUpperRightButton, input),
-                }
+                let sensor = match ctrl {
+                    Button::BrowseKnobShift => Sensor::BrowseKnobShiftButton,
+                    Button::Tap => Sensor::TapButton,
+                    Button::TapHold => Sensor::TapHoldButton,
+                    Button::TouchPadMode => Sensor::TouchPadModeButton,
+                    Button::TouchPadLowerLeft => Sensor::TouchPadLowerLeftButton,
+                    Button::TouchPadLowerRight => Sensor::TouchPadLowerRightButton,
+                    Button::TouchPadUpperLeft => Sensor::TouchPadUpperLeftButton,
+                    Button::TouchPadUpperRight => Sensor::TouchPadUpperRightButton,
+                };
+                (sensor, input)
             }
             Input::Slider { ctrl, input } => {
                 let input = input.into();
-                match ctrl {
-                    Slider::TouchPadX => (Sensor::TouchPadXSlider, input),
-                    Slider::TouchPadY => (Sensor::TouchPadYSlider, input),
-                }
+                let sensor = match ctrl {
+                    Slider::AudiolessMonitorLevel => Sensor::AudiolessMonitorLevel,
+                    Slider::AudiolessMonitorMix => Sensor::AudiolessMonitorMix,
+                    Slider::AudiolessMasterLevel => Sensor::AudiolessMasterLevel,
+                    Slider::TouchPadX => Sensor::TouchPadXSlider,
+                    Slider::TouchPadY => Sensor::TouchPadYSlider,
+                };
+                (sensor, input)
             }
             Input::CenterSlider { ctrl, input } => {
                 let input = input.into();
-                match ctrl {
-                    CenterSlider::CrossFader => (Sensor::CrossFaderCenterSlider, input),
-                }
+                let sensor = match ctrl {
+                    CenterSlider::CrossFader => Sensor::CrossFaderCenterSlider,
+                };
+                (sensor, input)
             }
             Input::StepEncoder { ctrl, input } => {
                 let input = input.into();
-                match ctrl {
-                    StepEncoder::BrowseKnob => (Sensor::BrowseKnobStepEncoder, input),
-                    StepEncoder::ProgramKnob => (Sensor::ProgramKnobStepEncoder, input),
-                }
+                let sensor = match ctrl {
+                    StepEncoder::BrowseKnob => Sensor::BrowseKnobStepEncoder,
+                    StepEncoder::ProgramKnob => Sensor::ProgramKnobStepEncoder,
+                };
+                (sensor, input)
             }
             Input::Deck { deck, input } => match deck {
                 Deck::A => match input {
                     DeckInput::Button { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
-                            DeckButton::Fx => (Sensor::DeckAFxButton, input),
-                            DeckButton::Load => (Sensor::DeckALoadButton, input),
-                            DeckButton::Monitor => (Sensor::DeckAMonitorButton, input),
-                            DeckButton::Shift => (Sensor::DeckAShiftButton, input),
-                            DeckButton::TouchStripCenter => {
-                                (Sensor::DeckATouchStripCenterButton, input)
-                            }
+                        let sensor = match ctrl {
+                            DeckButton::Fx => Sensor::DeckAFxButton,
+                            DeckButton::Load => Sensor::DeckALoadButton,
+                            DeckButton::Monitor => Sensor::DeckAMonitorButton,
+                            DeckButton::Shift => Sensor::DeckAShiftButton,
+                            DeckButton::TouchStripCenter => Sensor::DeckATouchStripCenterButton,
                             DeckButton::TouchStripHotCueCenter => {
-                                (Sensor::DeckATouchStripHotCueCenterButton, input)
+                                Sensor::DeckATouchStripHotCueCenterButton
                             }
                             DeckButton::TouchStripHotCueLeft => {
-                                (Sensor::DeckATouchStripHotCueLeftButton, input)
+                                Sensor::DeckATouchStripHotCueLeftButton
                             }
                             DeckButton::TouchStripHotCueRight => {
-                                (Sensor::DeckATouchStripHotCueRightButton, input)
+                                Sensor::DeckATouchStripHotCueRightButton
                             }
-                            DeckButton::TouchStripLeft => {
-                                (Sensor::DeckATouchStripLeftButton, input)
-                            }
+                            DeckButton::TouchStripLeft => Sensor::DeckATouchStripLeftButton,
                             DeckButton::TouchStripLoopCenter => {
-                                (Sensor::DeckATouchStripLoopCenterButton, input)
+                                Sensor::DeckATouchStripLoopCenterButton
                             }
-                            DeckButton::TouchStripLoopLeft => {
-                                (Sensor::DeckATouchStripLoopLeftButton, input)
-                            }
+                            DeckButton::TouchStripLoopLeft => Sensor::DeckATouchStripLoopLeftButton,
                             DeckButton::TouchStripLoopRight => {
-                                (Sensor::DeckATouchStripLoopRightButton, input)
+                                Sensor::DeckATouchStripLoopRightButton
                             }
-                            DeckButton::TouchStripRight => {
-                                (Sensor::DeckATouchStripRightButton, input)
-                            }
-                            DeckButton::TouchWheelScratch => {
-                                (Sensor::DeckATouchWheelScratchButton, input)
-                            }
-                        }
+                            DeckButton::TouchStripRight => Sensor::DeckATouchStripRightButton,
+                            DeckButton::TouchWheelScratch => Sensor::DeckATouchWheelScratchButton,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::LayerButton { ctrl, layer, input } => {
                         let input = input.into();
-                        match (ctrl, layer) {
-                            (DeckLayerButton::Cue, Layer::Plain) => (Sensor::DeckACueButton, input),
-                            (DeckLayerButton::Cue, Layer::Shift) => {
-                                (Sensor::DeckACueShiftButton, input)
-                            }
+                        let sensor = match (ctrl, layer) {
+                            (DeckLayerButton::Cue, Layer::Plain) => Sensor::DeckACueButton,
+                            (DeckLayerButton::Cue, Layer::Shift) => Sensor::DeckACueShiftButton,
                             (DeckLayerButton::PlayPause, Layer::Plain) => {
-                                (Sensor::DeckAPlayPauseButton, input)
+                                Sensor::DeckAPlayPauseButton
                             }
                             (DeckLayerButton::PlayPause, Layer::Shift) => {
-                                (Sensor::DeckAPlayPauseShiftButton, input)
+                                Sensor::DeckAPlayPauseShiftButton
                             }
-                            (DeckLayerButton::Sync, Layer::Plain) => {
-                                (Sensor::DeckASyncButton, input)
-                            }
-                            (DeckLayerButton::Sync, Layer::Shift) => {
-                                (Sensor::DeckASyncShiftButton, input)
-                            }
-                        }
+                            (DeckLayerButton::Sync, Layer::Plain) => Sensor::DeckASyncButton,
+                            (DeckLayerButton::Sync, Layer::Shift) => Sensor::DeckASyncShiftButton,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::Slider { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
-                            DeckSlider::LevelFader => (Sensor::DeckALevelFaderSlider, input),
-                            DeckSlider::TouchStrip => (Sensor::DeckATouchStripSlider, input),
-                        }
+                        let sensor = match ctrl {
+                            DeckSlider::LevelFader => Sensor::DeckALevelFaderSlider,
+                            DeckSlider::TouchStrip => Sensor::DeckATouchStripSlider,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::CenterSlider { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
-                            DeckCenterSlider::GainKnob => {
-                                (Sensor::DeckAGainKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::HiEqKnob => {
-                                (Sensor::DeckAHiEqKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::LoEqKnob => {
-                                (Sensor::DeckALoEqKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::MidEqKnob => {
-                                (Sensor::DeckAMidEqKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::PitchFader => {
-                                (Sensor::DeckAPitchFaderCenterSlider, input)
-                            }
-                        }
+                        let sensor = match ctrl {
+                            DeckCenterSlider::GainKnob => Sensor::DeckAGainKnobCenterSlider,
+                            DeckCenterSlider::EqHiKnob => Sensor::DeckAEqHiKnobCenterSlider,
+                            DeckCenterSlider::EqLoKnob => Sensor::DeckAEqLoKnobCenterSlider,
+                            DeckCenterSlider::EqMidKnob => Sensor::DeckAEqMidKnobCenterSlider,
+                            DeckCenterSlider::PitchFader => Sensor::DeckAPitchFaderCenterSlider,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::SliderEncoder { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
+                        let sensor = match ctrl {
                             DeckSliderEncoder::TouchWheelBend => {
-                                (Sensor::DeckATouchWheelBendSliderEncoder, input)
+                                Sensor::DeckATouchWheelBendSliderEncoder
                             }
                             DeckSliderEncoder::TouchWheelScratch => {
-                                (Sensor::DeckATouchWheelScratchSliderEncoder, input)
+                                Sensor::DeckATouchWheelScratchSliderEncoder
                             }
                             DeckSliderEncoder::TouchWheelSearch => {
-                                (Sensor::DeckATouchWheelSearchSliderEncoder, input)
+                                Sensor::DeckATouchWheelSearchSliderEncoder
                             }
-                        }
+                        };
+                        (sensor, input)
                     }
                 },
                 Deck::B => match input {
                     DeckInput::Button { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
-                            DeckButton::Fx => (Sensor::DeckBFxButton, input),
-                            DeckButton::Load => (Sensor::DeckBLoadButton, input),
-                            DeckButton::Monitor => (Sensor::DeckBMonitorButton, input),
-                            DeckButton::Shift => (Sensor::DeckBShiftButton, input),
-                            DeckButton::TouchStripCenter => {
-                                (Sensor::DeckBTouchStripCenterButton, input)
-                            }
+                        let sensor = match ctrl {
+                            DeckButton::Fx => Sensor::DeckBFxButton,
+                            DeckButton::Load => Sensor::DeckBLoadButton,
+                            DeckButton::Monitor => Sensor::DeckBMonitorButton,
+                            DeckButton::Shift => Sensor::DeckBShiftButton,
+                            DeckButton::TouchStripCenter => Sensor::DeckBTouchStripCenterButton,
                             DeckButton::TouchStripHotCueCenter => {
-                                (Sensor::DeckBTouchStripHotCueCenterButton, input)
+                                Sensor::DeckBTouchStripHotCueCenterButton
                             }
                             DeckButton::TouchStripHotCueLeft => {
-                                (Sensor::DeckBTouchStripHotCueLeftButton, input)
+                                Sensor::DeckBTouchStripHotCueLeftButton
                             }
                             DeckButton::TouchStripHotCueRight => {
-                                (Sensor::DeckBTouchStripHotCueRightButton, input)
+                                Sensor::DeckBTouchStripHotCueRightButton
                             }
-                            DeckButton::TouchStripLeft => {
-                                (Sensor::DeckBTouchStripLeftButton, input)
-                            }
+                            DeckButton::TouchStripLeft => Sensor::DeckBTouchStripLeftButton,
                             DeckButton::TouchStripLoopCenter => {
-                                (Sensor::DeckBTouchStripLoopCenterButton, input)
+                                Sensor::DeckBTouchStripLoopCenterButton
                             }
-                            DeckButton::TouchStripLoopLeft => {
-                                (Sensor::DeckBTouchStripLoopLeftButton, input)
-                            }
+                            DeckButton::TouchStripLoopLeft => Sensor::DeckBTouchStripLoopLeftButton,
                             DeckButton::TouchStripLoopRight => {
-                                (Sensor::DeckBTouchStripLoopRightButton, input)
+                                Sensor::DeckBTouchStripLoopRightButton
                             }
-                            DeckButton::TouchStripRight => {
-                                (Sensor::DeckBTouchStripRightButton, input)
-                            }
-                            DeckButton::TouchWheelScratch => {
-                                (Sensor::DeckBTouchWheelScratchButton, input)
-                            }
-                        }
+                            DeckButton::TouchStripRight => Sensor::DeckBTouchStripRightButton,
+                            DeckButton::TouchWheelScratch => Sensor::DeckBTouchWheelScratchButton,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::LayerButton { ctrl, layer, input } => {
                         let input = input.into();
-                        match (ctrl, layer) {
-                            (DeckLayerButton::Cue, Layer::Plain) => (Sensor::DeckBCueButton, input),
-                            (DeckLayerButton::Cue, Layer::Shift) => {
-                                (Sensor::DeckBCueShiftButton, input)
-                            }
+                        let sensor = match (ctrl, layer) {
+                            (DeckLayerButton::Cue, Layer::Plain) => Sensor::DeckBCueButton,
+                            (DeckLayerButton::Cue, Layer::Shift) => Sensor::DeckBCueShiftButton,
                             (DeckLayerButton::PlayPause, Layer::Plain) => {
-                                (Sensor::DeckBPlayPauseButton, input)
+                                Sensor::DeckBPlayPauseButton
                             }
                             (DeckLayerButton::PlayPause, Layer::Shift) => {
-                                (Sensor::DeckBPlayPauseShiftButton, input)
+                                Sensor::DeckBPlayPauseShiftButton
                             }
-                            (DeckLayerButton::Sync, Layer::Plain) => {
-                                (Sensor::DeckBSyncButton, input)
-                            }
-                            (DeckLayerButton::Sync, Layer::Shift) => {
-                                (Sensor::DeckBSyncShiftButton, input)
-                            }
-                        }
+                            (DeckLayerButton::Sync, Layer::Plain) => Sensor::DeckBSyncButton,
+                            (DeckLayerButton::Sync, Layer::Shift) => Sensor::DeckBSyncShiftButton,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::Slider { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
-                            DeckSlider::LevelFader => (Sensor::DeckBLevelFaderSlider, input),
-                            DeckSlider::TouchStrip => (Sensor::DeckBTouchStripSlider, input),
-                        }
+                        let sensor = match ctrl {
+                            DeckSlider::LevelFader => Sensor::DeckBLevelFaderSlider,
+                            DeckSlider::TouchStrip => Sensor::DeckBTouchStripSlider,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::CenterSlider { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
-                            DeckCenterSlider::GainKnob => {
-                                (Sensor::DeckBGainKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::HiEqKnob => {
-                                (Sensor::DeckBHiEqKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::LoEqKnob => {
-                                (Sensor::DeckBLoEqKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::MidEqKnob => {
-                                (Sensor::DeckBMidEqKnobCenterSlider, input)
-                            }
-                            DeckCenterSlider::PitchFader => {
-                                (Sensor::DeckBPitchFaderCenterSlider, input)
-                            }
-                        }
+                        let sensor = match ctrl {
+                            DeckCenterSlider::GainKnob => Sensor::DeckBGainKnobCenterSlider,
+                            DeckCenterSlider::EqHiKnob => Sensor::DeckBEqHiKnobCenterSlider,
+                            DeckCenterSlider::EqLoKnob => Sensor::DeckBEqLoKnobCenterSlider,
+                            DeckCenterSlider::EqMidKnob => Sensor::DeckBEqMidKnobCenterSlider,
+                            DeckCenterSlider::PitchFader => Sensor::DeckBPitchFaderCenterSlider,
+                        };
+                        (sensor, input)
                     }
                     DeckInput::SliderEncoder { ctrl, input } => {
                         let input = input.into();
-                        match ctrl {
+                        let sensor = match ctrl {
                             DeckSliderEncoder::TouchWheelBend => {
-                                (Sensor::DeckBTouchWheelBendSliderEncoder, input)
+                                Sensor::DeckBTouchWheelBendSliderEncoder
                             }
                             DeckSliderEncoder::TouchWheelScratch => {
-                                (Sensor::DeckBTouchWheelScratchSliderEncoder, input)
+                                Sensor::DeckBTouchWheelScratchSliderEncoder
                             }
                             DeckSliderEncoder::TouchWheelSearch => {
-                                (Sensor::DeckBTouchWheelSearchSliderEncoder, input)
+                                Sensor::DeckBTouchWheelSearchSliderEncoder
                             }
-                        }
+                        };
+                        (sensor, input)
                     }
                 },
             },
         };
         Self {
-            index: ctrl.into(),
+            index: sensor.into(),
             input,
         }
     }
