@@ -3,6 +3,8 @@
 
 use std::borrow::Cow;
 
+use strum::{EnumCount, EnumIter};
+
 use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
@@ -93,7 +95,7 @@ const MIDI_DECK_EQ_MID_KNOB: u8 = 0x1c;
 const MIDI_DECK_EQ_LO_KNOB: u8 = 0x1d;
 const MIDI_DECK_TOUCHSTRIP: u8 = 0x21;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
 pub enum Deck {
     /// Left deck
     A,

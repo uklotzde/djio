@@ -1,12 +1,15 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::io::{stdin, stdout, Write as _};
+use std::{
+    io::{stdin, stdout, Write as _},
+    time::Duration,
+};
 
 use djio::{
     devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    EmitInputEvent, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputReceiver,
-    MidirDevice, MidirInputConnector, TimeStamp,
+    EmitInputEvent, GenericMidirDeviceManager, LedOutput, MidiDevice, MidiDeviceDescriptor,
+    MidiInputReceiver, MidirDevice, MidirInputConnector, TimeStamp,
 };
 use midir::{MidiInputPort, MidiOutputConnection};
 
@@ -108,43 +111,15 @@ impl OutputGateway {
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
-            // FIXME: Remove this test code
+            // Simple LED animation
             gateway
-                .send_led_output(
-                    korg_kaoss_dj::Led::Deck(
-                        korg_kaoss_dj::Deck::A,
-                        korg_kaoss_dj::DeckButtonLed::PlayPause.into(),
-                    ),
-                    djio::LedOutput::On,
-                )
+                .send_all_led_outputs(LedOutput::Off, Duration::ZERO)
                 .unwrap();
             gateway
-                .send_led_output(
-                    korg_kaoss_dj::Led::Deck(
-                        korg_kaoss_dj::Deck::B,
-                        korg_kaoss_dj::DeckButtonLed::PlayPause.into(),
-                    ),
-                    djio::LedOutput::Off,
-                )
+                .send_all_led_outputs(LedOutput::On, Duration::from_millis(50))
                 .unwrap();
-            gateway
-                .send_led_output(
-                    korg_kaoss_dj::Led::Deck(
-                        korg_kaoss_dj::Deck::A,
-                        korg_kaoss_dj::DeckButtonLed::Cue.into(),
-                    ),
-                    djio::LedOutput::Off,
-                )
-                .unwrap();
-            gateway
-                .send_led_output(
-                    korg_kaoss_dj::Led::Deck(
-                        korg_kaoss_dj::Deck::B,
-                        korg_kaoss_dj::DeckButtonLed::Cue.into(),
-                    ),
-                    djio::LedOutput::On,
-                )
-                .unwrap();
+            // Reset all
+            gateway.reset_all_leds().unwrap();
             Self::KorgKaossDj { gateway }
         } else {
             Self::Generic {

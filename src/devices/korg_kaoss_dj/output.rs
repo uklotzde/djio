@@ -1,13 +1,15 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+use std::time::Duration;
+
 use midir::MidiOutputConnection;
-use strum::{EnumIter, FromRepr, IntoEnumIterator as _};
+use strum::{EnumCount, EnumIter, FromRepr, IntoEnumIterator as _};
 
 use super::{
     Deck, MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB,
-    MIDI_DECK_FX_BUTTON, MIDI_DECK_GAIN_KNOB, MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON,
-    MIDI_DECK_SHIFT_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+    MIDI_DECK_GAIN_KNOB, MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON,
+    MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
@@ -28,26 +30,29 @@ fn led_to_u7(output: LedOutput) -> u8 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
 pub enum ButtonLed {
     Tab,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
 pub enum KnobLed {
     MonitorLevel,
     MonitorMix,
     MasterLevel,
 }
 
-#[derive(Debug, Clone, Copy)]
+/// Deck button LED
+///
+/// Special cases:
+/// - The Shift button LED cannot be controlled.
+/// - The Fx button LED can only be toggled, not set to a desired on/off state.
+#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
 pub enum DeckButtonLed {
-    Shift,
     PlayPause,
     Sync,
     Cue,
     Monitor,
-    Fx,
     TouchStripLeft,
     TouchStripCenter,
     TouchStripRight,
@@ -59,7 +64,7 @@ pub enum DeckButtonLed {
     TouchStripHotCueRight,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
 pub enum DeckKnobLed {
     Gain,
     EqLo,
@@ -104,7 +109,7 @@ impl From<DeckKnobLed> for DeckLed {
     }
 }
 
-#[derive(Debug, Clone, Copy, FromRepr, EnumIter)]
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
 #[repr(u32)]
 pub enum Actuator {
     // Button Led
@@ -114,12 +119,10 @@ pub enum Actuator {
     MonitorMixKnobLed,
     MasterLevelKnobLed,
     // Deck A: Button Led
-    DeckAShiftButtonLed,
     DeckAPlayPauseButtonLed,
     DeckASyncButtonLed,
     DeckACueButtonLed,
     DeckAMonitorButtonLed,
-    DeckAFxButtonLed,
     DeckATouchStripLeftLed,
     DeckATouchStripCenterLed,
     DeckATouchStripRightLed,
@@ -135,12 +138,10 @@ pub enum Actuator {
     DeckAEqMidKnobLed,
     DeckAEqHiKnobLed,
     // Deck B: Button Led
-    DeckBShiftButtonLed,
     DeckBPlayPauseButtonLed,
     DeckBSyncButtonLed,
     DeckBCueButtonLed,
     DeckBMonitorButtonLed,
-    DeckBFxButtonLed,
     DeckBTouchStripLeftLed,
     DeckBTouchStripCenterLed,
     DeckBTouchStripRightLed,
@@ -182,15 +183,11 @@ impl From<Actuator> for Led {
             Actuator::MonitorLevelKnobLed => Led::Knob(KnobLed::MonitorLevel),
             Actuator::MonitorMixKnobLed => Led::Knob(KnobLed::MonitorMix),
             Actuator::DeckACueButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Cue)),
-            Actuator::DeckAFxButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Fx)),
             Actuator::DeckAMonitorButtonLed => {
                 Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Monitor))
             }
             Actuator::DeckAPlayPauseButtonLed => {
                 Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::PlayPause))
-            }
-            Actuator::DeckAShiftButtonLed => {
-                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Shift))
             }
             Actuator::DeckASyncButtonLed => {
                 Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Sync))
@@ -230,16 +227,12 @@ impl From<Actuator> for Led {
             Actuator::DeckAEqHiKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::EqHi)),
             Actuator::DeckAEqLoKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::EqLo)),
             Actuator::DeckAEqMidKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::EqMid)),
-            Actuator::DeckBCueButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Cue)),
-            Actuator::DeckBFxButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Fx)),
+            Actuator::DeckBCueButtonLed => Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Cue)),
             Actuator::DeckBMonitorButtonLed => {
                 Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Monitor))
             }
             Actuator::DeckBPlayPauseButtonLed => {
                 Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::PlayPause))
-            }
-            Actuator::DeckBShiftButtonLed => {
-                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Shift))
             }
             Actuator::DeckBSyncButtonLed => {
                 Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Sync))
@@ -304,6 +297,38 @@ impl OutputGateway {
         midi_output_connection
     }
 
+    pub fn reset_all_leds(&mut self) -> OutputResult<()> {
+        // Turn off all leds
+        self.send_all_led_outputs(LedOutput::Off, Duration::ZERO)?;
+        // Turn in all knob leds
+        for led in KnobLed::iter() {
+            self.send_led_output(led.into(), LedOutput::On)?;
+        }
+        for deck in Deck::iter() {
+            for led in DeckKnobLed::iter() {
+                self.send_led_output(Led::Deck(deck, led.into()), LedOutput::On)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn send_all_led_outputs(
+        &mut self,
+        output: LedOutput,
+        throttle: Duration,
+    ) -> OutputResult<()> {
+        let mut first = true;
+        for actuator in Actuator::iter() {
+            if first {
+                first = false;
+            } else if !throttle.is_zero() {
+                std::thread::sleep(throttle);
+            }
+            self.send_led_output(actuator.into(), output)?;
+        }
+        Ok(())
+    }
+
     pub fn send_led_output(&mut self, led: Led, output: LedOutput) -> OutputResult<()> {
         let (status, data1) = match led {
             Led::Button(led) => {
@@ -329,9 +354,7 @@ impl OutputGateway {
                         Deck::B => MIDI_STATUS_BUTTON_DECK_B,
                     };
                     let data1 = match led {
-                        DeckButtonLed::Fx => MIDI_DECK_FX_BUTTON,
                         DeckButtonLed::Monitor => MIDI_DECK_MONITOR_BUTTON,
-                        DeckButtonLed::Shift => MIDI_DECK_SHIFT_BUTTON,
                         DeckButtonLed::PlayPause => MIDI_DECK_PLAYPAUSE_BUTTON,
                         DeckButtonLed::Sync => MIDI_DECK_SYNC_BUTTON,
                         DeckButtonLed::Cue => MIDI_DECK_CUE_BUTTON,
