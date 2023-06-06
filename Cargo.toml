@@ -16,8 +16,7 @@ include = ["/src", "/README.md", "/LICENSES"]
 [dependencies]
 anyhow = "1.0.71"
 log = "0.4.18"
-num-derive = "0.3.3"
-num-traits = "0.2.15"
+strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.40"
 
 # Optional dependencies

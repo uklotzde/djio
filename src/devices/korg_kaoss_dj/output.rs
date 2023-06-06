@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use midir::MidiOutputConnection;
-use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::ToPrimitive as _;
+use strum::{EnumIter, FromRepr, IntoEnumIterator as _};
 
 use super::{
     Deck, MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB,
@@ -105,7 +104,7 @@ impl From<DeckKnobLed> for DeckLed {
     }
 }
 
-#[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter)]
 #[repr(u32)]
 pub enum Actuator {
     // Button Led
@@ -160,7 +159,18 @@ pub enum Actuator {
 
 impl From<Actuator> for ControlIndex {
     fn from(value: Actuator) -> Self {
-        ControlIndex::new(value.to_u32().expect("u32"))
+        ControlIndex::new(value as u32)
+    }
+}
+
+#[derive(Debug)]
+pub struct InvalidControlIndex;
+
+impl TryFrom<ControlIndex> for Actuator {
+    type Error = InvalidControlIndex;
+
+    fn try_from(index: ControlIndex) -> Result<Self, Self::Error> {
+        Self::from_repr(index.value()).ok_or(InvalidControlIndex)
     }
 }
 

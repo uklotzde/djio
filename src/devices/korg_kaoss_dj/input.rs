@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use num_derive::{FromPrimitive, ToPrimitive};
-use num_traits::{FromPrimitive as _, ToPrimitive as _};
+use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
     Deck, MIDI_BROWSE_KNOB, MIDI_BROWSE_KNOB_SHIFT_BUTTON, MIDI_CROSSFADER, MIDI_DECK_CUE_BUTTON,
@@ -579,7 +578,7 @@ where
 }
 
 /// Flattened enumeration of all input sensors
-#[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
 #[repr(u32)]
 pub enum Sensor {
     // Button
@@ -676,15 +675,18 @@ pub enum Sensor {
 
 impl From<Sensor> for ControlIndex {
     fn from(value: Sensor) -> Self {
-        ControlIndex::new(value.to_u32().expect("u32"))
+        ControlIndex::new(value as u32)
     }
 }
 
+#[derive(Debug)]
+pub struct InvalidControlIndex;
+
 impl TryFrom<ControlIndex> for Sensor {
-    type Error = ();
+    type Error = InvalidControlIndex;
 
     fn try_from(index: ControlIndex) -> Result<Self, Self::Error> {
-        Self::from_u32(index.value()).ok_or(())
+        Self::from_repr(index.value()).ok_or(InvalidControlIndex)
     }
 }
 
