@@ -63,9 +63,9 @@ pub enum DeckButtonLed {
 #[derive(Debug, Clone, Copy)]
 pub enum DeckKnobLed {
     Gain,
-    LoEq,
-    MidEq,
-    HiEq,
+    EqLo,
+    EqMid,
+    EqHi,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -108,14 +108,13 @@ impl From<DeckKnobLed> for DeckLed {
 #[derive(Debug, Clone, Copy, FromPrimitive, ToPrimitive)]
 #[repr(u32)]
 pub enum Actuator {
-    // Led
+    // Button Led
+    TabButtonLed,
+    // Knob Led
     MonitorLevelKnobLed,
     MonitorMixKnobLed,
     MasterLevelKnobLed,
-    TabButtonLed,
-    TabHoldButtonLed,
-    HoldButtonLed,
-    // Deck A: Led
+    // Deck A: Button Led
     DeckAShiftButtonLed,
     DeckAPlayPauseButtonLed,
     DeckASyncButtonLed,
@@ -131,11 +130,12 @@ pub enum Actuator {
     DeckATouchStripHotCueLeftLed,
     DeckATouchStripHotCueCenterLed,
     DeckATouchStripHotCueRightLed,
+    // Deck A: Knob Led
     DeckAGainKnobLed,
     DeckAEqLoKnobLed,
     DeckAEqMidKnobLed,
     DeckAEqHiKnobLed,
-    // Deck B: Led
+    // Deck B: Button Led
     DeckBShiftButtonLed,
     DeckBPlayPauseButtonLed,
     DeckBSyncButtonLed,
@@ -151,6 +151,7 @@ pub enum Actuator {
     DeckBTouchStripHotCueLeftLed,
     DeckBTouchStripHotCueCenterLed,
     DeckBTouchStripHotCueRightLed,
+    // Deck A: Knob Led
     DeckBGainKnobLed,
     DeckBEqLoKnobLed,
     DeckBEqMidKnobLed,
@@ -160,6 +161,115 @@ pub enum Actuator {
 impl From<Actuator> for ControlIndex {
     fn from(value: Actuator) -> Self {
         ControlIndex::new(value.to_u32().expect("u32"))
+    }
+}
+
+impl From<Actuator> for Led {
+    fn from(from: Actuator) -> Self {
+        match from {
+            Actuator::TabButtonLed => Led::Button(ButtonLed::Tab),
+            Actuator::MasterLevelKnobLed => Led::Knob(KnobLed::MasterLevel),
+            Actuator::MonitorLevelKnobLed => Led::Knob(KnobLed::MonitorLevel),
+            Actuator::MonitorMixKnobLed => Led::Knob(KnobLed::MonitorMix),
+            Actuator::DeckACueButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Cue)),
+            Actuator::DeckAFxButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Fx)),
+            Actuator::DeckAMonitorButtonLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Monitor))
+            }
+            Actuator::DeckAPlayPauseButtonLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::PlayPause))
+            }
+            Actuator::DeckAShiftButtonLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Shift))
+            }
+            Actuator::DeckASyncButtonLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Sync))
+            }
+            Actuator::DeckATouchStripCenterLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::TouchStripCenter))
+            }
+            Actuator::DeckATouchStripHotCueCenterLed => Led::Deck(
+                Deck::A,
+                DeckLed::Button(DeckButtonLed::TouchStripHotCueCenter),
+            ),
+            Actuator::DeckATouchStripHotCueLeftLed => Led::Deck(
+                Deck::A,
+                DeckLed::Button(DeckButtonLed::TouchStripHotCueLeft),
+            ),
+            Actuator::DeckATouchStripHotCueRightLed => Led::Deck(
+                Deck::A,
+                DeckLed::Button(DeckButtonLed::TouchStripHotCueRight),
+            ),
+            Actuator::DeckATouchStripLeftLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::TouchStripLeft))
+            }
+            Actuator::DeckATouchStripLoopCenterLed => Led::Deck(
+                Deck::A,
+                DeckLed::Button(DeckButtonLed::TouchStripLoopCenter),
+            ),
+            Actuator::DeckATouchStripLoopLeftLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::TouchStripLoopLeft))
+            }
+            Actuator::DeckATouchStripLoopRightLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::TouchStripLoopRight))
+            }
+            Actuator::DeckATouchStripRightLed => {
+                Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::TouchStripRight))
+            }
+            Actuator::DeckAGainKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::Gain)),
+            Actuator::DeckAEqHiKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::EqHi)),
+            Actuator::DeckAEqLoKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::EqLo)),
+            Actuator::DeckAEqMidKnobLed => Led::Deck(Deck::A, DeckLed::Knob(DeckKnobLed::EqMid)),
+            Actuator::DeckBCueButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Cue)),
+            Actuator::DeckBFxButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Fx)),
+            Actuator::DeckBMonitorButtonLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Monitor))
+            }
+            Actuator::DeckBPlayPauseButtonLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::PlayPause))
+            }
+            Actuator::DeckBShiftButtonLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Shift))
+            }
+            Actuator::DeckBSyncButtonLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::Sync))
+            }
+            Actuator::DeckBTouchStripCenterLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::TouchStripCenter))
+            }
+            Actuator::DeckBTouchStripHotCueCenterLed => Led::Deck(
+                Deck::B,
+                DeckLed::Button(DeckButtonLed::TouchStripHotCueCenter),
+            ),
+            Actuator::DeckBTouchStripHotCueLeftLed => Led::Deck(
+                Deck::B,
+                DeckLed::Button(DeckButtonLed::TouchStripHotCueLeft),
+            ),
+            Actuator::DeckBTouchStripHotCueRightLed => Led::Deck(
+                Deck::B,
+                DeckLed::Button(DeckButtonLed::TouchStripHotCueRight),
+            ),
+            Actuator::DeckBTouchStripLeftLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::TouchStripLeft))
+            }
+            Actuator::DeckBTouchStripLoopCenterLed => Led::Deck(
+                Deck::B,
+                DeckLed::Button(DeckButtonLed::TouchStripLoopCenter),
+            ),
+            Actuator::DeckBTouchStripLoopLeftLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::TouchStripLoopLeft))
+            }
+            Actuator::DeckBTouchStripLoopRightLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::TouchStripLoopRight))
+            }
+            Actuator::DeckBTouchStripRightLed => {
+                Led::Deck(Deck::B, DeckLed::Button(DeckButtonLed::TouchStripRight))
+            }
+            Actuator::DeckBGainKnobLed => Led::Deck(Deck::B, DeckLed::Knob(DeckKnobLed::Gain)),
+            Actuator::DeckBEqHiKnobLed => Led::Deck(Deck::B, DeckLed::Knob(DeckKnobLed::EqHi)),
+            Actuator::DeckBEqLoKnobLed => Led::Deck(Deck::B, DeckLed::Knob(DeckKnobLed::EqLo)),
+            Actuator::DeckBEqMidKnobLed => Led::Deck(Deck::B, DeckLed::Knob(DeckKnobLed::EqMid)),
+        }
     }
 }
 
@@ -244,9 +354,9 @@ impl OutputGateway {
                     };
                     let data1 = match led {
                         DeckKnobLed::Gain => MIDI_DECK_GAIN_KNOB,
-                        DeckKnobLed::HiEq => MIDI_DECK_EQ_HI_KNOB,
-                        DeckKnobLed::MidEq => MIDI_DECK_EQ_MID_KNOB,
-                        DeckKnobLed::LoEq => MIDI_DECK_EQ_LO_KNOB,
+                        DeckKnobLed::EqHi => MIDI_DECK_EQ_HI_KNOB,
+                        DeckKnobLed::EqMid => MIDI_DECK_EQ_MID_KNOB,
+                        DeckKnobLed::EqLo => MIDI_DECK_EQ_LO_KNOB,
                     };
                     (status, data1)
                 }
