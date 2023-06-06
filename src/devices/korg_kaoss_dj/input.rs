@@ -23,9 +23,9 @@ use super::{
     MIDI_TOUCHPAD_UPPER_RIGHT_BUTTON, MIDI_TOUCHPAD_X, MIDI_TOUCHPAD_Y,
 };
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInput, ControlInputEvent, EmitInputEvent,
-    MidiDeviceDescriptor, MidiInputReceiver, MidirInputConnector, SliderEncoderInput, SliderInput,
-    StepEncoderInput, TimeStamp,
+    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
+    EmitInputEvent, MidiDeviceDescriptor, MidiInputReceiver, MidirInputConnector,
+    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
 };
 
 fn u7_to_button(input: u8) -> ButtonInput {
@@ -690,10 +690,10 @@ impl TryFrom<ControlIndex> for Sensor {
     }
 }
 
-impl From<Input> for ControlInput {
+impl From<Input> for ControlRegister {
     #[allow(clippy::too_many_lines)]
     fn from(from: Input) -> Self {
-        let (sensor, input) = match from {
+        let (sensor, value) = match from {
             Input::Button { ctrl, input } => {
                 let input = input.into();
                 let sensor = match ctrl {
@@ -903,7 +903,7 @@ impl From<Input> for ControlInput {
         };
         Self {
             index: sensor.into(),
-            input,
+            value,
         }
     }
 }

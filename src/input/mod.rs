@@ -6,7 +6,7 @@
 
 use std::ops::RangeInclusive;
 
-use crate::{ControlIndex, TimeStamp};
+use crate::{ControlRegister, ControlValue, TimeStamp};
 
 /// Time-stamped input event
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,8 +28,27 @@ pub enum ButtonInput {
     Released,
 }
 
+impl From<ControlValue> for ButtonInput {
+    fn from(from: ControlValue) -> Self {
+        match from.to_bits() {
+            0 => Self::Released,
+            _ => Self::Pressed,
+        }
+    }
+}
+
+impl From<ButtonInput> for ControlValue {
+    fn from(from: ButtonInput) -> Self {
+        match from {
+            ButtonInput::Released => Self::from_bits(0),
+            ButtonInput::Pressed => Self::from_bits(1),
+        }
+    }
+}
+
 /// A pad button with pressure information.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(transparent)]
 pub struct PadButtonInput {
     /// Pressure in the interval [0, 1]
     pub pressure: f32,
@@ -62,8 +81,23 @@ impl PadButtonInput {
     }
 }
 
+impl From<ControlValue> for PadButtonInput {
+    fn from(from: ControlValue) -> Self {
+        let pressure = f32::from_bits(from.to_bits());
+        Self { pressure }
+    }
+}
+
+impl From<PadButtonInput> for ControlValue {
+    fn from(from: PadButtonInput) -> Self {
+        let PadButtonInput { pressure } = from;
+        Self::from_bits(pressure.to_bits())
+    }
+}
+
 /// A continuous fader or knob.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(transparent)]
 pub struct SliderInput {
     /// Position in the interval [0, 1]
     pub position: f32,
@@ -89,8 +123,23 @@ impl SliderInput {
     }
 }
 
+impl From<ControlValue> for SliderInput {
+    fn from(from: ControlValue) -> Self {
+        let position = f32::from_bits(from.to_bits());
+        Self { position }
+    }
+}
+
+impl From<SliderInput> for ControlValue {
+    fn from(from: SliderInput) -> Self {
+        let SliderInput { position } = from;
+        Self::from_bits(position.to_bits())
+    }
+}
+
 /// A continuous fader or knob with a symmetric center position.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(transparent)]
 pub struct CenterSliderInput {
     /// Position in the interval [-1, 1]
     pub position: f32,
@@ -127,6 +176,20 @@ impl CenterSliderInput {
     }
 }
 
+impl From<ControlValue> for CenterSliderInput {
+    fn from(from: ControlValue) -> Self {
+        let position = f32::from_bits(from.to_bits());
+        Self { position }
+    }
+}
+
+impl From<CenterSliderInput> for ControlValue {
+    fn from(from: CenterSliderInput) -> Self {
+        let CenterSliderInput { position } = from;
+        Self::from_bits(position.to_bits())
+    }
+}
+
 /// An endless encoder that sends discrete delta values
 ///
 /// Usually implemented by a hardware knob/pot that sends either
@@ -135,8 +198,25 @@ impl CenterSliderInput {
 ///
 /// The number of ticks per revolution or twist is device-dependent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
 pub struct StepEncoderInput {
     pub delta: i32,
+}
+
+impl From<ControlValue> for StepEncoderInput {
+    fn from(from: ControlValue) -> Self {
+        #[allow(clippy::cast_possible_wrap)]
+        let delta = from.to_bits() as i32;
+        Self { delta }
+    }
+}
+
+impl From<StepEncoderInput> for ControlValue {
+    fn from(from: StepEncoderInput) -> Self {
+        let StepEncoderInput { delta } = from;
+        #[allow(clippy::cast_sign_loss)]
+        Self::from_bits(delta as u32)
+    }
 }
 
 /// An endless encoder that sends continuous delta values
@@ -151,6 +231,7 @@ pub struct StepEncoderInput {
 ///  1.0: One full CW rotation (360 degrees)
 /// -1.0: One full CCW rotation (360 degrees)
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(transparent)]
 pub struct SliderEncoderInput {
     pub delta: f32,
 }
@@ -184,61 +265,21 @@ impl SliderEncoderInput {
     }
 }
 
-/// Generic input
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Input {
-    Button(ButtonInput),
-    PadButton(PadButtonInput),
-    Slider(SliderInput),
-    CenterSlider(CenterSliderInput),
-    StepEncoder(StepEncoderInput),
-    SliderEncoder(SliderEncoderInput),
-}
-
-impl From<ButtonInput> for Input {
-    fn from(input: ButtonInput) -> Self {
-        Self::Button(input)
+impl From<ControlValue> for SliderEncoderInput {
+    fn from(from: ControlValue) -> Self {
+        let delta = f32::from_bits(from.to_bits());
+        Self { delta }
     }
 }
 
-impl From<PadButtonInput> for Input {
-    fn from(input: PadButtonInput) -> Self {
-        Self::PadButton(input)
+impl From<SliderEncoderInput> for ControlValue {
+    fn from(from: SliderEncoderInput) -> Self {
+        let SliderEncoderInput { delta } = from;
+        Self::from_bits(delta.to_bits())
     }
 }
 
-impl From<SliderInput> for Input {
-    fn from(input: SliderInput) -> Self {
-        Self::Slider(input)
-    }
-}
-
-impl From<CenterSliderInput> for Input {
-    fn from(input: CenterSliderInput) -> Self {
-        Self::CenterSlider(input)
-    }
-}
-
-impl From<StepEncoderInput> for Input {
-    fn from(input: StepEncoderInput) -> Self {
-        Self::StepEncoder(input)
-    }
-}
-
-impl From<SliderEncoderInput> for Input {
-    fn from(input: SliderEncoderInput) -> Self {
-        Self::SliderEncoder(input)
-    }
-}
-
-/// Input from a single, generic control.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ControlInput {
-    pub index: ControlIndex,
-    pub input: Input,
-}
-
-pub type ControlInputEvent = InputEvent<ControlInput>;
+pub type ControlInputEvent = InputEvent<ControlRegister>;
 
 #[cfg(test)]
 mod tests {

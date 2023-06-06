@@ -27,8 +27,8 @@ pub mod devices;
 
 mod input;
 pub use self::input::{
-    ButtonInput, CenterSliderInput, ControlInput, ControlInputEvent, EmitInputEvent, Input,
-    InputEvent, PadButtonInput, SliderEncoderInput, SliderInput, StepEncoderInput,
+    ButtonInput, CenterSliderInput, ControlInputEvent, EmitInputEvent, InputEvent, PadButtonInput,
+    SliderEncoderInput, SliderInput, StepEncoderInput,
 };
 
 mod output;
@@ -83,6 +83,33 @@ impl ControlIndex {
     pub const fn as_usize(self) -> usize {
         self.value() as usize
     }
+}
+
+/// A generic, encoded control value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(transparent)]
+pub struct ControlValue {
+    bits: u32,
+}
+
+impl ControlValue {
+    #[must_use]
+    pub const fn from_bits(bits: u32) -> Self {
+        Self { bits }
+    }
+
+    #[must_use]
+    pub const fn to_bits(self) -> u32 {
+        let Self { bits } = self;
+        bits
+    }
+}
+
+/// Generic, indexed input/output control value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ControlRegister {
+    pub index: ControlIndex,
+    pub value: ControlValue,
 }
 
 /// Time stamp with microsecond precision
