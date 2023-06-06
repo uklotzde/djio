@@ -4,7 +4,7 @@
 use super::Deck;
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiDeviceDescriptor,
-    MidiInputHandler, MidirInputConnector, SliderInput, TimeStamp,
+    MidiInputReceiver, MidirInputConnector, SliderInput, TimeStamp,
 };
 
 pub type InputEvent = crate::InputEvent<Input>;
@@ -196,11 +196,11 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> MidiInputHandler for InputGateway<E>
+impl<E> MidiInputReceiver for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         let Some(input) = Input::try_from_midi_message(input) else {
             log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
             return;

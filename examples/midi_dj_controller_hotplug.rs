@@ -5,7 +5,7 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    EmitInputEvent, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputHandler,
+    EmitInputEvent, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor, MidiInputReceiver,
     MidirDevice, MidirInputConnector, TimeStamp,
 };
 use midir::{MidiInputPort, MidiOutputConnection};
@@ -16,8 +16,8 @@ struct LogMidiInput {
     client_name: String,
 }
 
-impl MidiInputHandler for LogMidiInput {
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+impl MidiInputReceiver for LogMidiInput {
+    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         let device_descriptor = self.device_descriptor.as_ref().unwrap();
         let client_name = &self.client_name;
         if device_descriptor == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
@@ -79,7 +79,7 @@ fn main() {
 }
 
 #[must_use]
-fn new_midi_input_handler(device_descriptor: &MidiDeviceDescriptor) -> Box<dyn MidiDevice> {
+fn new_midi_input_receiver(device_descriptor: &MidiDeviceDescriptor) -> Box<dyn MidiDevice> {
     if device_descriptor == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
         Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
     } else if device_descriptor == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
@@ -104,7 +104,7 @@ impl OutputGateway {
     #[must_use]
     fn attach<T>(midi_device: &MidirDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
     where
-        T: MidiInputHandler + MidirInputConnector,
+        T: MidiInputReceiver + MidirInputConnector,
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
@@ -202,7 +202,7 @@ fn run() -> anyhow::Result<()> {
     let device_name = device_descriptor.device.name();
     println!("{device_name}: connecting");
     let midi_output_connection = device
-        .reconnect(Some(|| new_midi_input_handler(&device_descriptor)), None)
+        .reconnect(Some(|| new_midi_input_receiver(&device_descriptor)), None)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
     let mut output_gateway = Some(OutputGateway::attach(&device, midi_output_connection));
 
@@ -214,7 +214,7 @@ fn run() -> anyhow::Result<()> {
                 let midi_output_connection = output_gateway.take().map(OutputGateway::detach);
                 let midi_output_connection = device
                     .reconnect(
-                        Some(|| new_midi_input_handler(&device_descriptor)),
+                        Some(|| new_midi_input_receiver(&device_descriptor)),
                         midi_output_connection,
                     )
                     .map_err(|err| anyhow::anyhow!("{err}"))?;

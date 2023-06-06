@@ -53,19 +53,19 @@ pub trait MidirInputConnector: Send {
     );
 }
 
-/// Callbacks for handling MIDI input
-pub trait MidiInputHandler: Send {
+/// Passive callback for receiving MIDI input messages
+pub trait MidiInputReceiver: Send {
     /// Invoked for each incoming message.
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
+    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]);
 }
 
-impl<D> MidiInputHandler for D
+impl<D> MidiInputReceiver for D
 where
     D: DerefMut + Send,
-    <D as Deref>::Target: MidiInputHandler,
+    <D as Deref>::Target: MidiInputReceiver,
 {
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
-        self.deref_mut().handle_midi_input(ts, input);
+    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+        self.deref_mut().recv_midi_input(ts, input);
     }
 }
 
@@ -90,7 +90,7 @@ where
 #[allow(missing_debug_implementations)]
 pub struct MidirDevice<I>
 where
-    I: MidiInputHandler + MidirInputConnector + 'static,
+    I: MidiInputReceiver + MidirInputConnector + 'static,
 {
     descriptor: MidiDeviceDescriptor,
     input_port_name: String,
@@ -140,7 +140,7 @@ where
     #[must_use]
     pub fn is_available<U>(&self, device_manager: &MidirDeviceManager<U>) -> bool
     where
-        U: MidiInputHandler + MidirInputConnector,
+        U: MidiInputReceiver + MidirInputConnector,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port_name)
@@ -159,13 +159,13 @@ where
 
     pub fn reconnect(
         &mut self,
-        new_input_handler: Option<impl FnOnce() -> I>,
+        new_input_receiver: Option<impl FnOnce() -> I>,
         output_connection: Option<MidiOutputConnection>,
     ) -> Result<MidiOutputConnection, MidiPortError> {
         let input_connection = self.input_connection.take();
         debug_assert!(!self.is_connected());
         debug_assert_eq!(input_connection.is_some(), output_connection.is_some());
-        let input_connection = self.reconnect_input(input_connection, new_input_handler)?;
+        let input_connection = self.reconnect_input(input_connection, new_input_receiver)?;
         let output_connection = self.reconnect_output(output_connection)?;
         self.input_connection = Some(input_connection);
         debug_assert!(self.is_connected());
@@ -186,21 +186,21 @@ where
     fn reconnect_input(
         &mut self,
         connection: Option<MidiInputConnection<I>>,
-        new_input_handler: Option<impl FnOnce() -> I>,
+        new_input_receiver: Option<impl FnOnce() -> I>,
     ) -> Result<MidiInputConnection<I>, MidiPortError> {
         let client_name = self.descriptor.device.name();
-        let (input, mut input_handler) =
-            if let Some((input, input_handler)) = connection.map(MidiInputConnection::close) {
-                (input, input_handler)
+        let (input, mut input_rx) =
+            if let Some((input, input_rx)) = connection.map(MidiInputConnection::close) {
+                (input, input_rx)
             } else {
-                let Some(new_input_handler) = new_input_handler else {
+                let Some(new_input_receiver) = new_input_receiver else {
                     return Err(MidiPortError::Disconnected);
                 };
                 let input = MidiInput::new(&client_name)?;
-                let input_handler = new_input_handler();
-                (input, input_handler)
+                let input_rx = new_input_receiver();
+                (input, input_rx)
             };
-        input_handler.connect_midi_input_port(
+        input_rx.connect_midi_input_port(
             &self.descriptor,
             &client_name,
             &self.input_port_name,
@@ -210,10 +210,10 @@ where
             .connect(
                 &self.input_port,
                 &self.input_port_name,
-                move |micros, message, input_handler| {
-                    input_handler.handle_midi_input(TimeStamp::from_micros(micros), message);
+                move |micros, message, input_rx| {
+                    input_rx.recv_midi_input(TimeStamp::from_micros(micros), message);
                 },
-                input_handler,
+                input_rx,
             )
             .map_err(Into::into)
     }
@@ -233,9 +233,9 @@ where
     }
 }
 
-pub trait MidiDevice: MidiInputHandler + MidirInputConnector {}
+pub trait MidiDevice: MidiInputReceiver + MidirInputConnector {}
 
-impl<I> MidiDevice for I where I: MidiInputHandler + MidirInputConnector {}
+impl<I> MidiDevice for I where I: MidiInputReceiver + MidirInputConnector {}
 
 pub type GenericMidiDevice = MidirDevice<Box<dyn MidiDevice>>;
 
@@ -244,12 +244,12 @@ pub type GenericMidiDevice = MidirDevice<Box<dyn MidiDevice>>;
 pub struct MidirDeviceManager<I> {
     input: MidiInput,
     output: MidiOutput,
-    _input_handler: PhantomData<I>,
+    _input_rx: PhantomData<I>,
 }
 
 impl<I> MidirDeviceManager<I>
 where
-    I: MidiInputHandler + MidirInputConnector,
+    I: MidiInputReceiver + MidirInputConnector,
 {
     pub fn new() -> Result<Self, midir::InitError> {
         let mut input = MidiInput::new("input port watcher")?;
@@ -258,7 +258,7 @@ where
         Ok(MidirDeviceManager {
             input,
             output,
-            _input_handler: PhantomData,
+            _input_rx: PhantomData,
         })
     }
 

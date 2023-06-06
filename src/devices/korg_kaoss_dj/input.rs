@@ -25,7 +25,7 @@ use super::{
 };
 use crate::{
     ButtonInput, CenterSliderInput, ControlIndex, ControlInput, ControlInputEvent, EmitInputEvent,
-    MidiDeviceDescriptor, MidiInputHandler, MidirInputConnector, SliderEncoderInput, SliderInput,
+    MidiDeviceDescriptor, MidiInputReceiver, MidirInputConnector, SliderEncoderInput, SliderInput,
     StepEncoderInput, TimeStamp,
 };
 
@@ -548,11 +548,11 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> MidiInputHandler for InputGateway<E>
+impl<E> MidiInputReceiver for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         let Some(input) = Input::try_from_midi_message(input) else {
             log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
             return;
