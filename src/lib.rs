@@ -21,14 +21,20 @@
 #![allow(clippy::default_trait_access)]
 #![allow(clippy::missing_errors_doc)] // FIXME
 
-use std::{borrow::Cow, fmt, time::Duration};
+use std::{
+    borrow::Cow,
+    fmt,
+    sync::atomic::{AtomicU32, Ordering},
+    time::Duration,
+};
 
 pub mod devices;
 
 mod input;
 pub use self::input::{
-    ButtonInput, CenterSliderInput, ControlInputEvent, EmitInputEvent, InputEvent, PadButtonInput,
-    SliderEncoderInput, SliderInput, StepEncoderInput,
+    ButtonInput, CenterSliderInput, ConnectInputPortError, ControlInputEvent, EmitInputEvent,
+    InputEvent, InputEventReceiver, InputGateway, PadButtonInput, SliderEncoderInput, SliderInput,
+    StepEncoderInput,
 };
 
 mod output;
@@ -60,10 +66,37 @@ impl DeviceDescriptor {
 }
 
 /// Index for addressing multiple, connected devices.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::Display,
+)]
 #[repr(transparent)]
 pub struct PortIndex {
     value: u32,
+}
+
+#[derive(Debug)]
+pub struct AtomicPortIndex(AtomicU32);
+
+impl AtomicPortIndex {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(AtomicU32::new(PortIndex::FIRST.value()))
+    }
+
+    #[must_use]
+    pub fn try_next(&self) -> Option<PortIndex> {
+        let value = self.0.load(Ordering::SeqCst);
+        let next = PortIndex::new(value).next();
+        if let Ok(prev_value) =
+            self.0
+                .compare_exchange_weak(value, next.value(), Ordering::SeqCst, Ordering::SeqCst)
+        {
+            debug_assert_eq!(value, prev_value);
+            Some(next)
+        } else {
+            None
+        }
+    }
 }
 
 impl PortIndex {
@@ -98,7 +131,7 @@ impl PortIndex {
 /// in a generic manner.
 ///
 /// Only valid in the scope of a single device.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::Display)]
 #[repr(transparent)]
 pub struct ControlIndex {
     value: u32,
@@ -123,7 +156,7 @@ impl ControlIndex {
 }
 
 /// A generic, encoded control value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
 #[repr(transparent)]
 pub struct ControlValue {
     bits: u32,
@@ -203,6 +236,7 @@ mod midi;
 #[cfg(feature = "midi")]
 pub use self::midi::{
     GenericMidiDevice, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor,
+    MidiInputDecoder, MidiInputEventGateway, MidiInputPortConnectError, MidiInputPortConnector,
     MidiInputReceiver, MidiPortError, MidirDevice, MidirDeviceManager, MidirInputConnector,
 };
 

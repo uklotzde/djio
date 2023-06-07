@@ -74,7 +74,7 @@ fn u7_to_button(input: u8) -> ButtonInput {
 
 impl Input {
     #[must_use]
-    pub fn try_from_midi_message(input: &[u8]) -> Option<Self> {
+    pub fn try_from_midi_input(input: &[u8]) -> Option<Self> {
         let mapped = match input {
             // Play/Pause
             [0x90, 0xB, state] => Self::Deck(
@@ -201,7 +201,7 @@ where
     E: EmitInputEvent<Input> + Send,
 {
     fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
-        let Some(input) = Input::try_from_midi_message(input) else {
+        let Some(input) = Input::try_from_midi_input(input) else {
             log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
             return;
         };

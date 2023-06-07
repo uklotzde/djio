@@ -9,7 +9,8 @@ use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
 pub use self::input::{
-    Button, CenterSlider, DeckCenterSlider, Input, InputEvent, InputGateway, Sensor,
+    try_decode_midi_input, Button, CenterSlider, DeckCenterSlider, Input, InputEvent, InputGateway,
+    Sensor,
 };
 
 mod output;
@@ -34,6 +35,9 @@ pub enum Deck {
     /// Right deck
     B,
 }
+
+const MIDI_CHANNEL_DECK_A: u8 = 0x7;
+const MIDI_CHANNEL_DECK_B: u8 = 0x8;
 
 /// Button (Note On)
 const MIDI_STATUS_BUTTON: u8 = 0x96;

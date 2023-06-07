@@ -13,7 +13,9 @@ use midir::{
 };
 use thiserror::Error;
 
-use crate::{DeviceDescriptor, OutputError, TimeStamp};
+use crate::{
+    ControlInputEvent, DeviceDescriptor, InputEventReceiver, OutputError, PortIndex, TimeStamp,
+};
 
 /// MIDI-related, extended [`DeviceDescriptor`]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,6 +55,20 @@ pub trait MidirInputConnector: Send {
     );
 }
 
+pub trait MidiInputDecoder {
+    /// Invoked for each incoming message.
+    fn try_decode_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> Option<ControlInputEvent>;
+}
+
+impl<F> MidiInputDecoder for F
+where
+    F: FnMut(TimeStamp, &[u8]) -> Option<ControlInputEvent>,
+{
+    fn try_decode_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> Option<ControlInputEvent> {
+        self(ts, input)
+    }
+}
+
 /// Passive callback for receiving MIDI input messages
 pub trait MidiInputReceiver: Send {
     /// Invoked for each incoming message.
@@ -66,6 +82,72 @@ where
 {
     fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
         self.deref_mut().recv_midi_input(ts, input);
+    }
+}
+
+#[allow(missing_debug_implementations)]
+pub struct MidiInputPortConnector {
+    pub device_descriptor: MidiDeviceDescriptor,
+    pub decoder: Box<dyn MidiInputDecoder>,
+}
+
+#[derive(Default)]
+#[allow(missing_debug_implementations)]
+pub struct MidiInputEventGateway<E> {
+    event_receiver: E,
+    next_port_index: PortIndex,
+    port_connectors: HashMap<PortIndex, MidiInputPortConnector>,
+}
+
+#[allow(missing_debug_implementations)]
+pub struct MidiInputPortConnectError(MidiInputPortConnector);
+
+impl<E> MidiInputEventGateway<E>
+where
+    E: InputEventReceiver,
+{
+    #[must_use]
+    pub fn new(event_receiver: E) -> Self {
+        Self {
+            event_receiver,
+            next_port_index: PortIndex::FIRST,
+            port_connectors: HashMap::new(),
+        }
+    }
+
+    pub fn connect_port(
+        &mut self,
+        connector: MidiInputPortConnector,
+    ) -> Result<PortIndex, MidiInputPortConnectError> {
+        let port_index = self.next_port_index;
+        if self.is_port_connected(port_index) {
+            return Err(MidiInputPortConnectError(connector));
+        }
+        self.port_connectors.insert(port_index, connector);
+        self.next_port_index = port_index.next();
+        Ok(port_index)
+    }
+
+    pub fn disconnect_port(&mut self, port_index: PortIndex) -> Option<MidiInputPortConnector> {
+        self.port_connectors.remove(&port_index)
+    }
+
+    #[must_use]
+    pub fn is_port_connected(&self, port_index: PortIndex) -> bool {
+        self.port_connectors.contains_key(&port_index)
+    }
+
+    pub fn recv_midi_input(&mut self, port_index: PortIndex, ts: TimeStamp, input: &[u8]) -> bool {
+        let Some(port_connector) = self.port_connectors.get_mut(&port_index) else {
+            log::warn!("[{ts}] Discarding MIDI input {input:x?} from disconnected port {port_index}");
+            return false;
+        };
+        let Some(event) = port_connector.decoder.try_decode_midi_input(ts, input) else {
+            log::debug!("[{ts}] Discarding undecoded MIDI input {input:x?} from port {port_index}");
+            return false;
+        };
+        self.event_receiver.recv_input_events(port_index, &[event]);
+        true
     }
 }
 

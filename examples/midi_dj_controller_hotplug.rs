@@ -24,13 +24,13 @@ impl MidiInputReceiver for LogMidiInput {
         let device_descriptor = self.device_descriptor.as_ref().unwrap();
         let client_name = &self.client_name;
         if device_descriptor == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            if let Some(input) = korg_kaoss_dj::Input::try_from_midi_message(input) {
+            if let Some(input) = korg_kaoss_dj::Input::try_from_midi_input(input) {
                 println!("{client_name} @ {ts}: {input:?})");
                 return;
             }
         }
         if device_descriptor == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
-            if let Some(input) = pioneer_ddj_400::Input::try_from_midi_message(input) {
+            if let Some(input) = pioneer_ddj_400::Input::try_from_midi_input(input) {
                 println!("{client_name} @ {ts}: {input:?})");
                 return;
             }

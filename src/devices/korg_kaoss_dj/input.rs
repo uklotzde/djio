@@ -4,12 +4,13 @@
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
-    Deck, MIDI_BROWSE_KNOB, MIDI_BROWSE_KNOB_SHIFT_BUTTON, MIDI_CROSSFADER, MIDI_DECK_CUE_BUTTON,
-    MIDI_DECK_CUE_SHIFT_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB,
-    MIDI_DECK_FX_BUTTON, MIDI_DECK_GAIN_KNOB, MIDI_DECK_LEVEL_FADER, MIDI_DECK_LOAD_BUTTON,
-    MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PITCH_FADER, MIDI_DECK_PLAYPAUSE_BUTTON,
-    MIDI_DECK_PLAYPAUSE_SHIFT_BUTTON, MIDI_DECK_SHIFT_BUTTON, MIDI_DECK_SYNC_BUTTON,
-    MIDI_DECK_SYNC_SHIFT_BUTTON, MIDI_DECK_TOUCHSTRIP, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+    Deck, MIDI_BROWSE_KNOB, MIDI_BROWSE_KNOB_SHIFT_BUTTON, MIDI_CHANNEL_DECK_A,
+    MIDI_CHANNEL_DECK_B, MIDI_CROSSFADER, MIDI_DECK_CUE_BUTTON, MIDI_DECK_CUE_SHIFT_BUTTON,
+    MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_FX_BUTTON,
+    MIDI_DECK_GAIN_KNOB, MIDI_DECK_LEVEL_FADER, MIDI_DECK_LOAD_BUTTON, MIDI_DECK_MONITOR_BUTTON,
+    MIDI_DECK_PITCH_FADER, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_PLAYPAUSE_SHIFT_BUTTON,
+    MIDI_DECK_SHIFT_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_SYNC_SHIFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
@@ -172,10 +173,18 @@ pub enum DeckInput {
     },
 }
 
+fn midi_status_to_deck(status: u8) -> Deck {
+    match status & 0xf {
+        MIDI_CHANNEL_DECK_A => Deck::A,
+        MIDI_CHANNEL_DECK_B => Deck::B,
+        _ => unreachable!("Unexpected MIDI status {status}"),
+    }
+}
+
 impl Input {
     #[must_use]
     #[allow(clippy::too_many_lines)]
-    pub fn try_from_midi_message(input: &[u8]) -> Option<Self> {
+    pub fn try_from_midi_input(input: &[u8]) -> Option<Self> {
         let mapped = match *input {
             [MIDI_STATUS_BUTTON, data1, data2] => match data1 {
                 MIDI_BROWSE_KNOB_SHIFT_BUTTON => Input::Button {
@@ -213,11 +222,7 @@ impl Input {
                 _ => unreachable!(),
             },
             [status @ (MIDI_STATUS_BUTTON_DECK_A | MIDI_STATUS_BUTTON_DECK_B), data1, data2] => {
-                let deck = match status {
-                    MIDI_STATUS_BUTTON_DECK_A => Deck::A,
-                    MIDI_STATUS_BUTTON_DECK_B => Deck::B,
-                    _ => unreachable!(),
-                };
+                let deck = midi_status_to_deck(status);
                 match data1 {
                     MIDI_DECK_LOAD_BUTTON => Self::Deck {
                         deck,
@@ -423,11 +428,7 @@ impl Input {
                 _ => unreachable!(),
             },
             [status @ (MIDI_STATUS_CC_DECK_A | MIDI_STATUS_CC_DECK_B), data1, data2] => {
-                let deck = match status {
-                    MIDI_STATUS_CC_DECK_A => Deck::A,
-                    MIDI_STATUS_CC_DECK_B => Deck::B,
-                    _ => unreachable!(),
-                };
+                let deck = midi_status_to_deck(status);
                 match data1 {
                     MIDI_DECK_TOUCHWHEEL_BEND => Self::Deck {
                         deck,
@@ -543,7 +544,7 @@ where
     E: EmitInputEvent<Input> + Send,
 {
     fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
-        let Some(input) = Input::try_from_midi_message(input) else {
+        let Some(input) = Input::try_from_midi_input(input) else {
             log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
             return;
         };
@@ -551,6 +552,16 @@ where
         log::debug!("Emitting {event:?}");
         self.emit_input_event.emit_input_event(event);
     }
+}
+
+#[must_use]
+pub fn try_decode_midi_input(ts: TimeStamp, input: &[u8]) -> Option<ControlInputEvent> {
+    let Some(input) = Input::try_from_midi_input(input) else {
+        log::debug!("[{ts}] Cannot decode MIDI input: {input:x?}");
+        return None;
+    };
+    let event = InputEvent { ts, input }.into();
+    Some(event)
 }
 
 impl<E> MidirInputConnector for InputGateway<E>
