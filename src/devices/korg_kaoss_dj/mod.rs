@@ -27,6 +27,14 @@ pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor 
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
 
+#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
+pub enum Deck {
+    /// Left deck
+    A,
+    /// Right deck
+    B,
+}
+
 /// Button (Note On)
 const MIDI_STATUS_BUTTON: u8 = 0x96;
 
@@ -94,11 +102,3 @@ const MIDI_DECK_EQ_HI_KNOB: u8 = 0x1b;
 const MIDI_DECK_EQ_MID_KNOB: u8 = 0x1c;
 const MIDI_DECK_EQ_LO_KNOB: u8 = 0x1d;
 const MIDI_DECK_TOUCHSTRIP: u8 = 0x21;
-
-#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
-pub enum Deck {
-    /// Left deck
-    A,
-    /// Right deck
-    B,
-}

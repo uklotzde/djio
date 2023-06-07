@@ -68,14 +68,14 @@ impl PadButtonInput {
 
     #[must_use]
     pub fn from_u7(input: u8) -> Self {
-        debug_assert_eq!(input, input & 0x7f);
+        debug_assert!(input <= 127);
         let pressure = f32::from(input) / 127.0;
         Self { pressure }
     }
 
     #[must_use]
     pub fn from_u14(input: u16) -> Self {
-        debug_assert_eq!(input, input & 0x3fff);
+        debug_assert!(input <= 16383);
         let pressure = f32::from(input) / 16383.0;
         Self { pressure }
     }
@@ -110,16 +110,24 @@ impl SliderInput {
 
     #[must_use]
     pub fn from_u7(input: u8) -> Self {
-        debug_assert_eq!(input, input & 0x7f);
+        debug_assert!(input <= 127);
         let position = f32::from(input) / 127.0;
         Self { position }
     }
 
     #[must_use]
     pub fn from_u14(input: u16) -> Self {
-        debug_assert_eq!(input, input & 0x3fff);
+        debug_assert!(input <= 16383);
         let position = f32::from(input) / 16383.0;
         Self { position }
+    }
+
+    #[must_use]
+    pub fn inverse(self) -> Self {
+        let Self { position } = self;
+        Self {
+            position: Self::MAX_POSITION - position,
+        }
     }
 }
 
@@ -154,7 +162,7 @@ impl CenterSliderInput {
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     pub fn from_u7(input: u8) -> Self {
-        debug_assert_eq!(input, input & 0x7f);
+        debug_assert!(input < 128);
         let position = if input < 64 {
             f32::from(input as i8 - 64) / 64.0
         } else {
@@ -166,13 +174,26 @@ impl CenterSliderInput {
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     pub fn from_u14(input: u16) -> Self {
-        debug_assert_eq!(input, input & 0x3fff);
+        debug_assert!(input < 16384);
         let position = if input < 8192 {
             f32::from(input as i16 - 8192) / 8192.0
         } else {
             f32::from(input - 8192) / 8191.0
         };
         Self { position }
+    }
+
+    #[must_use]
+    pub fn inverse(self) -> Self {
+        let Self { position } = self;
+        if self.position == Self::CENTER_POSITION {
+            // Prevent the value -0.0
+            Self { position }
+        } else {
+            Self {
+                position: -position,
+            }
+        }
     }
 }
 
@@ -201,6 +222,30 @@ impl From<CenterSliderInput> for ControlValue {
 #[repr(transparent)]
 pub struct StepEncoderInput {
     pub delta: i32,
+}
+
+impl StepEncoderInput {
+    #[must_use]
+    pub fn from_u7(input: u8) -> Self {
+        debug_assert!(input < 0x80);
+        let delta = if input < 0x40 {
+            i32::from(input)
+        } else {
+            i32::from(input) - 0x80
+        };
+        Self { delta }
+    }
+
+    #[must_use]
+    pub fn from_u14(input: u16) -> Self {
+        debug_assert!(input < 0x4000);
+        let delta = if input < 0x2000 {
+            i32::from(input)
+        } else {
+            i32::from(input) - 0x4000
+        };
+        Self { delta }
+    }
 }
 
 impl From<ControlValue> for StepEncoderInput {
@@ -237,13 +282,26 @@ pub struct SliderEncoderInput {
 }
 
 impl SliderEncoderInput {
+    #[must_use]
+    pub fn inverse(self) -> Self {
+        let Self { delta } = self;
+        if self.delta == 0.0 {
+            // Prevent the value -0.0
+            Self { delta }
+        } else {
+            Self { delta: -delta }
+        }
+    }
+}
+
+impl SliderEncoderInput {
     pub const DELTA_PER_CW_REV: f32 = 1.0;
     pub const DELTA_PER_CCW_REV: f32 = -1.0;
 
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     pub fn from_u7(input: u8) -> Self {
-        debug_assert_eq!(input, input & 0x7f);
+        debug_assert!(input < 128);
         let delta = if input < 64 {
             f32::from(input) / 63.0
         } else {
@@ -255,7 +313,7 @@ impl SliderEncoderInput {
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
     pub fn from_u14(input: u16) -> Self {
-        debug_assert_eq!(input, input & 0x3fff);
+        debug_assert!(input < 16384);
         let delta = if input < 8192 {
             f32::from(input) / 8191.0
         } else {
@@ -313,6 +371,26 @@ mod tests {
 
     #[test]
     #[allow(clippy::float_cmp)]
+    fn step_encoder_from_u7() {
+        debug_assert_eq!(0, StepEncoderInput::from_u7(0).delta);
+        debug_assert_eq!(1, StepEncoderInput::from_u7(1).delta);
+        debug_assert_eq!(63, StepEncoderInput::from_u7(63).delta);
+        debug_assert_eq!(-64, StepEncoderInput::from_u7(64).delta);
+        debug_assert_eq!(-1, StepEncoderInput::from_u7(127).delta);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
+    fn step_encoder_from_u14() {
+        debug_assert_eq!(0, StepEncoderInput::from_u14(0).delta);
+        debug_assert_eq!(1, StepEncoderInput::from_u14(1).delta);
+        debug_assert_eq!(8191, StepEncoderInput::from_u14(8191).delta);
+        debug_assert_eq!(-8192, StepEncoderInput::from_u14(8192).delta);
+        debug_assert_eq!(-1, StepEncoderInput::from_u14(16383).delta);
+    }
+
+    #[test]
+    #[allow(clippy::float_cmp)]
     fn slider_from_u7() {
         debug_assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u7(0).position);
         debug_assert_eq!(
@@ -338,10 +416,14 @@ mod tests {
             CenterSliderInput::MIN_POSITION,
             CenterSliderInput::from_u7(0).position
         );
+        debug_assert!(CenterSliderInput::MIN_POSITION < CenterSliderInput::from_u7(1).position);
+        debug_assert!(CenterSliderInput::CENTER_POSITION > CenterSliderInput::from_u7(63).position);
         debug_assert_eq!(
             CenterSliderInput::CENTER_POSITION,
             CenterSliderInput::from_u7(64).position
         );
+        debug_assert!(CenterSliderInput::CENTER_POSITION < CenterSliderInput::from_u7(65).position);
+        debug_assert!(CenterSliderInput::MAX_POSITION > CenterSliderInput::from_u7(126).position);
         debug_assert_eq!(
             CenterSliderInput::MAX_POSITION,
             CenterSliderInput::from_u7(127).position
@@ -355,9 +437,19 @@ mod tests {
             CenterSliderInput::MIN_POSITION,
             CenterSliderInput::from_u14(0).position
         );
+        debug_assert!(CenterSliderInput::MIN_POSITION < CenterSliderInput::from_u14(1).position);
+        debug_assert!(
+            CenterSliderInput::CENTER_POSITION > CenterSliderInput::from_u14(8191).position
+        );
         debug_assert_eq!(
             CenterSliderInput::CENTER_POSITION,
             CenterSliderInput::from_u14(8192).position
+        );
+        debug_assert!(
+            CenterSliderInput::CENTER_POSITION < CenterSliderInput::from_u14(8193).position
+        );
+        debug_assert!(
+            CenterSliderInput::MAX_POSITION > CenterSliderInput::from_u14(16382).position
         );
         debug_assert_eq!(
             CenterSliderInput::MAX_POSITION,

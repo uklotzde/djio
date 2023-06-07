@@ -36,15 +36,6 @@ fn u7_to_button(input: u8) -> ButtonInput {
     }
 }
 
-fn u7_to_step_encoder(input: u8) -> StepEncoderInput {
-    let delta = match input {
-        0x01 => 1,
-        0x7f => -1,
-        _ => unreachable!(),
-    };
-    StepEncoderInput { delta }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub enum Button {
     BrowseKnobShift, // Encoder knob acts like a button when shifted
@@ -59,7 +50,7 @@ pub enum Button {
 
 #[derive(Debug, Clone, Copy)]
 pub enum CenterSlider {
-    CrossFader,
+    Crossfader,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -418,16 +409,16 @@ impl Input {
                     input: SliderInput::from_u7(data2),
                 },
                 MIDI_CROSSFADER => Self::CenterSlider {
-                    ctrl: CenterSlider::CrossFader,
+                    ctrl: CenterSlider::Crossfader,
                     input: CenterSliderInput::from_u7(data2),
                 },
                 MIDI_BROWSE_KNOB => Self::StepEncoder {
                     ctrl: StepEncoder::BrowseKnob,
-                    input: u7_to_step_encoder(data2),
+                    input: StepEncoderInput::from_u7(data2),
                 },
                 MIDI_PROGRAM_KNOB => Self::StepEncoder {
                     ctrl: StepEncoder::ProgramKnob,
-                    input: u7_to_step_encoder(data2),
+                    input: StepEncoderInput::from_u7(data2),
                 },
                 _ => unreachable!(),
             },
@@ -591,7 +582,7 @@ pub enum Sensor {
     TouchPadUpperLeftButton,
     TouchPadUpperRightButton,
     // CenterSlider
-    CrossFaderCenterSlider,
+    CrossfaderCenterSlider,
     // StepEncoder
     BrowseKnobStepEncoder,
     ProgramKnobStepEncoder,
@@ -722,7 +713,7 @@ impl From<Input> for ControlRegister {
             Input::CenterSlider { ctrl, input } => {
                 let input = input.into();
                 let sensor = match ctrl {
-                    CenterSlider::CrossFader => Sensor::CrossFaderCenterSlider,
+                    CenterSlider::Crossfader => Sensor::CrossfaderCenterSlider,
                 };
                 (sensor, input)
             }

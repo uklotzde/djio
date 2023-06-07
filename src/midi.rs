@@ -210,8 +210,10 @@ where
             .connect(
                 &self.input_port,
                 &self.input_port_name,
-                move |micros, message, input_rx| {
-                    input_rx.recv_midi_input(TimeStamp::from_micros(micros), message);
+                move |micros, input, input_rx| {
+                    let ts = TimeStamp::from_micros(micros);
+                    log::debug!("[{ts}] Received MIDI input: {input:0x?}");
+                    input_rx.recv_midi_input(ts, input);
                 },
                 input_rx,
             )
