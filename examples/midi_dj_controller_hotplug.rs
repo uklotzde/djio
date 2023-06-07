@@ -75,9 +75,11 @@ impl EmitInputEvent<pioneer_ddj_400::Input> for PioneerDdj400LogInputEvent {
 }
 
 fn main() {
+    pretty_env_logger::init();
+
     match run() {
         Ok(_) => (),
-        Err(err) => println!("Error: {}", err),
+        Err(err) => log::error!("{err}"),
     }
 }
 
