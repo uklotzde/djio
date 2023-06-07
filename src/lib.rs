@@ -59,8 +59,45 @@ impl DeviceDescriptor {
     }
 }
 
+/// Index for addressing multiple, connected devices.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct PortIndex {
+    value: u32,
+}
+
+impl PortIndex {
+    pub const FIRST: Self = Self::new(0);
+    pub const LAST: Self = Self::new(u32::MAX);
+
+    #[must_use]
+    pub const fn new(value: u32) -> Self {
+        Self { value }
+    }
+
+    #[must_use]
+    pub const fn value(self) -> u32 {
+        let Self { value } = self;
+        value
+    }
+
+    #[must_use]
+    pub const fn as_usize(self) -> usize {
+        self.value() as usize
+    }
+
+    #[must_use]
+    pub const fn next(self) -> Self {
+        let Self { value } = self;
+        let next_value = value.wrapping_add(1);
+        Self { value: next_value }
+    }
+}
+
 /// Index for addressing either or both device inputs and outputs
 /// in a generic manner.
+///
+/// Only valid in the scope of a single device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ControlIndex {
@@ -168,3 +205,22 @@ pub use self::midi::{
     GenericMidiDevice, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor,
     MidiInputReceiver, MidiPortError, MidirDevice, MidirDeviceManager, MidirInputConnector,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_port_index() {
+        assert_eq!(PortIndex::FIRST, PortIndex::default());
+    }
+
+    #[test]
+    fn next_port_index() {
+        assert_eq!(
+            PortIndex::FIRST.value() + 1,
+            PortIndex::FIRST.next().value()
+        );
+        assert_eq!(PortIndex::FIRST, PortIndex::LAST.next());
+    }
+}
