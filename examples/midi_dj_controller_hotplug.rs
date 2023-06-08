@@ -7,10 +7,10 @@ use std::{
 };
 
 use djio::{
-    devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, EmitInputEvent, LedOutput, MidiDevice, MidiDeviceDescriptor,
-    MidiInputConnector, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
-    PortIndex, PortIndexGenerator, TimeStamp,
+    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
+    ControlInputEventSink, LedOutput, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
+    MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager, PortIndex,
+    PortIndexGenerator, TimeStamp,
 };
 use midir::MidiOutputConnection;
 
@@ -25,7 +25,7 @@ impl MidiInputHandler for LogMidiInput {
             return false;
         };
         if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            if let Some(input) = korg_kaoss_dj::Input::try_from_midi_input(input) {
+            if let Some(input) = korg_kaoss_dj::try_decode_midi_input(input) {
                 println!("{port:?} @ {ts}: {input:?})");
                 return true;
             }
@@ -55,32 +55,6 @@ impl MidiInputConnector for LogMidiInput {
     }
 }
 
-struct KorgKaossDjLogInputEvent;
-struct PioneerDdj400LogInputEvent;
-struct DenonDjMc6000Mk2LogInputEvent;
-
-type KorgKaossDjInputGateway = korg_kaoss_dj::InputGateway<KorgKaossDjLogInputEvent>;
-type PioneerDdJ400InputGateway = pioneer_ddj_400::InputGateway<PioneerDdj400LogInputEvent>;
-type DenonDjMc6000Mk2InputGateway = denon_dj_mc6000mk2::InputGateway<DenonDjMc6000Mk2LogInputEvent>;
-
-impl EmitInputEvent<korg_kaoss_dj::Input> for KorgKaossDjLogInputEvent {
-    fn emit_input_event(&mut self, event: korg_kaoss_dj::InputEvent) {
-        println!("Received input {event:?}");
-    }
-}
-
-impl EmitInputEvent<pioneer_ddj_400::Input> for PioneerDdj400LogInputEvent {
-    fn emit_input_event(&mut self, event: pioneer_ddj_400::InputEvent) {
-        println!("Received input {event:?}");
-    }
-}
-
-impl EmitInputEvent<denon_dj_mc6000mk2::Input> for DenonDjMc6000Mk2LogInputEvent {
-    fn emit_input_event(&mut self, event: denon_dj_mc6000mk2::InputEvent) {
-        println!("Received input {event:?}");
-    }
-}
-
 fn main() {
     pretty_env_logger::init();
 
@@ -97,22 +71,10 @@ impl djio::NewMidiDevice for NewMidiDevice {
 
     fn new_midi_device(
         &self,
-        device: &MidiDeviceDescriptor,
+        _device: &MidiDeviceDescriptor,
         _input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice {
-        if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
-        } else if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
-            Box::new(PioneerDdJ400InputGateway::attach(
-                PioneerDdj400LogInputEvent,
-            ))
-        } else if device == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
-            Box::new(DenonDjMc6000Mk2InputGateway::attach(
-                DenonDjMc6000Mk2LogInputEvent,
-            ))
-        } else {
-            Box::<LogMidiInput>::default()
-        }
+        Box::<LogMidiInput>::default()
     }
 }
 

@@ -9,8 +9,7 @@ use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
 pub use self::input::{
-    try_decode_midi_input, Button, CenterSlider, DeckCenterSlider, Input, InputEvent, InputGateway,
-    Sensor,
+    try_decode_midi_input, try_decode_midi_message, DeckSensor, MainSensor, Sensor,
 };
 
 mod output;

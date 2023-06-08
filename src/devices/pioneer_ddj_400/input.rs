@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use super::Deck;
-use crate::{
-    midi::MidiPortDescriptor, u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent,
-    MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, SliderInput, TimeStamp,
-};
+use crate::{u7_be_to_u14, ButtonInput, CenterSliderInput, SliderInput, TimeStamp};
 
 pub type InputEvent = crate::InputEvent<Input>;
 
@@ -194,16 +191,10 @@ impl<E> InputGateway<E> {
         } = self;
         emit_input_event
     }
-}
 
-impl<E> MidiInputHandler for InputGateway<E>
-where
-    E: EmitInputEvent<Input> + Send,
-{
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
+    pub fn try_decode_midi_message(&mut self, ts: TimeStamp, input: &[u8]) -> Option<InputEvent> {
         let Some(input) = Input::try_from_midi_input(input) else {
-            log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
-            return false;
+            return None;
         };
         let input = match input {
             Input::Mixer(ev) => match ev {
@@ -254,28 +245,14 @@ where
                             fader.hi = val;
                         }
                     }
-                    let slider = CenterSliderInput::from_u14(u7_be_to_u14(fader.hi, fader.lo));
+                    let slider =
+                        CenterSliderInput::from_u14(u7_be_to_u14(fader.hi, fader.lo)).inverse();
                     Input::Deck(deck, DeckInput::PitchFader(slider))
                 }
                 _ => Input::Deck(deck, input),
             },
         };
         let event = InputEvent { ts, input };
-        log::debug!("Emitting {event:?}");
-        self.emit_input_event.emit_input_event(event);
-        true
-    }
-}
-
-impl<E> MidiInputConnector for InputGateway<E>
-where
-    E: Send,
-{
-    fn connect_midi_input_port(
-        &mut self,
-        device: &MidiDeviceDescriptor,
-        port: &MidiPortDescriptor,
-    ) {
-        log::debug!("Device \"{device:?}\" is connected to port \"{port:?}\"");
+        Some(event)
     }
 }

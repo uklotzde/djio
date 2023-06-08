@@ -9,10 +9,8 @@ use crate::{
         MIDI_CMD_CC, MIDI_CMD_NOTE_OFF, MIDI_CMD_NOTE_ON, MIDI_DECK_CUE_BUTTON,
         MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
     },
-    midi::MidiPortDescriptor,
-    u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
-    EmitInputEvent, MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, SliderEncoderInput,
-    SliderInput, StepEncoderInput, TimeStamp,
+    u7_be_to_u14, ButtonInput, CenterSliderInput, Input, SliderEncoderInput, SliderInput,
+    StepEncoderInput,
 };
 
 fn midi_status_to_deck_cmd(status: u8) -> (Deck, u8) {
@@ -47,348 +45,133 @@ fn midi_value_to_button(data2: u8) -> ButtonInput {
     }
 }
 
-#[derive(Debug)]
-pub enum Input {
-    Crossfader(CenterSliderInput),
-    BrowseKnob(StepEncoderInput),
-    Side { side: Side, input: SideInput },
-    Deck { deck: Deck, input: DeckInput },
-}
-
-#[derive(Debug)]
-pub enum SideInput {
-    ShiftButton(ButtonInput),
-    PitchFader(CenterSliderInput),
-    Efx1Knob(SliderInput),
-    Efx2Knob(SliderInput),
-    Efx3Knob(SliderInput),
-}
-
-#[derive(Debug)]
-pub enum DeckInput {
-    CueButton(ButtonInput),
-    PlayPauseButton(ButtonInput),
-    SyncButton(ButtonInput),
-    LevelFader(SliderInput),
-    JogWheelBend(SliderEncoderInput),
-    JogWheelScratch(SliderEncoderInput),
-    GainKnob(CenterSliderInput),
-    EqHiKnob(SliderInput),
-    EqLoKnob(SliderInput),
-    EqMidKnob(SliderInput),
-}
-
-pub type InputEvent = crate::InputEvent<Input>;
-
-impl From<InputEvent> for ControlInputEvent {
-    fn from(from: InputEvent) -> Self {
-        let InputEvent { ts, input } = from;
-        Self {
-            ts,
-            input: input.into(),
-        }
-    }
-}
-
-#[allow(missing_debug_implementations)]
-pub struct InputGateway<E> {
-    emit_input_event: E,
-}
-
-impl<E> InputGateway<E> {
-    #[must_use]
-    pub fn attach(emit_input_event: E) -> Self {
-        Self { emit_input_event }
-    }
-
-    #[must_use]
-    pub fn detach(self) -> E {
-        let Self { emit_input_event } = self;
-        emit_input_event
-    }
-}
-
-impl<E> MidiInputHandler for InputGateway<E>
-where
-    E: EmitInputEvent<Input> + Send,
-{
-    #[allow(clippy::too_many_lines)]
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
-        let [status, data1, data2] = *input else {
-            log::error!("[{ts}] Unexpected MIDI input message: {input:x?}");
-            return false;
-        };
-        let (deck, cmd) = midi_status_to_deck_cmd(status);
-        let input = match cmd {
-            MIDI_CMD_NOTE_OFF | MIDI_CMD_NOTE_ON => {
-                let input = midi_value_to_button(data2);
-                debug_assert_eq!(cmd == MIDI_CMD_NOTE_ON, input == ButtonInput::Pressed);
-                debug_assert_eq!(cmd == MIDI_CMD_NOTE_OFF, input == ButtonInput::Released);
-                match data1 {
-                    0x60 | 0x61 => {
-                        let side = deck.side();
-                        Input::Side {
-                            side,
-                            input: SideInput::ShiftButton(input),
-                        }
-                    }
-                    MIDI_DECK_CUE_BUTTON => Input::Deck {
-                        deck,
-                        input: DeckInput::CueButton(input),
-                    },
-                    MIDI_DECK_PLAYPAUSE_BUTTON => Input::Deck {
-                        deck,
-                        input: DeckInput::PlayPauseButton(input),
-                    },
-                    MIDI_DECK_SYNC_BUTTON => Input::Deck {
-                        deck,
-                        input: DeckInput::SyncButton(input),
-                    },
-                    _ => {
-                        return false;
-                    }
-                }
-            }
-            MIDI_CMD_CC => match data1 {
-                0x01 | 0x07 | 0x0c | 0x11 => {
-                    let input = CenterSliderInput::from_u7(data2);
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::GainKnob(input),
-                    }
-                }
-                0x02 | 0x08 | 0x0d | 0x12 => {
-                    let input = SliderInput::from_u7(data2);
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::EqHiKnob(input),
-                    }
-                }
-                0x03 | 0x09 | 0x0e | 0x13 => {
-                    let input = SliderInput::from_u7(data2);
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::EqMidKnob(input),
-                    }
-                }
-                0x04 | 0x0a | 0x0f | 0x14 => {
-                    let input = SliderInput::from_u7(data2);
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::EqLoKnob(input),
-                    }
-                }
-                0x05 | 0x0b | 0x10 | 0x15 => {
-                    let input = SliderInput::from_u7(data2);
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::LevelFader(input),
-                    }
-                }
-                0x16 | 0x17 => {
-                    let input = CenterSliderInput::from_u7(data2);
-                    Input::Crossfader(input)
-                }
-                0x51 => {
-                    let input = SliderEncoderInput::from_u7(data2).inverse();
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::JogWheelBend(input),
-                    }
-                }
-                0x52 => {
-                    let input = SliderEncoderInput::from_u7(data2).inverse();
-                    Input::Deck {
-                        deck,
-                        input: DeckInput::JogWheelScratch(input),
-                    }
-                }
-                0x54 => {
-                    let input = StepEncoderInput::from_u7(data2);
-                    Input::BrowseKnob(input)
-                }
-                0x55 => {
-                    let side = deck.side();
-                    let input = SliderInput::from_u7(data2);
-                    Input::Side {
-                        side,
-                        input: SideInput::Efx1Knob(input),
-                    }
-                }
-                0x56 => {
-                    let side = deck.side();
-                    let input = SliderInput::from_u7(data2);
-                    Input::Side {
-                        side,
-                        input: SideInput::Efx2Knob(input),
-                    }
-                }
-                0x57 => {
-                    let side = deck.side();
-                    let input = SliderInput::from_u7(data2);
-                    Input::Side {
-                        side,
-                        input: SideInput::Efx3Knob(input),
-                    }
-                }
-                _ => {
-                    return false;
-                }
-            },
-            0xe0 => {
-                let input = CenterSliderInput::from_u14(u7_be_to_u14(data2, data1)).inverse();
-                Input::Side {
-                    side: deck.side(),
-                    input: SideInput::PitchFader(input),
-                }
-            }
-            _ => {
-                return false;
-            }
-        };
-        let event = InputEvent { ts, input };
-        log::debug!("Emitting {event:?}");
-        self.emit_input_event.emit_input_event(event);
-        true
-    }
-}
-
-impl<E> MidiInputConnector for InputGateway<E>
-where
-    E: Send,
-{
-    fn connect_midi_input_port(
-        &mut self,
-        device: &MidiDeviceDescriptor,
-        port: &MidiPortDescriptor,
-    ) {
-        log::debug!("Device \"{device:?}\" is connected to port \"{port:?}\"");
-    }
-}
-
-/// Flattened enumeration of all input sensors
-#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
-#[repr(u32)]
-pub enum Sensor {
-    // Button
-    BrowseKnobShiftButton,
-    TapButton,
-    TapHoldButton,
-    TouchPadModeButton,
-    TouchPadLowerLeftButton,
-    TouchPadLowerRightButton,
-    TouchPadUpperLeftButton,
-    TouchPadUpperRightButton,
-    // CenterSlider
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumIter, EnumCount)]
+pub enum MainSensor {
     CrossfaderCenterSlider,
-    // StepEncoder
     BrowseKnobStepEncoder,
-    ProgramKnobStepEncoder,
-    // Slider
-    AudiolessMonitorLevel,
-    AudiolessMonitorMix,
-    AudiolessMasterLevel,
-    TouchPadXSlider,
-    TouchPadYSlider,
-    // Deck A: Button
-    DeckAFxButton,
-    DeckALoadButton,
-    DeckAMonitorButton,
-    DeckAShiftButton,
-    DeckATouchStripCenterButton,
-    DeckATouchStripHotCueCenterButton,
-    DeckATouchStripHotCueLeftButton,
-    DeckATouchStripHotCueRightButton,
-    DeckATouchStripLeftButton,
-    DeckATouchStripLoopCenterButton,
-    DeckATouchStripLoopLeftButton,
-    DeckATouchStripLoopRightButton,
-    DeckATouchStripRightButton,
-    DeckATouchWheelScratchButton,
-    // Deck A: LayerButton
-    DeckACueButton,
-    DeckACueShiftButton,
-    DeckAPlayPauseButton,
-    DeckAPlayPauseShiftButton,
-    DeckASyncButton,
-    DeckASyncShiftButton,
-    // Deck A: Slider
-    DeckALevelFaderSlider,
-    DeckATouchStripSlider,
-    // Deck A: SliderEncoder
-    DeckATouchWheelBendSliderEncoder,
-    DeckATouchWheelScratchSliderEncoder,
-    DeckATouchWheelSearchSliderEncoder,
-    // Deck A: CenterSlider
-    DeckAGainKnobCenterSlider,
-    DeckAEqHiKnobCenterSlider,
-    DeckAEqLoKnobCenterSlider,
-    DeckAEqMidKnobCenterSlider,
-    DeckAPitchFaderCenterSlider,
-    // Deck B: Button
-    DeckBFxButton,
-    DeckBLoadButton,
-    DeckBMonitorButton,
-    DeckBShiftButton,
-    DeckBTouchStripLeftButton,
-    DeckBTouchStripCenterButton,
-    DeckBTouchStripRightButton,
-    DeckBTouchStripLoopLeftButton,
-    DeckBTouchStripLoopCenterButton,
-    DeckBTouchStripLoopRightButton,
-    DeckBTouchStripHotCueLeftButton,
-    DeckBTouchStripHotCueCenterButton,
-    DeckBTouchStripHotCueRightButton,
-    DeckBTouchWheelScratchButton,
-    // Deck B: LayerButton
-    DeckBCueButton,
-    DeckBCueShiftButton,
-    DeckBPlayPauseButton,
-    DeckBPlayPauseShiftButton,
-    DeckBSyncButton,
-    DeckBSyncShiftButton,
-    // Deck B: Slider
-    DeckBLevelFaderSlider,
-    DeckBTouchStripSlider,
-    // Deck B: SliderEncoder
-    DeckBTouchWheelBendSliderEncoder,
-    DeckBTouchWheelScratchSliderEncoder,
-    DeckBTouchWheelSearchSliderEncoder,
-    // Deck B: CenterSlider
-    DeckBGainKnobCenterSlider,
-    DeckBEqHiKnobCenterSlider,
-    DeckBEqLoKnobCenterSlider,
-    DeckBEqMidKnobCenterSlider,
-    DeckBPitchFaderCenterSlider,
 }
 
-impl From<Sensor> for ControlIndex {
-    fn from(value: Sensor) -> Self {
-        ControlIndex::new(value as u32)
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumIter, EnumCount)]
+pub enum SideSensor {
+    ShiftButton,
+    PitchFaderCenterSlider,
+    Efx1KnobSlider,
+    Efx2KnobSlider,
+    Efx3KnobSlider,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumIter, EnumCount)]
+pub enum DeckSensor {
+    CueButton,
+    PlayPauseButton,
+    SyncButton,
+    LevelFaderSlider,
+    JogWheelBendSliderEncoder,
+    JogWheelScratchSliderEncoder,
+    GainKnobCenterSlider,
+    EqHiKnobCenterSlider,
+    EqLoKnobCenterSlider,
+    EqMidKnobCenterSlider,
 }
 
 #[derive(Debug)]
-pub struct InvalidControlIndex;
+pub enum Sensor {
+    Main(MainSensor),
+    Side(Side, SideSensor),
+    Deck(Deck, DeckSensor),
+}
 
-impl TryFrom<ControlIndex> for Sensor {
-    type Error = InvalidControlIndex;
-
-    fn try_from(index: ControlIndex) -> Result<Self, Self::Error> {
-        Self::from_repr(index.value()).ok_or(InvalidControlIndex)
+impl From<MainSensor> for Sensor {
+    fn from(from: MainSensor) -> Self {
+        Self::Main(from)
     }
 }
 
-impl From<Input> for ControlRegister {
-    #[allow(clippy::too_many_lines)]
-    fn from(from: Input) -> Self {
-        unimplemented!("TODO: Convert input {from:?} into ControlRegister")
-        // let (sensor, value) = match from {
-        //     // TODO
-        // };
-        // Self {
-        //     index: sensor.into(),
-        //     value,
-        // }
-    }
+#[must_use]
+#[allow(clippy::too_many_lines)]
+pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
+    let [status, data1, data2] = *input else {
+        return None;
+    };
+    let (deck, cmd) = midi_status_to_deck_cmd(status);
+    let (sensor, input) = match cmd {
+        MIDI_CMD_NOTE_OFF | MIDI_CMD_NOTE_ON => {
+            let input = midi_value_to_button(data2);
+            debug_assert_eq!(cmd == MIDI_CMD_NOTE_ON, input == ButtonInput::Pressed);
+            debug_assert_eq!(cmd == MIDI_CMD_NOTE_OFF, input == ButtonInput::Released);
+            let sensor = match data1 {
+                0x60 | 0x61 => Sensor::Side(deck.side(), SideSensor::ShiftButton),
+                MIDI_DECK_CUE_BUTTON => Sensor::Deck(deck, DeckSensor::CueButton),
+                MIDI_DECK_PLAYPAUSE_BUTTON => Sensor::Deck(deck, DeckSensor::PlayPauseButton),
+                MIDI_DECK_SYNC_BUTTON => Sensor::Deck(deck, DeckSensor::SyncButton),
+                _ => {
+                    return None;
+                }
+            };
+            (sensor, input.into())
+        }
+        MIDI_CMD_CC => match data1 {
+            0x01 | 0x07 | 0x0c | 0x11 => (
+                Sensor::Deck(deck, DeckSensor::GainKnobCenterSlider),
+                CenterSliderInput::from_u7(data2).into(),
+            ),
+            0x02 | 0x08 | 0x0d | 0x12 => (
+                Sensor::Deck(deck, DeckSensor::EqHiKnobCenterSlider),
+                CenterSliderInput::from_u7(data2).into(),
+            ),
+            0x03 | 0x09 | 0x0e | 0x13 => (
+                Sensor::Deck(deck, DeckSensor::EqMidKnobCenterSlider),
+                CenterSliderInput::from_u7(data2).into(),
+            ),
+            0x04 | 0x0a | 0x0f | 0x14 => (
+                Sensor::Deck(deck, DeckSensor::EqLoKnobCenterSlider),
+                CenterSliderInput::from_u7(data2).into(),
+            ),
+            0x05 | 0x0b | 0x10 | 0x15 => (
+                Sensor::Deck(deck, DeckSensor::LevelFaderSlider),
+                SliderInput::from_u7(data2).into(),
+            ),
+            0x16 | 0x17 => (
+                MainSensor::CrossfaderCenterSlider.into(),
+                CenterSliderInput::from_u7(data2).into(),
+            ),
+            0x51 => (
+                Sensor::Deck(deck, DeckSensor::JogWheelBendSliderEncoder),
+                SliderEncoderInput::from_u7(data2).into(),
+            ),
+            0x52 => (
+                Sensor::Deck(deck, DeckSensor::JogWheelScratchSliderEncoder),
+                SliderEncoderInput::from_u7(data2).into(),
+            ),
+            0x54 => (
+                MainSensor::BrowseKnobStepEncoder.into(),
+                StepEncoderInput::from_u7(data2).into(),
+            ),
+            0x55 => (
+                Sensor::Side(deck.side(), SideSensor::Efx1KnobSlider),
+                SliderInput::from_u7(data2).into(),
+            ),
+            0x56 => (
+                Sensor::Side(deck.side(), SideSensor::Efx2KnobSlider),
+                SliderInput::from_u7(data2).into(),
+            ),
+            0x57 => (
+                Sensor::Side(deck.side(), SideSensor::Efx3KnobSlider),
+                SliderInput::from_u7(data2).into(),
+            ),
+            _ => {
+                return None;
+            }
+        },
+        0xe0 => (
+            Sensor::Side(deck.side(), SideSensor::PitchFaderCenterSlider),
+            CenterSliderInput::from_u14(u7_be_to_u14(data2, data1))
+                .inverse()
+                .into(),
+        ),
+        _ => {
+            return None;
+        }
+    };
+    Some((sensor, input))
 }

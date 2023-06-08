@@ -33,8 +33,8 @@ pub mod devices;
 mod input;
 pub use self::input::{
     input_events_ordered_chronologically, ButtonInput, CenterSliderInput, ControlInputEvent,
-    ControlInputEventSink, EmitInputEvent, InputEvent, PadButtonInput, SliderEncoderInput,
-    SliderInput, StepEncoderInput,
+    ControlInputEventSink, Input, InputEvent, PadButtonInput, SliderEncoderInput, SliderInput,
+    StepEncoderInput,
 };
 
 mod output;

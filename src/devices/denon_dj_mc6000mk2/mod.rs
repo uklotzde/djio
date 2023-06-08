@@ -8,7 +8,7 @@ use strum::{EnumCount, EnumIter};
 use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
-pub use self::input::{Input, InputEvent, InputGateway};
+pub use self::input::{try_decode_midi_input, DeckSensor, MainSensor, Sensor, SideSensor};
 
 mod output;
 pub use self::output::OutputGateway;

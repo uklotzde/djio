@@ -38,7 +38,7 @@ pub enum ButtonLed {
 #[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
 pub enum KnobLed {
     MonitorLevel,
-    MonitorMix,
+    MonitorBalance,
     MasterLevel,
 }
 
@@ -116,7 +116,7 @@ pub enum Actuator {
     TabButtonLed,
     // Knob Led
     MonitorLevelKnobLed,
-    MonitorMixKnobLed,
+    MonitorBalanceKnobLed,
     MasterLevelKnobLed,
     // Deck A: Button Led
     DeckAPlayPauseButtonLed,
@@ -181,7 +181,7 @@ impl From<Actuator> for Led {
             Actuator::TabButtonLed => Led::Button(ButtonLed::Tab),
             Actuator::MasterLevelKnobLed => Led::Knob(KnobLed::MasterLevel),
             Actuator::MonitorLevelKnobLed => Led::Knob(KnobLed::MonitorLevel),
-            Actuator::MonitorMixKnobLed => Led::Knob(KnobLed::MonitorMix),
+            Actuator::MonitorBalanceKnobLed => Led::Knob(KnobLed::MonitorBalance),
             Actuator::DeckACueButtonLed => Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Cue)),
             Actuator::DeckAMonitorButtonLed => {
                 Led::Deck(Deck::A, DeckLed::Button(DeckButtonLed::Monitor))
@@ -342,7 +342,7 @@ impl OutputGateway {
                 let status = MIDI_STATUS_CC;
                 let data1 = match led {
                     KnobLed::MonitorLevel => MIDI_MONITOR_LEVEL_KNOB,
-                    KnobLed::MonitorMix => MIDI_MONITOR_MIX_KNOB,
+                    KnobLed::MonitorBalance => MIDI_MONITOR_MIX_KNOB,
                     KnobLed::MasterLevel => MIDI_MASTER_LEVEL_KNOB,
                 };
                 (status, data1)

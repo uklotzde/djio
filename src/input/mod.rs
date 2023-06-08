@@ -26,12 +26,6 @@ where
     events.into_iter().is_sorted_by_key(|item| item.borrow().ts)
 }
 
-/// Emit input events after parsing the corresponding hardware-inputs
-pub trait EmitInputEvent<T> {
-    /// Emit an input event
-    fn emit_input_event(&mut self, event: InputEvent<T>);
-}
-
 /// A simple two-state button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonInput {
@@ -345,6 +339,65 @@ impl From<SliderEncoderInput> for ControlValue {
     fn from(from: SliderEncoderInput) -> Self {
         let SliderEncoderInput { delta } = from;
         Self::from_bits(delta.to_bits())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Input {
+    Button(ButtonInput),
+    PadButton(PadButtonInput),
+    Slider(SliderInput),
+    CenterSlider(CenterSliderInput),
+    StepEncoder(StepEncoderInput),
+    SliderEncoder(SliderEncoderInput),
+}
+
+impl From<ButtonInput> for Input {
+    fn from(from: ButtonInput) -> Self {
+        Self::Button(from)
+    }
+}
+
+impl From<PadButtonInput> for Input {
+    fn from(from: PadButtonInput) -> Self {
+        Self::PadButton(from)
+    }
+}
+
+impl From<SliderInput> for Input {
+    fn from(from: SliderInput) -> Self {
+        Self::Slider(from)
+    }
+}
+
+impl From<CenterSliderInput> for Input {
+    fn from(from: CenterSliderInput) -> Self {
+        Self::CenterSlider(from)
+    }
+}
+
+impl From<StepEncoderInput> for Input {
+    fn from(from: StepEncoderInput) -> Self {
+        Self::StepEncoder(from)
+    }
+}
+
+impl From<SliderEncoderInput> for Input {
+    fn from(from: SliderEncoderInput) -> Self {
+        Self::SliderEncoder(from)
+    }
+}
+
+impl From<Input> for ControlValue {
+    fn from(from: Input) -> Self {
+        match from {
+            Input::Button(input) => input.into(),
+            Input::PadButton(input) => input.into(),
+            Input::Slider(input) => input.into(),
+            Input::CenterSlider(input) => input.into(),
+            Input::StepEncoder(input) => input.into(),
+            Input::SliderEncoder(input) => input.into(),
+        }
     }
 }
 
