@@ -4,9 +4,10 @@
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
-    Deck, MIDI_CHANNEL_DECK_A, MIDI_CHANNEL_DECK_B, MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB,
-    MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_GAIN_KNOB, MIDI_DECK_MONITOR_BUTTON,
-    MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+    Deck, CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, MIDI_CHANNEL_DECK_A, MIDI_CHANNEL_DECK_B,
+    MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB,
+    MIDI_DECK_GAIN_KNOB, MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON,
+    MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
@@ -16,9 +17,12 @@ use super::{
     MIDI_STATUS_CC_DECK_B, MIDI_TAP_BUTTON,
 };
 use crate::{
-    devices::korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR, ButtonInput, CenterSliderInput, ControlIndex,
-    ControlInputEvent, ControlRegister, Input, MidiInputConnector, MidiInputDecodeError,
-    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
+    devices::korg_kaoss_dj::{
+        CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_ENUM_BIT_MASK, MIDI_DEVICE_DESCRIPTOR,
+    },
+    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, Input,
+    MidiInputConnector, MidiInputDecodeError, SliderEncoderInput, SliderInput, StepEncoderInput,
+    TimeStamp,
 };
 
 fn u7_to_button(input: u8) -> ButtonInput {
@@ -97,9 +101,6 @@ impl From<MainSensor> for Sensor {
     }
 }
 
-const SENSOR_CONTROL_INDEX_DECK_A: u32 = 0x0100;
-const SENSOR_CONTROL_INDEX_DECK_B: u32 = 0x0200;
-
 impl Sensor {
     #[must_use]
     pub const fn deck(self) -> Option<Deck> {
@@ -115,8 +116,8 @@ impl Sensor {
             Self::Main(sensor) => ControlIndex::new(sensor as u32),
             Self::Deck(deck, sensor) => {
                 let deck_bit = match deck {
-                    Deck::A => SENSOR_CONTROL_INDEX_DECK_A,
-                    Deck::B => SENSOR_CONTROL_INDEX_DECK_B,
+                    Deck::A => CONTROL_INDEX_DECK_A,
+                    Deck::B => CONTROL_INDEX_DECK_B,
                 };
                 ControlIndex::new(deck_bit | sensor as u32)
             }
@@ -131,30 +132,28 @@ impl From<Sensor> for ControlIndex {
 }
 
 #[derive(Debug)]
-pub struct InvalidSensorControlIndex;
+pub struct InvalidInputControlIndex;
 
 impl TryFrom<ControlIndex> for Sensor {
-    type Error = InvalidSensorControlIndex;
+    type Error = InvalidInputControlIndex;
 
     fn try_from(from: ControlIndex) -> Result<Self, Self::Error> {
-        const DECK_BIT_MASK: u32 = SENSOR_CONTROL_INDEX_DECK_A | SENSOR_CONTROL_INDEX_DECK_B;
-        const ENUM_BIT_MASK: u32 = (1 << DECK_BIT_MASK.trailing_zeros()) - 1;
-        debug_assert!(ENUM_BIT_MASK <= u8::MAX.into());
         let value = from.value();
-        let enum_index = (value & ENUM_BIT_MASK) as u8;
-        let deck = match value & DECK_BIT_MASK {
-            SENSOR_CONTROL_INDEX_DECK_A => Deck::A,
-            SENSOR_CONTROL_INDEX_DECK_B => Deck::B,
-            DECK_BIT_MASK => return Err(InvalidSensorControlIndex),
+        debug_assert!(CONTROL_INDEX_ENUM_BIT_MASK <= u8::MAX.into());
+        let enum_index = (value & CONTROL_INDEX_ENUM_BIT_MASK) as u8;
+        let deck = match value & CONTROL_INDEX_DECK_BIT_MASK {
+            CONTROL_INDEX_DECK_A => Deck::A,
+            CONTROL_INDEX_DECK_B => Deck::B,
+            CONTROL_INDEX_DECK_BIT_MASK => return Err(InvalidInputControlIndex),
             _ => {
                 return MainSensor::from_repr(enum_index)
                     .map(Sensor::Main)
-                    .ok_or(InvalidSensorControlIndex);
+                    .ok_or(InvalidInputControlIndex);
             }
         };
         DeckSensor::from_repr(enum_index)
             .map(|sensor| Sensor::Deck(deck, sensor))
-            .ok_or(InvalidSensorControlIndex)
+            .ok_or(InvalidInputControlIndex)
     }
 }
 

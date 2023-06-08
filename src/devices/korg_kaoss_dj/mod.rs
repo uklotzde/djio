@@ -9,14 +9,12 @@ use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
 mod input;
 pub use self::input::{
-    try_decode_midi_input, try_decode_midi_input_event, DeckSensor, MainSensor,
-    MidiInputEventDecoder, Sensor,
+    try_decode_midi_input, try_decode_midi_input_event, DeckSensor, InvalidInputControlIndex,
+    MainSensor, MidiInputEventDecoder, Sensor,
 };
 
 mod output;
-pub use self::output::{
-    Actuator, ButtonLed, DeckButtonLed, DeckKnobLed, DeckLed, KnobLed, Led, OutputGateway,
-};
+pub use self::output::{DeckLed, InvalidOutputControlIndex, Led, OutputGateway};
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
@@ -81,3 +79,8 @@ const MIDI_DECK_GAIN_KNOB: u8 = 0x1a;
 const MIDI_DECK_EQ_HI_KNOB: u8 = 0x1b;
 const MIDI_DECK_EQ_MID_KNOB: u8 = 0x1c;
 const MIDI_DECK_EQ_LO_KNOB: u8 = 0x1d;
+
+const CONTROL_INDEX_DECK_A: u32 = 0x0100;
+const CONTROL_INDEX_DECK_B: u32 = 0x0200;
+const CONTROL_INDEX_DECK_BIT_MASK: u32 = CONTROL_INDEX_DECK_A | CONTROL_INDEX_DECK_B;
+const CONTROL_INDEX_ENUM_BIT_MASK: u32 = (1 << CONTROL_INDEX_DECK_BIT_MASK.trailing_zeros()) - 1;

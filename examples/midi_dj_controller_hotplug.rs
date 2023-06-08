@@ -1,9 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{
-    io::{stdin, stdout, Write as _},
-};
+use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     consume_midi_input_event,
