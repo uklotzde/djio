@@ -7,9 +7,10 @@ use std::{
 };
 
 use djio::{
+    consume_midi_input_event,
     devices::{korg_kaoss_dj, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     ControlInputEventSink, LedOutput, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputDecodeError, MidiInputEventSink, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
+    MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
     PortIndex, PortIndexGenerator, TimeStamp,
 };
 use midir::MidiOutputConnection;
@@ -46,36 +47,34 @@ impl ControlInputEventSink for LogMidiInputEventSink {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-struct MidiInputEventDecoder {
-    device: Option<MidiDeviceDescriptor>,
+#[derive(Default)]
+struct MidiController {
+    decoder: Option<Box<dyn MidiInputEventDecoder>>,
+    event_sink: LogMidiInputEventSink,
 }
 
-impl MidiInputConnector for MidiInputEventDecoder {
+impl MidiInputConnector for MidiController {
     fn connect_midi_input_port(
         &mut self,
         device: &MidiDeviceDescriptor,
-        _input_port: &MidiPortDescriptor,
+        input_port: &MidiPortDescriptor,
     ) {
-        self.device = Some(device.to_owned());
+        self.decoder = if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+            Some(Box::<korg_kaoss_dj::MidiInputEventDecoder>::default())
+        } else {
+            log::warn!("Unsupported device: {device:?}");
+            None
+        };
+        self.event_sink.connect_midi_input_port(device, input_port);
     }
 }
 
-impl djio::MidiInputEventDecoder for MidiInputEventDecoder {
-    fn try_decode_midi_input_event(
-        &mut self,
-        ts: TimeStamp,
-        input: &[u8],
-    ) -> Result<Option<djio::ControlInputEvent>, MidiInputDecodeError> {
-        let Some(device) = &self.device else {
-            log::error!("Cannot decode MIDI input from unknown/disconnected device: {ts} {input:x?}");
-            return Err(MidiInputDecodeError);
+impl MidiInputHandler for MidiController {
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
+        let Some(decoder) = &mut self.decoder else {
+            return false;
         };
-        if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            return korg_kaoss_dj::try_decode_midi_input_event(ts, input);
-        }
-        log::error!("Cannot decode MIDI input from unsupported device {device:?}: {ts} {input:x?}");
-        Err(MidiInputDecodeError)
+        consume_midi_input_event(ts, input, decoder.as_mut(), &mut self.event_sink)
     }
 }
 
@@ -91,14 +90,14 @@ fn main() {
 struct NewMidiDevice;
 
 impl djio::NewMidiDevice for NewMidiDevice {
-    type MidiDevice = Box<dyn MidiDevice>;
+    type MidiDevice = MidiController;
 
     fn new_midi_device(
         &self,
         _device: &MidiDeviceDescriptor,
         _input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice {
-        Box::<MidiInputEventSink<MidiInputEventDecoder, LogMidiInputEventSink>>::default()
+        Default::default()
     }
 }
 
@@ -164,7 +163,7 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
 
 fn run() -> anyhow::Result<()> {
     let port_index_generator = PortIndexGenerator::new();
-    let device_manager = MidirDeviceManager::<Box<dyn MidiDevice>>::new()?;
+    let device_manager = MidirDeviceManager::<MidiController>::new()?;
     let mut dj_controllers =
         device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS, &port_index_generator);
     let (_descriptor, mut midir_device) = match dj_controllers.len() {

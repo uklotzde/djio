@@ -17,8 +17,9 @@ use super::{
     MIDI_TAP_BUTTON,
 };
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, Input,
-    MidiInputDecodeError, SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
+    devices::korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR, ButtonInput, CenterSliderInput, ControlIndex,
+    ControlInputEvent, ControlRegister, Input, MidiInputConnector, MidiInputDecodeError,
+    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
 };
 
 fn u7_to_button(input: u8) -> ButtonInput {
@@ -341,4 +342,27 @@ pub fn try_decode_midi_input_event(
     };
     let event = ControlInputEvent { ts, input };
     Ok(Some(event))
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MidiInputEventDecoder;
+
+impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
+    fn try_decode_midi_input_event(
+        &mut self,
+        ts: TimeStamp,
+        input: &[u8],
+    ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
+        try_decode_midi_input_event(ts, input)
+    }
+}
+
+impl MidiInputConnector for MidiInputEventDecoder {
+    fn connect_midi_input_port(
+        &mut self,
+        device: &crate::MidiDeviceDescriptor,
+        _input_port: &crate::MidiPortDescriptor,
+    ) {
+        assert_eq!(device, MIDI_DEVICE_DESCRIPTOR);
+    }
 }
