@@ -282,11 +282,15 @@ pub struct OutputGateway {
 }
 
 impl OutputGateway {
-    #[must_use]
-    pub fn attach(midi_output_connection: MidiOutputConnection) -> Self {
-        Self {
+    pub fn attach(mut midi_output_connection: MidiOutputConnection) -> OutputResult<Self> {
+        // MIDI SysEx message for querying the initial position of all knobs and faders
+        const MIDI_STATUS_SYSEX: &[u8] = &[
+            0xf0, 0x42, 0x40, 0x00, 0x01, 0x28, 0x00, 0x1f, 0x70, 0x01, 0xf7,
+        ];
+        midi_output_connection.send(MIDI_STATUS_SYSEX)?;
+        Ok(Self {
             midi_output_connection,
-        }
+        })
     }
 
     #[must_use]
@@ -300,7 +304,7 @@ impl OutputGateway {
     pub fn reset_all_leds(&mut self) -> OutputResult<()> {
         // Turn off all leds
         self.send_all_led_outputs(LedOutput::Off, Duration::ZERO)?;
-        // Turn in all knob leds
+        // Turn on all knob leds
         for led in KnobLed::iter() {
             self.send_led_output(led.into(), LedOutput::On)?;
         }

@@ -117,7 +117,7 @@ impl OutputGateway {
         T: MidiDevice,
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
+            let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection).unwrap();
             // Simple LED animation
             gateway
                 .send_all_led_outputs(LedOutput::Off, Duration::ZERO)
