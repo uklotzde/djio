@@ -8,51 +8,50 @@ use std::{
 
 use djio::{
     devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    EmitInputEvent, GenericMidirDeviceManager, LedOutput, MidiDevice, MidiDeviceDescriptor,
-    MidiInputReceiver, MidirDevice, MidirInputConnector, TimeStamp,
+    ControlInputEventSink, EmitInputEvent, GenericMidirDeviceManager, LedOutput, MidiDevice,
+    MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, MidiPortDescriptor, MidirDevice,
+    PortIndex, PortIndexGenerator, TimeStamp,
 };
-use midir::{MidiInputPort, MidiOutputConnection};
+use midir::MidiOutputConnection;
 
 #[derive(Debug, Clone, Default)]
 struct LogMidiInput {
-    device_descriptor: Option<MidiDeviceDescriptor>,
-    client_name: String,
+    connected: Option<(MidiDeviceDescriptor, MidiPortDescriptor)>,
 }
 
-impl MidiInputReceiver for LogMidiInput {
-    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
-        let device_descriptor = self.device_descriptor.as_ref().unwrap();
-        let client_name = &self.client_name;
-        if device_descriptor == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+impl MidiInputHandler for LogMidiInput {
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
+        let Some((device, port)) = &self.connected else {
+            return false;
+        };
+        if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             if let Some(input) = korg_kaoss_dj::Input::try_from_midi_input(input) {
-                println!("{client_name} @ {ts}: {input:?})");
-                return;
+                println!("{port:?} @ {ts}: {input:?})");
+                return true;
             }
         }
-        if device_descriptor == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
+        if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
             if let Some(input) = pioneer_ddj_400::Input::try_from_midi_input(input) {
-                println!("{client_name} @ {ts}: {input:?})");
-                return;
+                println!("{port:?} @ {ts}: {input:?})");
+                return true;
             }
         }
         println!(
-            "{client_name} @ {ts}: {input:x?} (len = {input_len})",
+            "{port:?} @ {ts}: {input:x?} (len = {input_len})",
             input_len = input.len()
         );
+        true
     }
 }
 
-impl MidirInputConnector for LogMidiInput {
+impl MidiInputConnector for LogMidiInput {
     fn connect_midi_input_port(
         &mut self,
-        device_descriptor: &MidiDeviceDescriptor,
-        client_name: &str,
-        port_name: &str,
-        _port: &MidiInputPort,
+        device: &MidiDeviceDescriptor,
+        port: &MidiPortDescriptor,
     ) {
-        println!("{client_name}: Connecting input port \"{port_name}\"");
-        self.device_descriptor = Some(device_descriptor.to_owned());
-        self.client_name = client_name.to_owned();
+        log::info!("Device \"{device:?}\" is connected to port \"{port:?}\"");
+        self.connected = Some((device.to_owned(), port.to_owned()));
     }
 }
 
@@ -92,14 +91,17 @@ fn main() {
 }
 
 #[must_use]
-fn new_midi_input_receiver(device_descriptor: &MidiDeviceDescriptor) -> Box<dyn MidiDevice> {
-    if device_descriptor == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+fn new_midi_device(
+    device: &MidiDeviceDescriptor,
+    _port: &MidiPortDescriptor,
+) -> Box<dyn MidiDevice> {
+    if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
         Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
-    } else if device_descriptor == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
+    } else if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
         Box::new(PioneerDdJ400InputGateway::attach(
             PioneerDdj400LogInputEvent,
         ))
-    } else if device_descriptor == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
+    } else if device == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
         Box::new(DenonDjMc6000Mk2InputGateway::attach(
             DenonDjMc6000Mk2LogInputEvent,
         ))
@@ -121,7 +123,7 @@ impl OutputGateway {
     #[must_use]
     fn attach<T>(midi_device: &MidirDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
     where
-        T: MidiInputReceiver + MidirInputConnector,
+        T: MidiDevice,
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection);
@@ -153,10 +155,27 @@ impl OutputGateway {
     }
 }
 
+#[derive(Debug, Clone)]
+struct LoggingInputPortEventSink {
+    pub port_index: PortIndex,
+}
+
+impl ControlInputEventSink for LoggingInputPortEventSink {
+    fn sink_input_events(&mut self, events: &[djio::ControlInputEvent]) {
+        log::info!(
+            "Received {num_events} input event(s) from port {port_index}: {events:?}",
+            num_events = events.len(),
+            port_index = self.port_index,
+        );
+    }
+}
+
 fn run() -> anyhow::Result<()> {
+    let port_index_generator = PortIndexGenerator::new();
     let device_manager = GenericMidirDeviceManager::new()?;
-    let mut dj_controllers = device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS);
-    let (_descriptor, mut device) = match dj_controllers.len() {
+    let mut dj_controllers =
+        device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS, &port_index_generator);
+    let (_descriptor, mut midir_device) = match dj_controllers.len() {
         0 => anyhow::bail!("No supported DJ controllers found"),
         1 => {
             println!(
@@ -187,27 +206,31 @@ fn run() -> anyhow::Result<()> {
         }
     };
 
-    let device_descriptor = device.descriptor().to_owned();
-    let device_name = device_descriptor.device.name();
+    let device_name = midir_device.descriptor().device.name();
     println!("{device_name}: connecting");
-    let midi_output_connection = device
-        .reconnect(Some(|| new_midi_input_receiver(&device_descriptor)), None)
+    let new_midi_device = higher_order_closure::higher_order_closure! {
+        |device: &'_ MidiDeviceDescriptor, port: &'_ MidiPortDescriptor| -> Box<dyn MidiDevice> {
+            new_midi_device(device, port)
+        }
+    };
+    let midi_output_connection = midir_device
+        .reconnect(Some(new_midi_device), None)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
-    let mut output_gateway = Some(OutputGateway::attach(&device, midi_output_connection));
+    let mut output_gateway = Some(OutputGateway::attach(&midir_device, midi_output_connection));
 
     println!("Starting endless loop, press CTRL-C to exit...");
     loop {
-        match (device.is_available(&device_manager), device.is_connected()) {
+        match (
+            midir_device.is_available(&device_manager),
+            midir_device.is_connected(),
+        ) {
             (true, false) => {
                 println!("{device_name}: Reconnecting");
                 let midi_output_connection = output_gateway.take().map(OutputGateway::detach);
-                let midi_output_connection = device
-                    .reconnect(
-                        Some(|| new_midi_input_receiver(&device_descriptor)),
-                        midi_output_connection,
-                    )
+                let midi_output_connection = midir_device
+                    .reconnect(Some(new_midi_device), midi_output_connection)
                     .map_err(|err| anyhow::anyhow!("{err}"))?;
-                output_gateway = Some(OutputGateway::attach(&device, midi_output_connection));
+                output_gateway = Some(OutputGateway::attach(&midir_device, midi_output_connection));
             }
             (false, true) => {
                 println!("{device_name}: Disconnecting");
@@ -215,7 +238,7 @@ fn run() -> anyhow::Result<()> {
                     .take()
                     .map(OutputGateway::detach)
                     .map(MidiOutputConnection::close);
-                device.disconnect();
+                midir_device.disconnect();
             }
             (false, false) => println!("{device_name}: Disconnected"),
             (true, true) => println!("{device_name}: Connected"),

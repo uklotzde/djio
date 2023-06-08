@@ -4,11 +4,11 @@
 //! Receiving and processing sensor data from devices
 //! .
 
-use std::{borrow::Borrow, collections::HashMap, ops::RangeInclusive};
+use std::{borrow::Borrow, ops::RangeInclusive};
 
 use is_sorted::IsSorted as _;
 
-use crate::{ControlRegister, ControlValue, PortIndex, TimeStamp};
+use crate::{ControlRegister, ControlValue, TimeStamp};
 
 /// Time-stamped input event
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub struct InputEvent<T> {
     pub input: T,
 }
 
-fn input_events_ordered_chronologically<I, T>(events: I) -> bool
+pub fn input_events_ordered_chronologically<I, T>(events: I) -> bool
 where
     I: IntoIterator,
     I::Item: Borrow<InputEvent<T>>,
@@ -350,59 +350,13 @@ impl From<SliderEncoderInput> for ControlValue {
 
 pub type ControlInputEvent = InputEvent<ControlRegister>;
 
-pub trait InputEventReceiver {
-    /// Callback for receiving control input events
+pub trait ControlInputEventSink {
+    /// Callback for sinking control input events
     ///
     /// The caller will provide one or more events per invocation.
     /// Multiple events are ordered chronologically according to
     /// their time stamps.
-    fn recv_input_events(&mut self, port_index: PortIndex, events: &[ControlInputEvent]);
-}
-
-#[derive(Default)]
-#[allow(missing_debug_implementations)]
-pub struct InputGateway {
-    next_port_index: PortIndex,
-    event_receivers: HashMap<PortIndex, Box<dyn InputEventReceiver>>,
-}
-
-#[allow(missing_debug_implementations)]
-pub struct ConnectInputPortError(pub Box<dyn InputEventReceiver>);
-
-impl InputGateway {
-    pub fn connect_port(
-        &mut self,
-        event_receiver: Box<dyn InputEventReceiver>,
-    ) -> Result<PortIndex, ConnectInputPortError> {
-        let port_index = self.next_port_index;
-        if self.is_port_connected(port_index) {
-            return Err(ConnectInputPortError(event_receiver));
-        }
-        self.event_receivers.insert(port_index, event_receiver);
-        self.next_port_index = port_index.next();
-        Ok(port_index)
-    }
-
-    pub fn disconnect_port(
-        &mut self,
-        port_index: PortIndex,
-    ) -> Option<Box<dyn InputEventReceiver>> {
-        self.event_receivers.remove(&port_index)
-    }
-
-    #[must_use]
-    pub fn is_port_connected(&self, port_index: PortIndex) -> bool {
-        self.event_receivers.contains_key(&port_index)
-    }
-
-    pub fn dispatch_events(&mut self, port_index: PortIndex, events: &[ControlInputEvent]) -> bool {
-        let Some(event_receiver) = self.event_receivers.get_mut(&port_index) else {
-            return false;
-        };
-        debug_assert!(input_events_ordered_chronologically(events));
-        event_receiver.recv_input_events(port_index, events);
-        true
-    }
+    fn sink_input_events(&mut self, events: &[ControlInputEvent]);
 }
 
 #[cfg(test)]

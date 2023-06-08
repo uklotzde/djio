@@ -9,9 +9,10 @@ use crate::{
         MIDI_CMD_CC, MIDI_CMD_NOTE_OFF, MIDI_CMD_NOTE_ON, MIDI_DECK_CUE_BUTTON,
         MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
     },
+    midi::MidiPortDescriptor,
     u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
-    EmitInputEvent, MidiDeviceDescriptor, MidiInputReceiver, MidirInputConnector,
-    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
+    EmitInputEvent, MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, SliderEncoderInput,
+    SliderInput, StepEncoderInput, TimeStamp,
 };
 
 fn midi_status_to_deck_cmd(status: u8) -> (Deck, u8) {
@@ -107,15 +108,15 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> MidiInputReceiver for InputGateway<E>
+impl<E> MidiInputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
     #[allow(clippy::too_many_lines)]
-    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
         let [status, data1, data2] = *input else {
             log::error!("[{ts}] Unexpected MIDI input message: {input:x?}");
-            return;
+            return false;
         };
         let (deck, cmd) = midi_status_to_deck_cmd(status);
         let input = match cmd {
@@ -144,8 +145,7 @@ where
                         input: DeckInput::SyncButton(input),
                     },
                     _ => {
-                        log::error!("[{ts}] Unhandled MIDI input message: {input:x?}");
-                        return;
+                        return false;
                     }
                 }
             }
@@ -232,8 +232,7 @@ where
                     }
                 }
                 _ => {
-                    log::error!("[{ts}] Unhandled MIDI input message: {input:x?}");
-                    return;
+                    return false;
                 }
             },
             0xe0 => {
@@ -244,28 +243,26 @@ where
                 }
             }
             _ => {
-                log::error!("[{ts}] Unhandled MIDI input message: {input:x?}");
-                return;
+                return false;
             }
         };
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
         self.emit_input_event.emit_input_event(event);
+        true
     }
 }
 
-impl<E> MidirInputConnector for InputGateway<E>
+impl<E> MidiInputConnector for InputGateway<E>
 where
     E: Send,
 {
     fn connect_midi_input_port(
         &mut self,
-        _device_descriptor: &MidiDeviceDescriptor,
-        client_name: &str,
-        port_name: &str,
-        _port: &midir::MidiInputPort,
+        device: &MidiDeviceDescriptor,
+        port: &MidiPortDescriptor,
     ) {
-        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
+        log::debug!("Device \"{device:?}\" is connected to port \"{port:?}\"");
     }
 }
 

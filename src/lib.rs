@@ -32,9 +32,9 @@ pub mod devices;
 
 mod input;
 pub use self::input::{
-    ButtonInput, CenterSliderInput, ConnectInputPortError, ControlInputEvent, EmitInputEvent,
-    InputEvent, InputEventReceiver, InputGateway, PadButtonInput, SliderEncoderInput, SliderInput,
-    StepEncoderInput,
+    input_events_ordered_chronologically, ButtonInput, CenterSliderInput, ControlInputEvent,
+    ControlInputEventSink, EmitInputEvent, InputEvent, PadButtonInput, SliderEncoderInput,
+    SliderInput, StepEncoderInput,
 };
 
 mod output;
@@ -74,34 +74,10 @@ pub struct PortIndex {
     value: u32,
 }
 
-#[derive(Debug)]
-pub struct AtomicPortIndex(AtomicU32);
-
-impl AtomicPortIndex {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self(AtomicU32::new(PortIndex::FIRST.value()))
-    }
-
-    #[must_use]
-    pub fn try_next(&self) -> Option<PortIndex> {
-        let value = self.0.load(Ordering::SeqCst);
-        let next = PortIndex::new(value).next();
-        if let Ok(prev_value) =
-            self.0
-                .compare_exchange_weak(value, next.value(), Ordering::SeqCst, Ordering::SeqCst)
-        {
-            debug_assert_eq!(value, prev_value);
-            Some(next)
-        } else {
-            None
-        }
-    }
-}
-
 impl PortIndex {
-    pub const FIRST: Self = Self::new(0);
-    pub const LAST: Self = Self::new(u32::MAX);
+    pub const INVALID: Self = Self::new(0);
+    pub const MIN: Self = Self::new(1);
+    pub const MAX: Self = Self::new(u32::MAX);
 
     #[must_use]
     pub const fn new(value: u32) -> Self {
@@ -120,10 +96,56 @@ impl PortIndex {
     }
 
     #[must_use]
-    pub const fn next(self) -> Self {
+    pub fn is_valid(self) -> bool {
+        self != Self::INVALID
+    }
+
+    #[must_use]
+    pub fn next(self) -> Self {
         let Self { value } = self;
-        let next_value = value.wrapping_add(1);
-        Self { value: next_value }
+        let next_value = loop {
+            let next_value = value.wrapping_add(1);
+            if next_value != Self::INVALID.value() {
+                break next_value;
+            }
+        };
+        let next = Self { value: next_value };
+        debug_assert!(next.is_valid());
+        next
+    }
+}
+
+/// Thread-safe [`PortIndex`] generator
+#[derive(Debug)]
+pub struct PortIndexGenerator(AtomicU32);
+
+impl PortIndexGenerator {
+    #[must_use]
+    pub const fn new() -> Self {
+        Self(AtomicU32::new(PortIndex::INVALID.value()))
+    }
+
+    #[must_use]
+    pub fn next(&self) -> PortIndex {
+        let mut old_value = self.0.load(Ordering::Relaxed);
+        loop {
+            let next = PortIndex::new(old_value).next();
+            match self.0.compare_exchange_weak(
+                old_value,
+                next.value(),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(value) => {
+                    debug_assert_eq!(old_value, value);
+                    return next;
+                }
+                Err(value) => {
+                    debug_assert_ne!(old_value, value);
+                    old_value = value;
+                }
+            }
+        }
     }
 }
 
@@ -235,9 +257,10 @@ mod midi;
 
 #[cfg(feature = "midi")]
 pub use self::midi::{
-    GenericMidiDevice, GenericMidirDeviceManager, MidiDevice, MidiDeviceDescriptor,
-    MidiInputDecoder, MidiInputEventGateway, MidiInputPortConnectError, MidiInputPortConnector,
-    MidiInputReceiver, MidiPortError, MidirDevice, MidirDeviceManager, MidirInputConnector,
+    GenericMidirDevice, GenericMidirDeviceManager, MidiControlInputEventSink, MidiDevice,
+    MidiDeviceConnector, MidiDeviceDescriptor, MidiInputConnector, MidiInputDecodeError,
+    MidiInputDecoder, MidiInputHandler, MidiPortDescriptor, MidiPortError, MidirDevice,
+    MidirDeviceManager, MidirInputPort, MidirOutputPort,
 };
 
 #[cfg(test)]
@@ -246,15 +269,13 @@ mod tests {
 
     #[test]
     fn default_port_index() {
-        assert_eq!(PortIndex::FIRST, PortIndex::default());
+        assert_eq!(PortIndex::INVALID, PortIndex::default());
     }
 
     #[test]
     fn next_port_index() {
-        assert_eq!(
-            PortIndex::FIRST.value() + 1,
-            PortIndex::FIRST.next().value()
-        );
-        assert_eq!(PortIndex::FIRST, PortIndex::LAST.next());
+        assert_eq!(PortIndex::MIN, PortIndex::INVALID.next());
+        assert!(PortIndex::MIN < PortIndex::MIN.next());
+        assert_eq!(PortIndex::MIN, PortIndex::MAX.next());
     }
 }

@@ -24,8 +24,8 @@ use super::{
     MIDI_TOUCHPAD_UPPER_RIGHT_BUTTON, MIDI_TOUCHPAD_X, MIDI_TOUCHPAD_Y,
 };
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
-    EmitInputEvent, MidiDeviceDescriptor, MidiInputReceiver, MidirInputConnector,
+    midi::MidiPortDescriptor, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent,
+    ControlRegister, EmitInputEvent, MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler,
     SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
 };
 
@@ -539,18 +539,18 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> MidiInputReceiver for InputGateway<E>
+impl<E> MidiInputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
-    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
         let Some(input) = Input::try_from_midi_input(input) else {
-            log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
-            return;
+            return false;
         };
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
         self.emit_input_event.emit_input_event(event);
+        true
     }
 }
 
@@ -564,18 +564,16 @@ pub fn try_decode_midi_input(ts: TimeStamp, input: &[u8]) -> Option<ControlInput
     Some(event)
 }
 
-impl<E> MidirInputConnector for InputGateway<E>
+impl<E> MidiInputConnector for InputGateway<E>
 where
     E: Send,
 {
     fn connect_midi_input_port(
         &mut self,
-        _device_descriptor: &MidiDeviceDescriptor,
-        client_name: &str,
-        port_name: &str,
-        _port: &midir::MidiInputPort,
+        device: &MidiDeviceDescriptor,
+        port: &MidiPortDescriptor,
     ) {
-        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
+        log::debug!("Device \"{device:?}\" is connected to port \"{port:?}\"");
     }
 }
 

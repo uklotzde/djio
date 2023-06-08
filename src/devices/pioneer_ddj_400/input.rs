@@ -3,8 +3,8 @@
 
 use super::Deck;
 use crate::{
-    u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent, MidiDeviceDescriptor,
-    MidiInputReceiver, MidirInputConnector, SliderInput, TimeStamp,
+    midi::MidiPortDescriptor, u7_be_to_u14, ButtonInput, CenterSliderInput, EmitInputEvent,
+    MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, SliderInput, TimeStamp,
 };
 
 pub type InputEvent = crate::InputEvent<Input>;
@@ -196,14 +196,14 @@ impl<E> InputGateway<E> {
     }
 }
 
-impl<E> MidiInputReceiver for InputGateway<E>
+impl<E> MidiInputHandler for InputGateway<E>
 where
     E: EmitInputEvent<Input> + Send,
 {
-    fn recv_midi_input(&mut self, ts: TimeStamp, input: &[u8]) {
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
         let Some(input) = Input::try_from_midi_input(input) else {
             log::debug!("[{ts}] Unhandled MIDI input message: {input:x?}");
-            return;
+            return false;
         };
         let input = match input {
             Input::Mixer(ev) => match ev {
@@ -263,20 +263,19 @@ where
         let event = InputEvent { ts, input };
         log::debug!("Emitting {event:?}");
         self.emit_input_event.emit_input_event(event);
+        true
     }
 }
 
-impl<E> MidirInputConnector for InputGateway<E>
+impl<E> MidiInputConnector for InputGateway<E>
 where
     E: Send,
 {
     fn connect_midi_input_port(
         &mut self,
-        _device_descriptor: &MidiDeviceDescriptor,
-        client_name: &str,
-        port_name: &str,
-        _port: &midir::MidiInputPort,
+        device: &MidiDeviceDescriptor,
+        port: &MidiPortDescriptor,
     ) {
-        log::debug!("Device \"{client_name}\" is connected to port \"{port_name}\"");
+        log::debug!("Device \"{device:?}\" is connected to port \"{port:?}\"");
     }
 }
