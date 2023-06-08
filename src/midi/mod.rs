@@ -47,27 +47,49 @@ impl From<SendError> for OutputError {
 }
 
 pub trait MidiInputConnector: Send {
-    /// Invoked before (re-)connecting the port.
-    fn connect_midi_input_port(&mut self, device: &MidiDeviceDescriptor, port: &MidiPortDescriptor);
+    /// Invoked before (re-)connecting the input port.
+    fn connect_midi_input_port(
+        &mut self,
+        device: &MidiDeviceDescriptor,
+        input_port: &MidiPortDescriptor,
+    );
+}
+
+impl<D> MidiInputConnector for D
+where
+    D: DerefMut + Send,
+    <D as Deref>::Target: MidiInputConnector,
+{
+    fn connect_midi_input_port(
+        &mut self,
+        device: &MidiDeviceDescriptor,
+        port: &MidiPortDescriptor,
+    ) {
+        self.deref_mut().connect_midi_input_port(device, port);
+    }
 }
 
 #[derive(Debug)]
 pub struct MidiInputDecodeError;
 
-pub trait MidiInputDecoder {
-    /// Invoked for each incoming message.
-    fn try_decode_midi_input(
+/// Decode and map received MIDI messages into [`ControlInputEvent`]s.
+pub trait MidiInputEventDecoder {
+    /// Decode the next MIDI message
+    ///
+    /// Not each successfully decoded MIDI input might result in an event,
+    /// i.e. returning `Ok(None)` is not an error.
+    fn try_decode_midi_input_event(
         &mut self,
         ts: TimeStamp,
         input: &[u8],
     ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError>;
 }
 
-impl<F> MidiInputDecoder for F
+impl<F> MidiInputEventDecoder for F
 where
     F: FnMut(TimeStamp, &[u8]) -> Result<Option<ControlInputEvent>, MidiInputDecodeError>,
 {
-    fn try_decode_midi_input(
+    fn try_decode_midi_input_event(
         &mut self,
         ts: TimeStamp,
         input: &[u8],
@@ -96,46 +118,44 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct MidiControlInputEventSink<D, E> {
+#[derive(Debug, Default)]
+pub struct MidiInputEventSink<D, E> {
     pub decoder: D,
     pub event_sink: E,
 }
 
-impl<D, E> MidiInputHandler for MidiControlInputEventSink<D, E>
+impl<D, E> MidiInputConnector for MidiInputEventSink<D, E>
 where
-    D: MidiInputDecoder + Send,
-    E: ControlInputEventSink + Send,
-{
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
-        match self.decoder.try_decode_midi_input(ts, input) {
-            Ok(Some(event)) => {
-                self.event_sink.sink_input_events(&[event]);
-                true
-            }
-            Ok(None) => {
-                log::debug!("[{ts}] No event for decoded MIDI input {input:x?}",);
-                true
-            }
-            Err(MidiInputDecodeError) => {
-                log::warn!("[{ts}] Failed to decode MIDI input {input:x?}");
-                false
-            }
-        }
-    }
-}
-
-impl<D> MidiInputConnector for D
-where
-    D: DerefMut + Send,
-    <D as Deref>::Target: MidiInputConnector,
+    D: MidiInputConnector,
+    E: MidiInputConnector,
 {
     fn connect_midi_input_port(
         &mut self,
         device: &MidiDeviceDescriptor,
-        port: &MidiPortDescriptor,
+        input_port: &MidiPortDescriptor,
     ) {
-        self.deref_mut().connect_midi_input_port(device, port);
+        self.decoder.connect_midi_input_port(device, input_port);
+        self.event_sink.connect_midi_input_port(device, input_port);
+    }
+}
+
+impl<D, E> MidiInputHandler for MidiInputEventSink<D, E>
+where
+    D: MidiInputEventDecoder + Send,
+    E: ControlInputEventSink + Send,
+{
+    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
+        match self.decoder.try_decode_midi_input_event(ts, input) {
+            Ok(Some(event)) => {
+                self.event_sink.sink_input_events(&[event]);
+                true
+            }
+            Ok(None) => true,
+            Err(MidiInputDecodeError) => {
+                log::warn!("Failed to decode MIDI input: {ts} {input:x?}");
+                false
+            }
+        }
     }
 }
 
@@ -281,9 +301,9 @@ where
                 port_name,
                 move |micros, input, input_handler| {
                     let ts = TimeStamp::from_micros(micros);
-                    log::debug!("[{ts}] Received MIDI input: {input:0x?}");
+                    log::debug!("Received MIDI input: {ts} {input:0x?}");
                     if !input_handler.handle_midi_input(ts, input) {
-                        log::warn!("[{ts}] Unhandled MIDI input {input:x?}");
+                        log::warn!("Unhandled MIDI input {ts} {input:x?}");
                     }
                 },
                 device,

@@ -4,28 +4,21 @@
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
-    Deck, MIDI_BROWSE_KNOB, MIDI_BROWSE_KNOB_SHIFT_BUTTON, MIDI_CHANNEL_DECK_A,
-    MIDI_CHANNEL_DECK_B, MIDI_CROSSFADER, MIDI_DECK_CUE_BUTTON, MIDI_DECK_CUE_SHIFT_BUTTON,
-    MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_FX_BUTTON,
-    MIDI_DECK_GAIN_KNOB, MIDI_DECK_LEVEL_FADER, MIDI_DECK_LOAD_BUTTON, MIDI_DECK_MONITOR_BUTTON,
-    MIDI_DECK_PITCH_FADER, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_PLAYPAUSE_SHIFT_BUTTON,
-    MIDI_DECK_SHIFT_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_SYNC_SHIFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
-    MIDI_DECK_TOUCHWHEEL_BEND, MIDI_DECK_TOUCHWHEEL_SCRATCH, MIDI_DECK_TOUCHWHEEL_SCRATCH_BUTTON,
-    MIDI_DECK_TOUCHWHEEL_SEARCH, MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB,
-    MIDI_MONITOR_MIX_KNOB, MIDI_PROGRAM_KNOB, MIDI_STATUS_BUTTON, MIDI_STATUS_BUTTON_DECK_A,
+    Deck, MIDI_CHANNEL_DECK_A, MIDI_CHANNEL_DECK_B, MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB,
+    MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_FX_BUTTON, MIDI_DECK_GAIN_KNOB,
+    MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON, MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB,
+    MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_BUTTON, MIDI_STATUS_BUTTON_DECK_A,
     MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_CC, MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B,
-    MIDI_TAP_BUTTON, MIDI_TAP_HOLD_BUTTON, MIDI_TOUCHPAD_LOWER_LEFT_BUTTON,
-    MIDI_TOUCHPAD_LOWER_RIGHT_BUTTON, MIDI_TOUCHPAD_MODE_BUTTON, MIDI_TOUCHPAD_UPPER_LEFT_BUTTON,
-    MIDI_TOUCHPAD_UPPER_RIGHT_BUTTON, MIDI_TOUCHPAD_X, MIDI_TOUCHPAD_Y,
+    MIDI_TAP_BUTTON,
 };
 use crate::{
     ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, Input,
-    SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
+    MidiInputDecodeError, SliderEncoderInput, SliderInput, StepEncoderInput, TimeStamp,
 };
 
 fn u7_to_button(input: u8) -> ButtonInput {
@@ -173,23 +166,24 @@ fn midi_status_to_deck(status: u8) -> Deck {
     }
 }
 
-#[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
+pub fn try_decode_midi_input(
+    input: &[u8],
+) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
     let decoded = match *input {
         [MIDI_STATUS_BUTTON, data1, data2] => {
             let input = u7_to_button(data2);
             let sensor = match data1 {
-                MIDI_BROWSE_KNOB_SHIFT_BUTTON => MainSensor::BrowseKnobShiftButton,
+                0x07 => MainSensor::BrowseKnobShiftButton,
                 MIDI_TAP_BUTTON => MainSensor::TapButton,
-                MIDI_TAP_HOLD_BUTTON => MainSensor::TapHoldButton,
-                MIDI_TOUCHPAD_MODE_BUTTON => MainSensor::TouchPadModeButton,
-                MIDI_TOUCHPAD_UPPER_LEFT_BUTTON => MainSensor::TouchPadUpperLeftButton,
-                MIDI_TOUCHPAD_UPPER_RIGHT_BUTTON => MainSensor::TouchPadUpperRightButton,
-                MIDI_TOUCHPAD_LOWER_LEFT_BUTTON => MainSensor::TouchPadLowerLeftButton,
-                MIDI_TOUCHPAD_LOWER_RIGHT_BUTTON => MainSensor::TouchPadLowerRightButton,
+                0x21 => MainSensor::TapHoldButton,
+                0x22 => MainSensor::TouchPadModeButton,
+                0x4a => MainSensor::TouchPadUpperLeftButton,
+                0x4b => MainSensor::TouchPadUpperRightButton,
+                0x4c => MainSensor::TouchPadLowerLeftButton,
+                0x4d => MainSensor::TouchPadLowerRightButton,
                 _ => {
-                    return None;
+                    return Err(MidiInputDecodeError);
                 }
             };
             (sensor.into(), input.into())
@@ -198,7 +192,7 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
             let input = u7_to_button(data2);
             let deck = midi_status_to_deck(status);
             let sensor = match data1 {
-                MIDI_DECK_LOAD_BUTTON => DeckSensor::LoadButton,
+                0x0e => DeckSensor::LoadButton,
                 MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON => DeckSensor::TouchStripLoopLeftButton,
                 MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON => DeckSensor::TouchStripLoopCenterButton,
                 MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON => DeckSensor::TouchStripLoopRightButton,
@@ -212,26 +206,26 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
                 MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON => DeckSensor::TouchStripRightButton,
                 MIDI_DECK_FX_BUTTON => DeckSensor::FxButton,
                 MIDI_DECK_MONITOR_BUTTON => DeckSensor::MonitorButton,
-                MIDI_DECK_SHIFT_BUTTON => DeckSensor::ShiftButton,
+                0x1a => DeckSensor::ShiftButton,
                 MIDI_DECK_PLAYPAUSE_BUTTON => DeckSensor::PlayPauseButton,
                 MIDI_DECK_SYNC_BUTTON => DeckSensor::SyncButton,
                 MIDI_DECK_CUE_BUTTON => DeckSensor::CueButton,
-                MIDI_DECK_TOUCHWHEEL_SCRATCH_BUTTON => DeckSensor::TouchWheelScratchButton,
-                MIDI_DECK_PLAYPAUSE_SHIFT_BUTTON => DeckSensor::PlayPauseShiftButton,
-                MIDI_DECK_SYNC_SHIFT_BUTTON => DeckSensor::SyncShiftButton,
-                MIDI_DECK_CUE_SHIFT_BUTTON => DeckSensor::CueShiftButton,
+                0x1f => DeckSensor::TouchWheelScratchButton,
+                0x2e => DeckSensor::PlayPauseShiftButton,
+                0x2f => DeckSensor::SyncShiftButton,
+                0x30 => DeckSensor::CueShiftButton,
                 _ => {
-                    return None;
+                    return Err(MidiInputDecodeError);
                 }
             };
             (Sensor::Deck(deck, sensor), input.into())
         }
-        [MIDI_STATUS_CC_DECK_B, MIDI_TOUCHPAD_X | MIDI_TOUCHPAD_Y, _data2] => {
+        [MIDI_STATUS_CC_DECK_B, 0x0c | 0x0d, _data2] => {
             // Filter duplicate touch pad messages for deck B,
             // see the comments in next match expression.
-            return None;
+            return Ok(None);
         }
-        [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), MIDI_TOUCHPAD_X, data2] => {
+        [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), 0x0c, data2] => {
             // The X/Y coordinates of the touch pad are always sent twice for
             // unknown reasons. According to the documentation they should
             // be sent on the main channel instead of on both deck channels.
@@ -240,7 +234,7 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
             let input = SliderInput::from_u7(data2);
             (MainSensor::TouchPadXSlider.into(), input.into())
         }
-        [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), MIDI_TOUCHPAD_Y, data2] => {
+        [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), 0x0d, data2] => {
             // The X/Y coordinates of the touch pad are always sent twice for
             // unknown reasons. According to the documentation they should
             // be sent on the main channel instead of on both deck channels.
@@ -262,42 +256,42 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
                 MainSensor::AudiolessMasterLevelSlider.into(),
                 SliderInput::from_u7(data2).into(),
             ),
-            MIDI_CROSSFADER => (
+            0x17 => (
                 MainSensor::CrossfaderCenterSlider.into(),
                 CenterSliderInput::from_u7(data2).into(),
             ),
-            MIDI_BROWSE_KNOB => (
+            0x1e => (
                 MainSensor::BrowseKnobStepEncoder.into(),
                 StepEncoderInput::from_u7(data2).into(),
             ),
-            MIDI_PROGRAM_KNOB => (
+            0x1f => (
                 MainSensor::ProgramKnobStepEncoder.into(),
                 StepEncoderInput::from_u7(data2).into(),
             ),
             _ => {
-                return None;
+                return Err(MidiInputDecodeError);
             }
         },
         [status @ (MIDI_STATUS_CC_DECK_A | MIDI_STATUS_CC_DECK_B), data1, data2] => {
             let deck = midi_status_to_deck(status);
             let (sensor, input) = match data1 {
-                MIDI_DECK_TOUCHWHEEL_BEND => (
+                0x0e => (
                     DeckSensor::TouchWheelBendSliderEncoder,
                     SliderEncoderInput::from_u7(data2).into(),
                 ),
-                MIDI_DECK_TOUCHWHEEL_SEARCH => (
+                0x0f => (
                     DeckSensor::TouchWheelSearchSliderEncoder,
                     SliderEncoderInput::from_u7(data2).into(),
                 ),
-                MIDI_DECK_TOUCHWHEEL_SCRATCH => (
+                0x10 => (
                     DeckSensor::TouchWheelScratchSliderEncoder,
                     SliderEncoderInput::from_u7(data2).into(),
                 ),
-                MIDI_DECK_LEVEL_FADER => (
+                0x18 => (
                     DeckSensor::LevelFaderSlider,
                     SliderInput::from_u7(data2).into(),
                 ),
-                MIDI_DECK_PITCH_FADER => (
+                0x19 => (
                     DeckSensor::PitchFaderCenterSlider,
                     CenterSliderInput::from_u7(data2).inverse().into(),
                 ),
@@ -317,32 +311,34 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
                     DeckSensor::EqLoKnobCenterSlider,
                     CenterSliderInput::from_u7(data2).into(),
                 ),
-                MIDI_DECK_TOUCHSTRIP => (
+                0x21 => (
                     DeckSensor::TouchStripSlider,
                     SliderInput::from_u7(data2).into(),
                 ),
                 _ => {
-                    return None;
+                    return Err(MidiInputDecodeError);
                 }
             };
             (Sensor::Deck(deck, sensor), input)
         }
         _ => {
-            return None;
+            return Err(MidiInputDecodeError);
         }
     };
-    Some(decoded)
+    Ok(Some(decoded))
 }
 
-#[must_use]
-pub fn try_decode_midi_message(ts: TimeStamp, input: &[u8]) -> Option<ControlInputEvent> {
-    let Some((sensor, input)) = try_decode_midi_input(input) else {
-        return None;
+pub fn try_decode_midi_input_event(
+    ts: TimeStamp,
+    input: &[u8],
+) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
+    let Some((sensor, input)) = try_decode_midi_input(input)? else {
+        return Ok(None);
     };
     let input = ControlRegister {
         index: sensor.into(),
         value: input.into(),
     };
     let event = ControlInputEvent { ts, input };
-    Some(event)
+    Ok(Some(event))
 }

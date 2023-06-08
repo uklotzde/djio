@@ -9,8 +9,8 @@ use crate::{
         MIDI_CMD_CC, MIDI_CMD_NOTE_OFF, MIDI_CMD_NOTE_ON, MIDI_DECK_CUE_BUTTON,
         MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
     },
-    u7_be_to_u14, ButtonInput, CenterSliderInput, Input, SliderEncoderInput, SliderInput,
-    StepEncoderInput,
+    u7_be_to_u14, ButtonInput, CenterSliderInput, Input, MidiInputDecodeError, SliderEncoderInput,
+    SliderInput, StepEncoderInput,
 };
 
 fn midi_status_to_deck_cmd(status: u8) -> (Deck, u8) {
@@ -87,11 +87,12 @@ impl From<MainSensor> for Sensor {
     }
 }
 
-#[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
+pub fn try_decode_midi_input(
+    input: &[u8],
+) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
     let [status, data1, data2] = *input else {
-        return None;
+        return Err(MidiInputDecodeError);
     };
     let (deck, cmd) = midi_status_to_deck_cmd(status);
     let (sensor, input) = match cmd {
@@ -105,7 +106,7 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
                 MIDI_DECK_PLAYPAUSE_BUTTON => Sensor::Deck(deck, DeckSensor::PlayPauseButton),
                 MIDI_DECK_SYNC_BUTTON => Sensor::Deck(deck, DeckSensor::SyncButton),
                 _ => {
-                    return None;
+                    return Err(MidiInputDecodeError);
                 }
             };
             (sensor, input.into())
@@ -160,7 +161,7 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
                 SliderInput::from_u7(data2).into(),
             ),
             _ => {
-                return None;
+                return Err(MidiInputDecodeError);
             }
         },
         0xe0 => (
@@ -170,8 +171,8 @@ pub fn try_decode_midi_input(input: &[u8]) -> Option<(Sensor, Input)> {
                 .into(),
         ),
         _ => {
-            return None;
+            return Err(MidiInputDecodeError);
         }
     };
-    Some((sensor, input))
+    Ok(Some((sensor, input)))
 }

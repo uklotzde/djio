@@ -7,51 +7,75 @@ use std::{
 };
 
 use djio::{
-    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
+    devices::{korg_kaoss_dj, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     ControlInputEventSink, LedOutput, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager, PortIndex,
-    PortIndexGenerator, TimeStamp,
+    MidiInputDecodeError, MidiInputEventSink, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
+    PortIndex, PortIndexGenerator, TimeStamp,
 };
 use midir::MidiOutputConnection;
 
 #[derive(Debug, Clone, Default)]
-struct LogMidiInput {
-    connected: Option<(MidiDeviceDescriptor, MidiPortDescriptor)>,
+struct LogMidiInputEventSink {
+    input_port: Option<MidiPortDescriptor>,
 }
 
-impl MidiInputHandler for LogMidiInput {
-    fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
-        let Some((device, port)) = &self.connected else {
-            return false;
-        };
-        if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            if let Some(input) = korg_kaoss_dj::try_decode_midi_input(input) {
-                println!("{port:?} @ {ts}: {input:?})");
-                return true;
-            }
-        }
-        if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
-            if let Some(input) = pioneer_ddj_400::Input::try_from_midi_input(input) {
-                println!("{port:?} @ {ts}: {input:?})");
-                return true;
-            }
-        }
-        println!(
-            "{port:?} @ {ts}: {input:x?} (len = {input_len})",
-            input_len = input.len()
-        );
-        true
+impl MidiInputConnector for LogMidiInputEventSink {
+    fn connect_midi_input_port(
+        &mut self,
+        _device: &MidiDeviceDescriptor,
+        input_port: &MidiPortDescriptor,
+    ) {
+        self.input_port = Some(input_port.to_owned());
     }
 }
 
-impl MidiInputConnector for LogMidiInput {
+impl ControlInputEventSink for LogMidiInputEventSink {
+    fn sink_input_events(&mut self, events: &[djio::ControlInputEvent]) {
+        match &self.input_port {
+            Some(input_port) => {
+                for event in events {
+                    log::info!("Received {event:?} from {input_port:?}");
+                }
+            }
+            None => {
+                for event in events {
+                    log::error!("Received {event:?} from unknown MIDI device/port");
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct MidiInputEventDecoder {
+    device: Option<MidiDeviceDescriptor>,
+}
+
+impl MidiInputConnector for MidiInputEventDecoder {
     fn connect_midi_input_port(
         &mut self,
         device: &MidiDeviceDescriptor,
-        port: &MidiPortDescriptor,
+        _input_port: &MidiPortDescriptor,
     ) {
-        log::info!("Device \"{device:?}\" is connected to port \"{port:?}\"");
-        self.connected = Some((device.to_owned(), port.to_owned()));
+        self.device = Some(device.to_owned());
+    }
+}
+
+impl djio::MidiInputEventDecoder for MidiInputEventDecoder {
+    fn try_decode_midi_input_event(
+        &mut self,
+        ts: TimeStamp,
+        input: &[u8],
+    ) -> Result<Option<djio::ControlInputEvent>, MidiInputDecodeError> {
+        let Some(device) = &self.device else {
+            log::error!("Cannot decode MIDI input from unknown/disconnected device: {ts} {input:x?}");
+            return Err(MidiInputDecodeError);
+        };
+        if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+            return korg_kaoss_dj::try_decode_midi_input_event(ts, input);
+        }
+        log::error!("Cannot decode MIDI input from unsupported device {device:?}: {ts} {input:x?}");
+        Err(MidiInputDecodeError)
     }
 }
 
@@ -74,7 +98,7 @@ impl djio::NewMidiDevice for NewMidiDevice {
         _device: &MidiDeviceDescriptor,
         _input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice {
-        Box::<LogMidiInput>::default()
+        Box::<MidiInputEventSink<MidiInputEventDecoder, LogMidiInputEventSink>>::default()
     }
 }
 
