@@ -8,8 +8,8 @@ use std::{
 
 use djio::{
     devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, EmitInputEvent, GenericMidirDeviceManager, LedOutput, MidiDevice,
-    MidiDeviceDescriptor, MidiInputConnector, MidiInputHandler, MidiPortDescriptor, MidirDevice,
+    ControlInputEventSink, EmitInputEvent, LedOutput, MidiDevice, MidiDeviceDescriptor,
+    MidiInputConnector, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
     PortIndex, PortIndexGenerator, TimeStamp,
 };
 use midir::MidiOutputConnection;
@@ -178,7 +178,7 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
 
 fn run() -> anyhow::Result<()> {
     let port_index_generator = PortIndexGenerator::new();
-    let device_manager = GenericMidirDeviceManager::new()?;
+    let device_manager = MidirDeviceManager::<Box<dyn MidiDevice>>::new()?;
     let mut dj_controllers =
         device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS, &port_index_generator);
     let (_descriptor, mut midir_device) = match dj_controllers.len() {

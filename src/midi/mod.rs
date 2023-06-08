@@ -310,8 +310,6 @@ pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
 
 impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector {}
 
-pub type GenericMidirDevice = MidirDevice<Box<dyn MidiDevice>>;
-
 pub trait NewMidiDevice {
     type MidiDevice: self::MidiDevice;
 
@@ -449,5 +447,3 @@ where
             .collect()
     }
 }
-
-pub type GenericMidirDeviceManager = MidirDeviceManager<Box<dyn MidiDevice>>;

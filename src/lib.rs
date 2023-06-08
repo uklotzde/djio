@@ -257,10 +257,9 @@ mod midi;
 
 #[cfg(feature = "midi")]
 pub use self::midi::{
-    GenericMidirDevice, GenericMidirDeviceManager, MidiControlInputEventSink, MidiDevice,
-    MidiDeviceDescriptor, MidiInputConnector, MidiInputDecodeError, MidiInputDecoder,
-    MidiInputHandler, MidiPortDescriptor, MidiPortError, MidirDevice, MidirDeviceManager,
-    MidirInputPort, MidirOutputPort, NewMidiDevice,
+    MidiControlInputEventSink, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
+    MidiInputDecodeError, MidiInputDecoder, MidiInputHandler, MidiPortDescriptor, MidiPortError,
+    MidirDevice, MidirDeviceManager, MidirInputPort, MidirOutputPort, NewMidiDevice,
 };
 
 #[cfg(test)]
