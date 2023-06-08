@@ -125,14 +125,6 @@ where
     }
 }
 
-pub trait MidiDeviceConnector {
-    fn new_midi_input_receiver(
-        &mut self,
-        device_descriptor: &MidiDeviceDescriptor,
-        _port_name: &str,
-    ) -> Box<dyn MidiDevice>;
-}
-
 impl<D> MidiInputConnector for D
 where
     D: DerefMut + Send,
@@ -274,7 +266,7 @@ where
             if let Some((input, device)) = connection.map(MidiInputConnection::close) {
                 (input, device)
             } else {
-                let Some(mut new_midi_device) = new_midi_device else {
+                let Some(new_midi_device) = new_midi_device else {
                     return Err(MidiPortError::Disconnected);
                 };
                 let input = MidiInput::new(port_name)?;
@@ -324,7 +316,7 @@ pub trait NewMidiDevice {
     type MidiDevice: self::MidiDevice;
 
     fn new_midi_device(
-        &mut self,
+        &self,
         device: &MidiDeviceDescriptor,
         input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice;

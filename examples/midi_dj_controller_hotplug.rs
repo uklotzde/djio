@@ -96,7 +96,7 @@ impl djio::NewMidiDevice for NewMidiDevice {
     type MidiDevice = Box<dyn MidiDevice>;
 
     fn new_midi_device(
-        &mut self,
+        &self,
         device: &MidiDeviceDescriptor,
         _input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice {
