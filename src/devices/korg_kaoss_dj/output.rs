@@ -288,9 +288,14 @@ impl OutputGateway {
             0xf0, 0x42, 0x40, 0x00, 0x01, 0x28, 0x00, 0x1f, 0x70, 0x01, 0xf7,
         ];
         midi_output_connection.send(MIDI_STATUS_SYSEX)?;
-        Ok(Self {
+        let mut gateway = Self {
             midi_output_connection,
-        })
+        };
+        // Simple LED animation (for debugging)
+        // gateway.send_all_led_outputs(LedOutput::Off, Duration::ZERO)?;
+        // gateway.send_all_led_outputs(LedOutput::On, Duration::from_millis(50))?;
+        gateway.reset_all_leds()?;
+        Ok(gateway)
     }
 
     #[must_use]
@@ -301,7 +306,7 @@ impl OutputGateway {
         midi_output_connection
     }
 
-    pub fn reset_all_leds(&mut self) -> OutputResult<()> {
+    fn reset_all_leds(&mut self) -> OutputResult<()> {
         // Turn off all leds
         self.send_all_led_outputs(LedOutput::Off, Duration::ZERO)?;
         // Turn on all knob leds
@@ -316,11 +321,7 @@ impl OutputGateway {
         Ok(())
     }
 
-    pub fn send_all_led_outputs(
-        &mut self,
-        output: LedOutput,
-        throttle: Duration,
-    ) -> OutputResult<()> {
+    fn send_all_led_outputs(&mut self, output: LedOutput, throttle: Duration) -> OutputResult<()> {
         let mut first = true;
         for actuator in Actuator::iter() {
             if first {

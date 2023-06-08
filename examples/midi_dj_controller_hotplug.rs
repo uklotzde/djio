@@ -3,13 +3,12 @@
 
 use std::{
     io::{stdin, stdout, Write as _},
-    time::Duration,
 };
 
 use djio::{
     consume_midi_input_event,
     devices::{korg_kaoss_dj, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, LedOutput, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
+    ControlInputEventSink, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
     MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
     PortIndex, PortIndexGenerator, TimeStamp,
 };
@@ -117,16 +116,7 @@ impl OutputGateway {
         T: MidiDevice,
     {
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            let mut gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection).unwrap();
-            // Simple LED animation
-            gateway
-                .send_all_led_outputs(LedOutput::Off, Duration::ZERO)
-                .unwrap();
-            gateway
-                .send_all_led_outputs(LedOutput::On, Duration::from_millis(50))
-                .unwrap();
-            // Reset all
-            gateway.reset_all_leds().unwrap();
+            let gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection).unwrap();
             Self::KorgKaossDj { gateway }
         } else {
             Self::Generic {
