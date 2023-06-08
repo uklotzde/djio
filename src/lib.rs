@@ -102,12 +102,13 @@ impl PortIndex {
 
     #[must_use]
     pub fn next(self) -> Self {
-        let Self { value } = self;
+        let Self { mut value } = self;
         let next_value = loop {
             let next_value = value.wrapping_add(1);
             if next_value != Self::INVALID.value() {
                 break next_value;
             }
+            value = next_value;
         };
         let next = Self { value: next_value };
         debug_assert!(next.is_valid());
