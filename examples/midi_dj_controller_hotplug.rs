@@ -5,7 +5,7 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     consume_midi_input_event,
-    devices::{korg_kaoss_dj, MIDI_DJ_CONTROLLER_DESCRIPTORS},
+    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     ControlInputEventSink, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
     MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
     PortIndex, PortIndexGenerator, TimeStamp,
@@ -56,7 +56,9 @@ impl MidiInputConnector for MidiController {
         device: &MidiDeviceDescriptor,
         input_port: &MidiPortDescriptor,
     ) {
-        self.decoder = if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+        self.decoder = if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
+            Some(Box::<pioneer_ddj_400::MidiInputEventDecoder>::default())
+        } else if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             Some(Box::<korg_kaoss_dj::MidiInputEventDecoder>::default())
         } else {
             log::warn!("Unsupported device: {device:?}");

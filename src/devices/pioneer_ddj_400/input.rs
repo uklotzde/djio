@@ -1,258 +1,198 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use super::Deck;
-use crate::{u7_be_to_u14, ButtonInput, CenterSliderInput, SliderInput, TimeStamp};
+use strum::{EnumCount, EnumIter, FromRepr};
 
-pub type InputEvent = crate::InputEvent<Input>;
+use super::{
+    Deck, CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
+    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_CHANNEL_DECK_ONE, MIDI_CHANNEL_DECK_TWO,
+    MIDI_DECK_CUE_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DEVICE_DESCRIPTOR,
+    MIDI_STATUS_BUTTON_DECK_ONE, MIDI_STATUS_BUTTON_DECK_TWO, MIDI_STATUS_CC,
+    MIDI_STATUS_CC_DECK_ONE, MIDI_STATUS_CC_DECK_TWO,
+};
+use crate::{
+    u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
+    Input, MidiInputConnector, MidiInputDecodeError, SliderInput, TimeStamp,
+};
 
-/// One half of a 14-bit value.
-///
-/// TODO: Combine 14-bit values from two 7-bit values in `InputGateway`
-/// and remove `pub`.
-#[derive(Debug, Clone, Copy)]
-pub enum HalfU14 {
-    Hi(u8),
-    Lo(u8),
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
+#[repr(u8)]
+pub enum MainSensor {
+    Crossfader,
 }
 
-#[derive(Debug)]
-pub enum Input {
-    Deck(Deck, DeckInput),
-    Mixer(MixerInput),
-}
-
-#[derive(Debug)]
-pub enum DeckInput {
-    Button {
-        ctrl: DeckButton,
-        input: ButtonInput,
-    },
-    PitchFader(CenterSliderInput),
-    PitchFaderRaw(HalfU14),
-    JogWheel(WheelDirection),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum DeckButton {
-    PlayPause,
-    Cue,
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
+#[repr(u8)]
+pub enum DeckSensor {
+    CueButton,
+    PlayPauseButton,
+    PitchFaderCenterSlider,
+    JogWheelSliderEncoder,
+    LevelFader,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum WheelDirection {
-    Rev,
-    Fwd,
+pub enum Sensor {
+    Main(MainSensor),
+    Deck(Deck, DeckSensor),
 }
 
-#[derive(Debug)]
-pub enum MixerInput {
-    Crossfader(CenterSliderInput),
-    CrossfaderRaw(HalfU14),
-    VolumeFader(MixerChannel, SliderInput),
-    VolumeFaderRaw(MixerChannel, HalfU14),
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum MixerChannel {
-    /// It's labeled with `1` on the controller
-    One,
-    /// It's labeled with `2` on the controller
-    Two,
-}
-
-fn u7_to_button(input: u8) -> ButtonInput {
-    match input {
-        0 => ButtonInput::Released,
-        127 => ButtonInput::Pressed,
-        _ => unreachable!(),
+impl From<MainSensor> for Sensor {
+    fn from(from: MainSensor) -> Self {
+        Self::Main(from)
     }
 }
 
-impl Input {
+impl Sensor {
     #[must_use]
-    pub fn try_from_midi_input(input: &[u8]) -> Option<Self> {
-        let mapped = match input {
-            // Play/Pause
-            [0x90, 0xB, state] => Self::Deck(
-                Deck::Left,
-                DeckInput::Button {
-                    ctrl: DeckButton::PlayPause,
-                    input: u7_to_button(*state),
-                },
-            ),
-            [0x91, 0xB, state] => Self::Deck(
-                Deck::Right,
-                DeckInput::Button {
-                    ctrl: DeckButton::PlayPause,
-                    input: u7_to_button(*state),
-                },
-            ),
-
-            // CUE
-            [0x90, 0xC, state] => Self::Deck(
-                Deck::Left,
-                DeckInput::Button {
-                    ctrl: DeckButton::Cue,
-                    input: u7_to_button(*state),
-                },
-            ),
-            [0x91, 0xC, state] => Self::Deck(
-                Deck::Right,
-                DeckInput::Button {
-                    ctrl: DeckButton::Cue,
-                    input: u7_to_button(*state),
-                },
-            ),
-
-            // Cross fader
-            [0xB6, 0x3F, value] => Self::Mixer(MixerInput::CrossfaderRaw(HalfU14::Lo(*value))),
-            [0xB6, 0x1F, value] => Self::Mixer(MixerInput::CrossfaderRaw(HalfU14::Hi(*value))),
-
-            // Volume faders
-            [0xB0, 0x33, value] => Self::Mixer(MixerInput::VolumeFaderRaw(
-                MixerChannel::One,
-                HalfU14::Lo(*value),
-            )),
-            [0xB0, 0x13, value] => Self::Mixer(MixerInput::VolumeFaderRaw(
-                MixerChannel::One,
-                HalfU14::Hi(*value),
-            )),
-            [0xB1, 0x33, value] => Self::Mixer(MixerInput::VolumeFaderRaw(
-                MixerChannel::Two,
-                HalfU14::Lo(*value),
-            )),
-            [0xB1, 0x13, value] => Self::Mixer(MixerInput::VolumeFaderRaw(
-                MixerChannel::Two,
-                HalfU14::Hi(*value),
-            )),
-
-            // Pitch faders
-            [0xB0, 0x00, value] => {
-                Self::Deck(Deck::Left, DeckInput::PitchFaderRaw(HalfU14::Hi(*value)))
-            }
-            [0xB0, 0x20, value] => {
-                Self::Deck(Deck::Left, DeckInput::PitchFaderRaw(HalfU14::Lo(*value)))
-            }
-            [0xB1, 0x00, value] => {
-                Self::Deck(Deck::Right, DeckInput::PitchFaderRaw(HalfU14::Hi(*value)))
-            }
-            [0xB1, 0x20, value] => {
-                Self::Deck(Deck::Right, DeckInput::PitchFaderRaw(HalfU14::Lo(*value)))
-            }
-
-            // Jog wheel
-            [0xB1, 0x21, 0x3F] => Self::Deck(Deck::Right, DeckInput::JogWheel(WheelDirection::Rev)),
-            [0xB1, 0x21, 0x41] => Self::Deck(Deck::Right, DeckInput::JogWheel(WheelDirection::Fwd)),
-            [0xB0, 0x21, 0x3F] => Self::Deck(Deck::Left, DeckInput::JogWheel(WheelDirection::Rev)),
-            [0xB0, 0x21, 0x41] => Self::Deck(Deck::Left, DeckInput::JogWheel(WheelDirection::Fwd)),
-
-            _ => {
-                return None;
-            }
-        };
-        Some(mapped)
-    }
-}
-
-#[derive(Debug)]
-pub struct InputGateway<E> {
-    crossfader: Fader,
-    volume_fader_ch_1: Fader,
-    volume_fader_ch_2: Fader,
-    pitch_fader_left: Fader,
-    pitch_fader_right: Fader,
-    emit_input_event: E,
-}
-
-#[derive(Debug, Default)]
-struct Fader {
-    hi: u8,
-    lo: u8,
-}
-
-impl<E> InputGateway<E> {
-    #[must_use]
-    pub fn attach(emit_input_event: E) -> Self {
-        Self {
-            emit_input_event,
-            crossfader: Default::default(),
-            volume_fader_ch_1: Default::default(),
-            volume_fader_ch_2: Default::default(),
-            pitch_fader_left: Default::default(),
-            pitch_fader_right: Default::default(),
+    pub const fn deck(self) -> Option<Deck> {
+        match self {
+            Self::Main(_) => None,
+            Self::Deck(deck, _) => Some(deck),
         }
     }
 
     #[must_use]
-    pub fn detach(self) -> E {
-        let Self {
-            emit_input_event, ..
-        } = self;
-        emit_input_event
+    pub const fn to_control_index(self) -> ControlIndex {
+        match self {
+            Self::Main(sensor) => ControlIndex::new(sensor as u32),
+            Self::Deck(deck, sensor) => {
+                let deck_bit = match deck {
+                    Deck::One => CONTROL_INDEX_DECK_ONE,
+                    Deck::Two => CONTROL_INDEX_DECK_TWO,
+                };
+                ControlIndex::new(deck_bit | sensor as u32)
+            }
+        }
     }
+}
 
-    pub fn try_decode_midi_message(&mut self, ts: TimeStamp, input: &[u8]) -> Option<InputEvent> {
-        let Some(input) = Input::try_from_midi_input(input) else {
-            return None;
+impl From<Sensor> for ControlIndex {
+    fn from(from: Sensor) -> Self {
+        from.to_control_index()
+    }
+}
+
+#[derive(Debug)]
+pub struct InvalidInputControlIndex;
+
+impl TryFrom<ControlIndex> for Sensor {
+    type Error = InvalidInputControlIndex;
+
+    fn try_from(from: ControlIndex) -> Result<Self, Self::Error> {
+        let value = from.value();
+        debug_assert!(CONTROL_INDEX_ENUM_BIT_MASK <= u8::MAX.into());
+        let enum_index = (value & CONTROL_INDEX_ENUM_BIT_MASK) as u8;
+        let deck = match value & CONTROL_INDEX_DECK_BIT_MASK {
+            CONTROL_INDEX_DECK_ONE => Deck::One,
+            CONTROL_INDEX_DECK_TWO => Deck::Two,
+            CONTROL_INDEX_DECK_BIT_MASK => return Err(InvalidInputControlIndex),
+            _ => {
+                return MainSensor::from_repr(enum_index)
+                    .map(Sensor::Main)
+                    .ok_or(InvalidInputControlIndex);
+            }
         };
-        let input = match input {
-            Input::Mixer(ev) => match ev {
-                MixerInput::CrossfaderRaw(half_u14) => {
-                    match half_u14 {
-                        HalfU14::Lo(val) => {
-                            self.crossfader.lo = val;
-                        }
-                        HalfU14::Hi(val) => {
-                            self.crossfader.hi = val;
-                        }
-                    }
-                    let center_slider = CenterSliderInput::from_u14(u7_be_to_u14(
-                        self.crossfader.hi,
-                        self.crossfader.lo,
-                    ));
-                    Input::Mixer(MixerInput::Crossfader(center_slider))
+        DeckSensor::from_repr(enum_index)
+            .map(|sensor| Sensor::Deck(deck, sensor))
+            .ok_or(InvalidInputControlIndex)
+    }
+}
+
+fn u7_to_button(input: u8) -> ButtonInput {
+    match input {
+        0x00 => ButtonInput::Released,
+        0x7f => ButtonInput::Pressed,
+        _ => unreachable!(),
+    }
+}
+
+fn midi_status_to_deck(status: u8) -> Deck {
+    match status & 0xf {
+        MIDI_CHANNEL_DECK_ONE => Deck::One,
+        MIDI_CHANNEL_DECK_TWO => Deck::Two,
+        _ => unreachable!("Unexpected MIDI status {status}"),
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct MidiInputEventDecoder {
+    last_hi: u8,
+}
+
+impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
+    fn try_decode_midi_input_event(
+        &mut self,
+        ts: TimeStamp,
+        input: &[u8],
+    ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
+        let (sensor, input): (Sensor, Input) = match *input {
+            [MIDI_STATUS_CC, data1, data2] => match data1 {
+                0x1f => {
+                    self.last_hi = data2;
+                    return Ok(None);
                 }
-                MixerInput::VolumeFaderRaw(channel, half_u14) => {
-                    let fader = match channel {
-                        MixerChannel::One => &mut self.volume_fader_ch_1,
-                        MixerChannel::Two => &mut self.volume_fader_ch_2,
-                    };
-                    match half_u14 {
-                        HalfU14::Lo(val) => {
-                            fader.lo = val;
-                        }
-                        HalfU14::Hi(val) => {
-                            fader.hi = val;
-                        }
-                    }
-                    let slider = SliderInput::from_u14(u7_be_to_u14(fader.hi, fader.lo));
-                    Input::Mixer(MixerInput::VolumeFader(channel, slider))
+                0x3f => (
+                    MainSensor::Crossfader.into(),
+                    CenterSliderInput::from_u14(u7_be_to_u14(self.last_hi, data2)).into(),
+                ),
+                _ => {
+                    return Err(MidiInputDecodeError);
                 }
-                _ => Input::Mixer(ev),
             },
-            Input::Deck(deck, input) => match input {
-                DeckInput::PitchFaderRaw(half_u14) => {
-                    let fader = match deck {
-                        Deck::Left => &mut self.pitch_fader_left,
-                        Deck::Right => &mut self.pitch_fader_right,
-                    };
-                    match half_u14 {
-                        HalfU14::Lo(val) => {
-                            fader.lo = val;
-                        }
-                        HalfU14::Hi(val) => {
-                            fader.hi = val;
-                        }
+            [status @ (MIDI_STATUS_BUTTON_DECK_ONE | MIDI_STATUS_BUTTON_DECK_TWO), data1, data2] => {
+                let deck = midi_status_to_deck(status);
+                let input = u7_to_button(data2);
+                let sensor = match data1 {
+                    MIDI_DECK_PLAYPAUSE_BUTTON => DeckSensor::PlayPauseButton,
+                    MIDI_DECK_CUE_BUTTON => DeckSensor::CueButton,
+                    _ => {
+                        return Err(MidiInputDecodeError);
                     }
-                    let slider =
-                        CenterSliderInput::from_u14(u7_be_to_u14(fader.hi, fader.lo)).inverse();
-                    Input::Deck(deck, DeckInput::PitchFader(slider))
+                };
+                (Sensor::Deck(deck, sensor), input.into())
+            }
+            [status @ (MIDI_STATUS_CC_DECK_ONE | MIDI_STATUS_CC_DECK_TWO), data1, data2] => {
+                let deck = midi_status_to_deck(status);
+                match data1 {
+                    0x00 | 0x13 => {
+                        self.last_hi = data2;
+                        return Ok(None);
+                    }
+                    0x20 => (
+                        Sensor::Deck(deck, DeckSensor::PitchFaderCenterSlider),
+                        CenterSliderInput::from_u14(u7_be_to_u14(self.last_hi, data2))
+                            .inverse()
+                            .into(),
+                    ),
+                    0x33 => (
+                        Sensor::Deck(deck, DeckSensor::LevelFader),
+                        SliderInput::from_u14(u7_be_to_u14(self.last_hi, data2)).into(),
+                    ),
+                    _ => {
+                        return Err(MidiInputDecodeError);
+                    }
                 }
-                _ => Input::Deck(deck, input),
-            },
+            }
+            _ => {
+                return Err(MidiInputDecodeError);
+            }
         };
-        let event = InputEvent { ts, input };
-        Some(event)
+        let input = ControlRegister {
+            index: sensor.into(),
+            value: input.into(),
+        };
+        let event = ControlInputEvent { ts, input };
+        Ok(Some(event))
+    }
+}
+
+impl MidiInputConnector for MidiInputEventDecoder {
+    fn connect_midi_input_port(
+        &mut self,
+        device: &crate::MidiDeviceDescriptor,
+        _input_port: &crate::MidiPortDescriptor,
+    ) {
+        assert_eq!(device, MIDI_DEVICE_DESCRIPTOR);
     }
 }
