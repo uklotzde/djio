@@ -90,23 +90,29 @@ fn main() {
     }
 }
 
-#[must_use]
-fn new_midi_device(
-    device: &MidiDeviceDescriptor,
-    _port: &MidiPortDescriptor,
-) -> Box<dyn MidiDevice> {
-    if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-        Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
-    } else if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
-        Box::new(PioneerDdJ400InputGateway::attach(
-            PioneerDdj400LogInputEvent,
-        ))
-    } else if device == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
-        Box::new(DenonDjMc6000Mk2InputGateway::attach(
-            DenonDjMc6000Mk2LogInputEvent,
-        ))
-    } else {
-        Box::<LogMidiInput>::default()
+struct NewMidiDevice;
+
+impl djio::NewMidiDevice for NewMidiDevice {
+    type MidiDevice = Box<dyn MidiDevice>;
+
+    fn new_midi_device(
+        &mut self,
+        device: &MidiDeviceDescriptor,
+        _input_port: &MidiPortDescriptor,
+    ) -> Self::MidiDevice {
+        if device == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+            Box::new(KorgKaossDjInputGateway::attach(KorgKaossDjLogInputEvent))
+        } else if device == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
+            Box::new(PioneerDdJ400InputGateway::attach(
+                PioneerDdj400LogInputEvent,
+            ))
+        } else if device == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
+            Box::new(DenonDjMc6000Mk2InputGateway::attach(
+                DenonDjMc6000Mk2LogInputEvent,
+            ))
+        } else {
+            Box::<LogMidiInput>::default()
+        }
     }
 }
 
@@ -208,13 +214,8 @@ fn run() -> anyhow::Result<()> {
 
     let device_name = midir_device.descriptor().device.name();
     println!("{device_name}: connecting");
-    let new_midi_device = higher_order_closure::higher_order_closure! {
-        |device: &'_ MidiDeviceDescriptor, port: &'_ MidiPortDescriptor| -> Box<dyn MidiDevice> {
-            new_midi_device(device, port)
-        }
-    };
     let midi_output_connection = midir_device
-        .reconnect(Some(new_midi_device), None)
+        .reconnect(Some(NewMidiDevice), None)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
     let mut output_gateway = Some(OutputGateway::attach(&midir_device, midi_output_connection));
 
@@ -228,7 +229,7 @@ fn run() -> anyhow::Result<()> {
                 println!("{device_name}: Reconnecting");
                 let midi_output_connection = output_gateway.take().map(OutputGateway::detach);
                 let midi_output_connection = midir_device
-                    .reconnect(Some(new_midi_device), midi_output_connection)
+                    .reconnect(Some(NewMidiDevice), midi_output_connection)
                     .map_err(|err| anyhow::anyhow!("{err}"))?;
                 output_gateway = Some(OutputGateway::attach(&midir_device, midi_output_connection));
             }

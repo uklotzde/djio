@@ -260,7 +260,7 @@ pub use self::midi::{
     GenericMidirDevice, GenericMidirDeviceManager, MidiControlInputEventSink, MidiDevice,
     MidiDeviceConnector, MidiDeviceDescriptor, MidiInputConnector, MidiInputDecodeError,
     MidiInputDecoder, MidiInputHandler, MidiPortDescriptor, MidiPortError, MidirDevice,
-    MidirDeviceManager, MidirInputPort, MidirOutputPort,
+    MidirDeviceManager, MidirInputPort, MidirOutputPort, NewMidiDevice,
 };
 
 #[cfg(test)]

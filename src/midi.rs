@@ -234,16 +234,16 @@ where
 
     pub fn reconnect<F>(
         &mut self,
-        new_device: Option<F>,
+        new_midi_device: Option<F>,
         output_connection: Option<MidiOutputConnection>,
     ) -> Result<MidiOutputConnection, MidiPortError>
     where
-        F: FnOnce(&'_ MidiDeviceDescriptor, &'_ MidiPortDescriptor) -> D,
+        F: NewMidiDevice<MidiDevice = D>,
     {
         let input_connection = self.input_connection.take();
         debug_assert!(!self.is_connected());
         debug_assert_eq!(input_connection.is_some(), output_connection.is_some());
-        let input_connection = self.reconnect_input(input_connection, new_device)?;
+        let input_connection = self.reconnect_input(input_connection, new_midi_device)?;
         let output_connection = self.reconnect_output(output_connection)?;
         self.input_connection = Some(input_connection);
         debug_assert!(self.is_connected());
@@ -264,21 +264,22 @@ where
     fn reconnect_input<F>(
         &mut self,
         connection: Option<MidiInputConnection<D>>,
-        new_device: Option<F>,
+        new_midi_device: Option<F>,
     ) -> Result<MidiInputConnection<D>, MidiPortError>
     where
-        F: FnOnce(&'_ MidiDeviceDescriptor, &'_ MidiPortDescriptor) -> D,
+        F: NewMidiDevice<MidiDevice = D>,
     {
         let port_name = &self.input_port.descriptor.name;
         let (input, mut device) =
             if let Some((input, device)) = connection.map(MidiInputConnection::close) {
                 (input, device)
             } else {
-                let Some(new_device) = new_device else {
+                let Some(mut new_midi_device) = new_midi_device else {
                     return Err(MidiPortError::Disconnected);
                 };
                 let input = MidiInput::new(port_name)?;
-                let device = new_device(&self.descriptor, &self.input_port.descriptor);
+                let device =
+                    new_midi_device.new_midi_device(&self.descriptor, &self.input_port.descriptor);
                 (input, device)
             };
         device.connect_midi_input_port(&self.descriptor, &self.input_port.descriptor);
@@ -318,6 +319,16 @@ pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
 impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector {}
 
 pub type GenericMidirDevice = MidirDevice<Box<dyn MidiDevice>>;
+
+pub trait NewMidiDevice {
+    type MidiDevice: self::MidiDevice;
+
+    fn new_midi_device(
+        &mut self,
+        device: &MidiDeviceDescriptor,
+        input_port: &MidiPortDescriptor,
+    ) -> Self::MidiDevice;
+}
 
 /// Identifies and connects [`MidirDevice`]s.
 #[allow(missing_debug_implementations)]
