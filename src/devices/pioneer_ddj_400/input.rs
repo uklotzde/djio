@@ -1,45 +1,145 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+//! # Pioneer DDJ-400
+//!
+//! Most of the terms in this module have been taken
+//! from the manual (`DDJ-400_manual_Manual_EN.pdf`).
+//! The manual and detailed information can be found here:
+//! <https://support.pioneerdj.com/hc/en-us/sections/4416577146009-ddj-400>
+//! and here:
+//! <https://www.pioneerdj.com/-/media/pioneerdj/software-info/controller/ddj-400/ddj-400_midi_message_list_e1.pdf>.
+use derive_more::From;
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
     Deck, CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
-    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_CHANNEL_DECK_ONE, MIDI_CHANNEL_DECK_TWO,
-    MIDI_DECK_CUE_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DEVICE_DESCRIPTOR,
-    MIDI_STATUS_BUTTON_DECK_ONE, MIDI_STATUS_BUTTON_DECK_TWO, MIDI_STATUS_CC_DECK_ONE,
-    MIDI_STATUS_CC_DECK_TWO, MIDI_STATUS_CC_MAIN,
+    CONTROL_INDEX_ENUM_BIT_MASK, CONTROL_INDEX_PERFORMANCE_DECK_ONE,
+    CONTROL_INDEX_PERFORMANCE_DECK_TWO, MIDI_CHANNEL_DECK_ONE, MIDI_CHANNEL_DECK_TWO,
+    MIDI_CHANNEL_PERFORMANCE_DECK_ONE, MIDI_CHANNEL_PERFORMANCE_DECK_TWO, MIDI_DEVICE_DESCRIPTOR,
+    MIDI_STATUS_BUTTON_DECK_ONE, MIDI_STATUS_BUTTON_DECK_TWO, MIDI_STATUS_BUTTON_EFFECT,
+    MIDI_STATUS_BUTTON_MAIN, MIDI_STATUS_BUTTON_PERFORMANCE_DECK_ONE,
+    MIDI_STATUS_BUTTON_PERFORMANCE_DECK_TWO, MIDI_STATUS_CC_DECK_ONE, MIDI_STATUS_CC_DECK_TWO,
+    MIDI_STATUS_CC_EFFECT, MIDI_STATUS_CC_MAIN,
 };
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
-    Input, MidiInputConnector, MidiInputDecodeError, SliderInput, TimeStamp,
+    Input, MidiInputConnector, MidiInputDecodeError, SliderInput, StepEncoderInput, SwitchInput,
+    TimeStamp,
 };
+
+#[derive(Debug, Clone, Copy, From)]
+pub enum Sensor {
+    Main(MainSensor),
+    Deck(Deck, DeckSensor),
+    Effect(EffectSensor),
+    Performance(Deck, PerformancePadSensor),
+}
 
 #[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
 #[repr(u8)]
 pub enum MainSensor {
-    Crossfader,
+    // -- Browser section -- //
+    LoadLeftButton,
+    LoadRightButton,
+    RotarySelectorStepEncoder,
+    RotarySelectorButton,
+    // -- Mixer section -- //
+    MasterLevelSlider,
+    HeadphoneCueButton,
+    HeadphonesMixingCenterSlider,
+    HeadphonesLevelSlider,
+    CrossfaderCenterSlider,
+    FilterLeftCenterSlider,
+    FilterRightCenterSlider,
 }
 
 #[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
 #[repr(u8)]
 pub enum DeckSensor {
-    CueButton,
+    // -- Deck section -- //
+    BeatSyncButton,
+    CueLoopCallRightButton,
+    CueLoopCallLeftButton,
+    DeleteButton,
+    MemoryButton,
+    ReloopExitButton,
+    OutButton,
+    InAdjustButton,
+    OutAdjustButton,
+    ActiveLoopButton,
+    In4BeatButton,
+    JogWheelTouch,
+    JogWheelTopEncoder,
+    JogWheelOuterEncoder,
+    HotCueModeButton,
+    BeatLoopModeButton,
+    BeatJumpModeButton,
+    SamplerModeButton,
+    TempoCenterSlider,
     PlayPauseButton,
-    PitchFaderCenterSlider,
-    JogWheelSliderEncoder,
+    CueButton,
+    CueToStartButton,
+    TempoRangeButton,
+    ShiftButton,
+    // -- Mixer section -- //
+    TrimSlider,
+    EqHighCenterSlider,
+    EqMidCenterSlider,
+    EqLowCenterSlider,
+    HeadphoneCueButton,
     LevelFader,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Sensor {
-    Main(MainSensor),
-    Deck(Deck, DeckSensor),
+#[repr(u8)]
+pub enum EffectSensor {
+    BeatLeftButton,
+    BeatRightButton,
+    BeatFxSelectButton,
+    BeatFxChannelSelectSwitch,
+    BeatFxLevelDepthKnob,
+    BeatFxOnOffButton,
 }
 
-impl From<MainSensor> for Sensor {
-    fn from(from: MainSensor) -> Self {
-        Self::Main(from)
+#[derive(Debug, Clone, Copy)]
+pub enum PerformancePadSensor {
+    HotCue(u8),
+    BeatLoop(u8),
+    BeatJump(u8),
+    Sampler(u8),
+    Keyboard(u8),
+    PadFx1(u8),
+    PadFx2(u8),
+    KeyShift(u8),
+}
+
+impl PerformancePadSensor {
+    const fn as_u8(self) -> u8 {
+        match self {
+            Self::HotCue(nr) => nr,
+            Self::BeatJump(nr) => nr + 0x20,
+            Self::Sampler(nr) => nr + 0x30,
+            Self::BeatLoop(nr) => nr + 0x60,
+            Self::Keyboard(nr) => nr + 0x40,
+            Self::PadFx1(nr) => nr + 0x10,
+            Self::PadFx2(nr) => nr + 0x50,
+            Self::KeyShift(nr) => nr + 0x70,
+        }
+    }
+    fn try_from_u8(pad_id: u8) -> Option<Self> {
+        let sensor = match pad_id {
+            0x00..=0x07 => Self::HotCue(pad_id),
+            0x10..=0x17 => Self::PadFx1(pad_id - 0x10),
+            0x20..=0x27 => Self::BeatJump(pad_id - 0x20),
+            0x30..=0x37 => Self::Sampler(pad_id - 0x30),
+            0x40..=0x47 => Self::Keyboard(pad_id - 0x40),
+            0x50..=0x57 => Self::PadFx2(pad_id - 0x50),
+            0x60..=0x67 => Self::BeatLoop(pad_id - 0x60),
+            0x70..=0x77 => Self::KeyShift(pad_id - 0x70),
+            _ => return None,
+        };
+        Some(sensor)
     }
 }
 
@@ -47,8 +147,8 @@ impl Sensor {
     #[must_use]
     pub const fn deck(self) -> Option<Deck> {
         match self {
-            Self::Main(_) => None,
             Self::Deck(deck, _) => Some(deck),
+            _ => None,
         }
     }
 
@@ -62,6 +162,15 @@ impl Sensor {
                     Deck::Two => CONTROL_INDEX_DECK_TWO,
                 };
                 ControlIndex::new(deck_bit | sensor as u32)
+            }
+            Self::Effect(sensor) => ControlIndex::new(sensor as u32),
+            Self::Performance(deck, sensor) => {
+                let deck_bit = match deck {
+                    Deck::One => CONTROL_INDEX_PERFORMANCE_DECK_ONE,
+                    Deck::Two => CONTROL_INDEX_PERFORMANCE_DECK_TWO,
+                };
+                let pad_id = sensor.as_u8();
+                ControlIndex::new(deck_bit | pad_id as u32)
             }
         }
     }
@@ -88,9 +197,7 @@ impl TryFrom<ControlIndex> for Sensor {
             CONTROL_INDEX_DECK_TWO => Deck::Two,
             CONTROL_INDEX_DECK_BIT_MASK => return Err(InvalidInputControlIndex),
             _ => {
-                return MainSensor::from_repr(enum_index)
-                    .map(Sensor::Main)
-                    .ok_or(InvalidInputControlIndex);
+                todo!()
             }
         };
         DeckSensor::from_repr(enum_index)
@@ -115,6 +222,14 @@ fn midi_status_to_deck(status: u8) -> Deck {
     }
 }
 
+fn midi_status_to_performance_deck(status: u8) -> Deck {
+    match status & 0xf {
+        MIDI_CHANNEL_PERFORMANCE_DECK_ONE => Deck::One,
+        MIDI_CHANNEL_PERFORMANCE_DECK_TWO => Deck::Two,
+        _ => unreachable!("Unexpected MIDI status {status}"),
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct MidiInputEventDecoder {
     last_hi: u8,
@@ -126,58 +241,16 @@ impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
         ts: TimeStamp,
         input: &[u8],
     ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
-        let (sensor, input): (Sensor, Input) = match *input {
-            [MIDI_STATUS_CC_MAIN, data1, data2] => match data1 {
-                0x1f => {
-                    self.last_hi = data2;
-                    return Ok(None);
-                }
-                0x3f => (
-                    MainSensor::Crossfader.into(),
-                    CenterSliderInput::from_u14(u7_be_to_u14(self.last_hi, data2)).into(),
-                ),
-                _ => {
-                    return Err(MidiInputDecodeError);
-                }
-            },
-            [status @ (MIDI_STATUS_BUTTON_DECK_ONE | MIDI_STATUS_BUTTON_DECK_TWO), data1, data2] => {
-                let deck = midi_status_to_deck(status);
-                let input = u7_to_button(data2);
-                let sensor = match data1 {
-                    MIDI_DECK_PLAYPAUSE_BUTTON => DeckSensor::PlayPauseButton,
-                    MIDI_DECK_CUE_BUTTON => DeckSensor::CueButton,
-                    _ => {
-                        return Err(MidiInputDecodeError);
-                    }
-                };
-                (Sensor::Deck(deck, sensor), input.into())
-            }
-            [status @ (MIDI_STATUS_CC_DECK_ONE | MIDI_STATUS_CC_DECK_TWO), data1, data2] => {
-                let deck = midi_status_to_deck(status);
-                match data1 {
-                    0x00 | 0x13 => {
-                        self.last_hi = data2;
-                        return Ok(None);
-                    }
-                    0x20 => (
-                        Sensor::Deck(deck, DeckSensor::PitchFaderCenterSlider),
-                        CenterSliderInput::from_u14(u7_be_to_u14(self.last_hi, data2))
-                            .inverse()
-                            .into(),
-                    ),
-                    0x33 => (
-                        Sensor::Deck(deck, DeckSensor::LevelFader),
-                        SliderInput::from_u14(u7_be_to_u14(self.last_hi, data2)).into(),
-                    ),
-                    _ => {
-                        return Err(MidiInputDecodeError);
-                    }
-                }
-            }
-            _ => {
+        // TODO: make this more readable
+        let (sensor, input): (Sensor, Input) =
+            if let Some(ev) = try_decode_button_event(self, input)? {
+                ev
+            } else if let Some(ev) = try_decode_cc_event(self, input)? {
+                ev
+            } else {
                 return Err(MidiInputDecodeError);
-            }
-        };
+            };
+        log::debug!("{sensor:?} {input:?}");
         let input = ControlRegister {
             index: sensor.into(),
             value: input.into(),
@@ -185,6 +258,208 @@ impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
         let event = ControlInputEvent { ts, input };
         Ok(Some(event))
     }
+}
+
+fn try_decode_button_event(
+    decoder: &mut MidiInputEventDecoder,
+    input: &[u8],
+) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
+    let sensor = match *input {
+        [MIDI_STATUS_BUTTON_MAIN, data1, _] => {
+            let sensor = match data1 {
+                0x40 => MainSensor::RotarySelectorStepEncoder,
+                0x41 => MainSensor::RotarySelectorButton,
+                0x46 => MainSensor::LoadLeftButton,
+                0x47 => MainSensor::LoadRightButton,
+                0x63 => MainSensor::HeadphoneCueButton,
+                _ => {
+                    return Err(MidiInputDecodeError);
+                }
+            };
+            sensor.into()
+        }
+        [MIDI_STATUS_BUTTON_EFFECT, data1, data2] => {
+            #[allow(clippy::bool_to_int_with_if)]
+            let sensor = match data1 {
+                0x10 => {
+                    decoder.last_hi = if data2 == 0x7f { 0 } else { 1 };
+                    return Ok(None);
+                }
+                0x14 => {
+                    decoder.last_hi = if data2 == 0x7f { 2 } else { 1 };
+                    return Ok(None);
+                }
+                0x47 => EffectSensor::BeatFxOnOffButton,
+                0x4a => EffectSensor::BeatLeftButton,
+                0x4b => EffectSensor::BeatRightButton,
+                0x63 => EffectSensor::BeatFxSelectButton,
+                0x11 => EffectSensor::BeatFxChannelSelectSwitch,
+                _ => {
+                    return Err(MidiInputDecodeError);
+                }
+            };
+            Sensor::Effect(sensor)
+        }
+        [status @ (MIDI_STATUS_BUTTON_DECK_ONE | MIDI_STATUS_BUTTON_DECK_TWO), data1, _] => {
+            let deck = midi_status_to_deck(status);
+            let sensor = match data1 {
+                0x0b => DeckSensor::PlayPauseButton,
+                0x0c => DeckSensor::CueButton,
+                0x10 => DeckSensor::In4BeatButton,
+                0x11 => DeckSensor::OutButton,
+                0x1b => DeckSensor::HotCueModeButton,
+                0x20 => DeckSensor::BeatJumpModeButton,
+                0x22 => DeckSensor::SamplerModeButton,
+                0x36 => DeckSensor::JogWheelTouch,
+                0x3d => DeckSensor::MemoryButton,
+                0x3e => DeckSensor::DeleteButton,
+                0x3f => DeckSensor::ShiftButton,
+                0x48 => DeckSensor::CueToStartButton,
+                0x4c => DeckSensor::InAdjustButton,
+                0x4d => DeckSensor::ReloopExitButton,
+                0x4e => DeckSensor::OutAdjustButton,
+                0x50 => DeckSensor::ActiveLoopButton,
+                0x51 => DeckSensor::CueLoopCallLeftButton,
+                0x53 => DeckSensor::CueLoopCallRightButton,
+                0x54 => DeckSensor::HeadphoneCueButton,
+                0x58 => DeckSensor::BeatSyncButton,
+                0x60 => DeckSensor::TempoRangeButton,
+                0x6d => DeckSensor::BeatLoopModeButton,
+
+                _ => {
+                    return Err(MidiInputDecodeError);
+                }
+            };
+            Sensor::Deck(deck, sensor)
+        }
+        [status @ (MIDI_STATUS_BUTTON_PERFORMANCE_DECK_ONE
+        | MIDI_STATUS_BUTTON_PERFORMANCE_DECK_TWO), data1, _] => {
+            let deck = midi_status_to_performance_deck(status);
+            let Some(sensor) = PerformancePadSensor::try_from_u8(data1) else {
+                  return Err(MidiInputDecodeError);
+                };
+            Sensor::Performance(deck, sensor)
+        }
+        _ => return Ok(None),
+    };
+
+    let input = if input[1] == 0x11 {
+        let position = u32::from(decoder.last_hi);
+        SwitchInput { position }.into()
+    } else {
+        u7_to_button(input[2]).into()
+    };
+    Ok(Some((sensor, input)))
+}
+
+#[allow(clippy::too_many_lines)]
+fn try_decode_cc_event(
+    decoder: &mut MidiInputEventDecoder,
+    input: &[u8],
+) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
+    let (sensor, input) = match *input {
+        [MIDI_STATUS_CC_MAIN, data1, data2] => match data1 {
+            0x1f | 0x08 | 0x0d | 0x0c | 0x17 | 0x18 => {
+                decoder.last_hi = data2;
+                return Ok(None);
+            }
+            0x3f => (
+                MainSensor::CrossfaderCenterSlider.into(),
+                CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            0x28 => (
+                MainSensor::MasterLevelSlider.into(),
+                SliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            0x2d => (
+                MainSensor::HeadphonesLevelSlider.into(),
+                SliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            0x2c => (
+                MainSensor::HeadphonesMixingCenterSlider.into(),
+                CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            0x40 => (
+                MainSensor::RotarySelectorStepEncoder.into(),
+                StepEncoderInput::from_u7(data2).into(),
+            ),
+            0x37 => (
+                MainSensor::FilterLeftCenterSlider.into(),
+                CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            0x38 => (
+                MainSensor::FilterRightCenterSlider.into(),
+                CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            _ => {
+                return Err(MidiInputDecodeError);
+            }
+        },
+        [MIDI_STATUS_CC_EFFECT, data1, data2] => match data1 {
+            0x02 => {
+                decoder.last_hi = data2;
+                return Ok(None);
+            }
+            0x22 => (
+                EffectSensor::BeatFxLevelDepthKnob.into(),
+                CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+            ),
+            _ => {
+                return Err(MidiInputDecodeError);
+            }
+        },
+        [status @ (MIDI_STATUS_CC_DECK_ONE | MIDI_STATUS_CC_DECK_TWO), data1, data2] => {
+            let deck = midi_status_to_deck(status);
+            let (sensor, input) = match data1 {
+                0x00 | 0x13 | 0x07 | 0x0f | 0x0b | 0x04 => {
+                    decoder.last_hi = data2;
+                    return Ok(None);
+                }
+                0x20 => (
+                    DeckSensor::TempoCenterSlider,
+                    CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2))
+                        .inverse()
+                        .into(),
+                ),
+                0x33 => (
+                    DeckSensor::LevelFader,
+                    SliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+                ),
+                0x21 => (
+                    DeckSensor::JogWheelOuterEncoder,
+                    StepEncoderInput::from_u7(data2).into(),
+                ),
+                0x22 => (
+                    DeckSensor::JogWheelTopEncoder,
+                    StepEncoderInput::from_u7(data2).into(),
+                ),
+                0x24 => (
+                    DeckSensor::TrimSlider,
+                    SliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+                ),
+                0x27 => (
+                    DeckSensor::EqHighCenterSlider,
+                    CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+                ),
+                0x2b => (
+                    DeckSensor::EqMidCenterSlider,
+                    CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+                ),
+                0x2f => (
+                    DeckSensor::EqLowCenterSlider,
+                    CenterSliderInput::from_u14(u7_be_to_u14(decoder.last_hi, data2)).into(),
+                ),
+                _ => {
+                    return Err(MidiInputDecodeError);
+                }
+            };
+            (Sensor::Deck(deck, sensor), input)
+        }
+        _ => {
+            return Err(MidiInputDecodeError);
+        }
+    };
+    Ok(Some((sensor, input)))
 }
 
 impl MidiInputConnector for MidiInputEventDecoder {

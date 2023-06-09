@@ -6,6 +6,7 @@
 
 use std::{borrow::Borrow, ops::RangeInclusive};
 
+use derive_more::From;
 use is_sorted::IsSorted as _;
 
 use crate::{ControlRegister, ControlValue, TimeStamp};
@@ -342,7 +343,27 @@ impl From<SliderEncoderInput> for ControlValue {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// A switch with multiple positions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SwitchInput {
+    pub position: u32,
+}
+
+impl From<ControlValue> for SwitchInput {
+    fn from(from: ControlValue) -> Self {
+        let position = from.to_bits();
+        Self { position }
+    }
+}
+
+impl From<SwitchInput> for ControlValue {
+    fn from(from: SwitchInput) -> Self {
+        let SwitchInput { position } = from;
+        Self::from_bits(position)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, From)]
 pub enum Input {
     Button(ButtonInput),
     PadButton(PadButtonInput),
@@ -350,42 +371,7 @@ pub enum Input {
     CenterSlider(CenterSliderInput),
     StepEncoder(StepEncoderInput),
     SliderEncoder(SliderEncoderInput),
-}
-
-impl From<ButtonInput> for Input {
-    fn from(from: ButtonInput) -> Self {
-        Self::Button(from)
-    }
-}
-
-impl From<PadButtonInput> for Input {
-    fn from(from: PadButtonInput) -> Self {
-        Self::PadButton(from)
-    }
-}
-
-impl From<SliderInput> for Input {
-    fn from(from: SliderInput) -> Self {
-        Self::Slider(from)
-    }
-}
-
-impl From<CenterSliderInput> for Input {
-    fn from(from: CenterSliderInput) -> Self {
-        Self::CenterSlider(from)
-    }
-}
-
-impl From<StepEncoderInput> for Input {
-    fn from(from: StepEncoderInput) -> Self {
-        Self::StepEncoder(from)
-    }
-}
-
-impl From<SliderEncoderInput> for Input {
-    fn from(from: SliderEncoderInput) -> Self {
-        Self::SliderEncoder(from)
-    }
+    SwitchInput(SwitchInput),
 }
 
 impl From<Input> for ControlValue {
@@ -397,6 +383,7 @@ impl From<Input> for ControlValue {
             Input::CenterSlider(input) => input.into(),
             Input::StepEncoder(input) => input.into(),
             Input::SliderEncoder(input) => input.into(),
+            Input::SwitchInput(input) => input.into(),
         }
     }
 }
