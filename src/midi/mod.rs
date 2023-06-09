@@ -126,25 +126,38 @@ pub trait MidiOutputConnection {
     fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
 }
 
-pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
+pub trait MidiInputGateway: MidiInputConnector + MidiInputHandler {}
 
-impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector {}
+impl<D> MidiInputGateway for D where D: MidiInputConnector + MidiInputHandler {}
 
-pub trait NewMidiDevice {
-    type MidiDevice: self::MidiDevice;
+pub trait NewMidiInputGateway {
+    type MidiInputGateway: self::MidiInputGateway;
 
-    fn new_midi_device(
+    fn new_midi_input_gateway(
         &self,
         device: &MidiDeviceDescriptor,
         input_port: &MidiPortDescriptor,
-    ) -> Self::MidiDevice;
+    ) -> Self::MidiInputGateway;
 }
 
 pub trait MidiOutputGateway<C> {
+    /// Attach a MIDI output connection
+    ///
+    /// Consumes the given connection on success.
+    ///
+    /// # Panics
+    ///
+    /// Panics if a connection has already been attached or if `midi_output_connection`
+    /// is `None`.
     fn attach_midi_output_connection(
         &mut self,
         midi_output_connection: &mut Option<C>,
     ) -> OutputResult<()>;
+
+    /// Attach a MIDI output connection
+    ///
+    /// Returns `None` if no connection has been attached or if the connection
+    /// has already been detached.
     fn detach_midi_output_connection(&mut self) -> Option<C>;
 }
 

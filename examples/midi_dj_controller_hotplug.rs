@@ -6,8 +6,8 @@ use std::io::{stdin, stdout, Write as _};
 use djio::{
     consume_midi_input_event,
     devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, MidiControlOutputGateway, MidiDevice, MidiDeviceDescriptor,
-    MidiInputConnector, MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice,
+    ControlInputEventSink, MidiControlOutputGateway, MidiDeviceDescriptor, MidiInputConnector,
+    MidiInputEventDecoder, MidiInputGateway, MidiInputHandler, MidiPortDescriptor, MidirDevice,
     MidirDeviceManager, OutputResult, PortIndex, PortIndexGenerator, TimeStamp,
 };
 
@@ -85,26 +85,26 @@ fn main() {
     }
 }
 
-struct NewMidiDevice;
+struct NewMidiInputGateway;
 
-impl djio::NewMidiDevice for NewMidiDevice {
-    type MidiDevice = MidiController;
+impl djio::NewMidiInputGateway for NewMidiInputGateway {
+    type MidiInputGateway = MidiController;
 
-    fn new_midi_device(
+    fn new_midi_input_gateway(
         &self,
         _device: &MidiDeviceDescriptor,
         _input_port: &MidiPortDescriptor,
-    ) -> Self::MidiDevice {
+    ) -> Self::MidiInputGateway {
         Default::default()
     }
 }
 
-fn new_midi_controller_output_gateway<T>(
-    midi_device: &MidirDevice<T>,
+fn new_midi_controller_output_gateway<I>(
+    midi_device: &MidirDevice<I>,
     midi_output_connection: &mut Option<midir::MidiOutputConnection>,
 ) -> OutputResult<Option<Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>>>>
 where
-    T: MidiDevice,
+    I: MidiInputGateway,
 {
     let mut output_gateway: Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>> =
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
@@ -173,7 +173,7 @@ fn run() -> anyhow::Result<()> {
     println!("{device_name}: connecting");
     let mut midi_output_connection = Some(
         midir_device
-            .reconnect(Some(NewMidiDevice), None)
+            .reconnect(Some(NewMidiInputGateway), None)
             .map_err(|err| anyhow::anyhow!("{err}"))?,
     );
     let mut output_gateway =

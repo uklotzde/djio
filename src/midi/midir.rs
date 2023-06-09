@@ -9,7 +9,7 @@ use midir::{
 };
 use thiserror::Error;
 
-use super::{MidiDevice, MidiDeviceDescriptor, MidiPortDescriptor, NewMidiDevice};
+use super::{MidiDeviceDescriptor, MidiInputGateway, MidiPortDescriptor, NewMidiInputGateway};
 use crate::{OutputError, PortIndexGenerator, TimeStamp};
 
 #[derive(Debug, Error)]
@@ -48,7 +48,7 @@ pub struct MidirOutputPort {
 #[allow(missing_debug_implementations)]
 pub struct MidirDevice<I>
 where
-    I: MidiDevice + 'static,
+    I: MidiInputGateway + 'static,
 {
     descriptor: MidiDeviceDescriptor,
     input_port: MidirInputPort,
@@ -56,9 +56,9 @@ where
     input_connection: Option<MidiInputConnection<I>>,
 }
 
-impl<D> MidirDevice<D>
+impl<I> MidirDevice<I>
 where
-    D: MidiDevice,
+    I: MidiInputGateway,
 {
     #[must_use]
     fn new(
@@ -90,9 +90,9 @@ where
     }
 
     #[must_use]
-    pub fn is_available<U>(&self, device_manager: &MidirDeviceManager<U>) -> bool
+    pub fn is_available<J>(&self, device_manager: &MidirDeviceManager<J>) -> bool
     where
-        U: MidiDevice,
+        J: MidiInputGateway,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port.descriptor.name)
@@ -113,16 +113,16 @@ where
 
     pub fn reconnect<F>(
         &mut self,
-        new_midi_device: Option<F>,
+        new_midi_input_gateway: Option<F>,
         output_connection: Option<MidiOutputConnection>,
     ) -> Result<MidiOutputConnection, MidiPortError>
     where
-        F: NewMidiDevice<MidiDevice = D>,
+        F: NewMidiInputGateway<MidiInputGateway = I>,
     {
         let input_connection = self.input_connection.take();
         debug_assert!(!self.is_connected());
         debug_assert_eq!(input_connection.is_some(), output_connection.is_some());
-        let input_connection = self.reconnect_input(input_connection, new_midi_device)?;
+        let input_connection = self.reconnect_input(input_connection, new_midi_input_gateway)?;
         let output_connection = self.reconnect_output(output_connection)?;
         self.input_connection = Some(input_connection);
         debug_assert!(self.is_connected());
@@ -142,26 +142,26 @@ where
 
     fn reconnect_input<F>(
         &mut self,
-        connection: Option<MidiInputConnection<D>>,
-        new_midi_device: Option<F>,
-    ) -> Result<MidiInputConnection<D>, MidiPortError>
+        connection: Option<MidiInputConnection<I>>,
+        new_midi_input_gateway: Option<F>,
+    ) -> Result<MidiInputConnection<I>, MidiPortError>
     where
-        F: NewMidiDevice<MidiDevice = D>,
+        F: NewMidiInputGateway<MidiInputGateway = I>,
     {
         let port_name = &self.input_port.descriptor.name;
-        let (input, mut device) =
-            if let Some((input, device)) = connection.map(MidiInputConnection::close) {
-                (input, device)
+        let (input, mut input_gateway) =
+            if let Some((input, input_gateway)) = connection.map(MidiInputConnection::close) {
+                (input, input_gateway)
             } else {
-                let Some(new_midi_device) = new_midi_device else {
+                let Some(new_midi_input_gateway) = new_midi_input_gateway else {
                     return Err(MidiPortError::Disconnected);
                 };
                 let input = MidiInput::new(port_name)?;
-                let device =
-                    new_midi_device.new_midi_device(&self.descriptor, &self.input_port.descriptor);
-                (input, device)
+                let input_gateway = new_midi_input_gateway
+                    .new_midi_input_gateway(&self.descriptor, &self.input_port.descriptor);
+                (input, input_gateway)
             };
-        device.connect_midi_input_port(&self.descriptor, &self.input_port.descriptor);
+        input_gateway.connect_midi_input_port(&self.descriptor, &self.input_port.descriptor);
         input
             .connect(
                 &self.input_port.port,
@@ -173,7 +173,7 @@ where
                         log::warn!("Unhandled MIDI input {ts} {input:x?}");
                     }
                 },
-                device,
+                input_gateway,
             )
             .map_err(Into::into)
     }
@@ -198,12 +198,12 @@ where
 pub struct MidirDeviceManager<I> {
     input: MidiInput,
     output: MidiOutput,
-    _input_handler: PhantomData<I>,
+    _input_gateway: PhantomData<I>,
 }
 
-impl<D> MidirDeviceManager<D>
+impl<I> MidirDeviceManager<I>
 where
-    D: MidiDevice,
+    I: MidiInputGateway,
 {
     pub fn new() -> Result<Self, midir::InitError> {
         let mut input = MidiInput::new("input port watcher")?;
@@ -212,7 +212,7 @@ where
         Ok(MidirDeviceManager {
             input,
             output,
-            _input_handler: PhantomData,
+            _input_gateway: PhantomData,
         })
     }
 
@@ -253,7 +253,7 @@ where
         &self,
         device_descriptors: &[&MidiDeviceDescriptor],
         port_index_generator: &PortIndexGenerator,
-    ) -> Vec<(MidiDeviceDescriptor, MidirDevice<D>)> {
+    ) -> Vec<(MidiDeviceDescriptor, MidirDevice<I>)> {
         let mut input_ports = self
             .input_ports()
             .into_iter()
