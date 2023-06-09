@@ -7,7 +7,8 @@ use std::{
 };
 
 use crate::{
-    ControlInputEvent, ControlInputEventSink, DeviceDescriptor, OutputResult, PortIndex, TimeStamp,
+    ControlInputEvent, ControlInputEventSink, ControlOutputGateway, DeviceDescriptor, OutputResult,
+    PortIndex, TimeStamp,
 };
 
 #[cfg(feature = "midir")]
@@ -139,10 +140,14 @@ pub trait NewMidiDevice {
     ) -> Self::MidiDevice;
 }
 
-pub trait MidiOutputGateway<C: MidiOutputConnection> {
+pub trait MidiOutputGateway<C> {
     fn attach_midi_output_connection(
         &mut self,
         midi_output_connection: &mut Option<C>,
     ) -> OutputResult<()>;
     fn detach_midi_output_connection(&mut self) -> Option<C>;
 }
+
+pub trait MidiControlOutputGateway<C>: ControlOutputGateway + MidiOutputGateway<C> {}
+
+impl<T, C> MidiControlOutputGateway<C> for T where T: ControlOutputGateway + MidiOutputGateway<C> {}

@@ -6,10 +6,9 @@ use std::io::{stdin, stdout, Write as _};
 use djio::{
     consume_midi_input_event,
     devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, ControlOutputGateway, MidiDevice, MidiDeviceDescriptor,
-    MidiInputConnector, MidiInputEventDecoder, MidiInputHandler, MidiOutputGateway,
-    MidiPortDescriptor, MidirDevice, MidirDeviceManager, OutputResult, PortIndex,
-    PortIndexGenerator, TimeStamp,
+    ControlInputEventSink, MidiControlOutputGateway, MidiDevice, MidiDeviceDescriptor,
+    MidiInputConnector, MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice,
+    MidirDeviceManager, OutputResult, PortIndex, PortIndexGenerator, TimeStamp,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -77,16 +76,6 @@ impl MidiInputHandler for MidiController {
     }
 }
 
-trait MidiControllerOutputGateway:
-    ControlOutputGateway + MidiOutputGateway<midir::MidiOutputConnection>
-{
-}
-
-impl<T> MidiControllerOutputGateway for T where
-    T: ControlOutputGateway + MidiOutputGateway<midir::MidiOutputConnection>
-{
-}
-
 fn main() {
     pretty_env_logger::init();
 
@@ -113,11 +102,11 @@ impl djio::NewMidiDevice for NewMidiDevice {
 fn new_midi_controller_output_gateway<T>(
     midi_device: &MidirDevice<T>,
     midi_output_connection: &mut Option<midir::MidiOutputConnection>,
-) -> OutputResult<Option<Box<dyn MidiControllerOutputGateway>>>
+) -> OutputResult<Option<Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>>>>
 where
     T: MidiDevice,
 {
-    let mut output_gateway: Box<dyn MidiControllerOutputGateway> =
+    let mut output_gateway: Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>> =
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             Box::<korg_kaoss_dj::OutputGateway<midir::MidiOutputConnection>>::default() as _
         } else if midi_device.descriptor() == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
