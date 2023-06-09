@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+#[cfg(feature = "midi")]
+pub mod generic_midi;
+
 #[cfg(feature = "denon-dj-mc6000mk2")]
 pub mod denon_dj_mc6000mk2;
 
