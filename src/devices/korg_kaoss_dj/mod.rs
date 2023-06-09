@@ -34,26 +34,20 @@ pub enum Deck {
     B,
 }
 
-const MIDI_CHANNEL_DECK_A: u8 = 0x7;
-const MIDI_CHANNEL_DECK_B: u8 = 0x8;
+const MIDI_CHANNEL_MAIN: u8 = 0x06;
+const MIDI_CHANNEL_DECK_A: u8 = 0x07;
+const MIDI_CHANNEL_DECK_B: u8 = 0x08;
 
-/// Button (Note On)
-const MIDI_STATUS_BUTTON: u8 = 0x96;
+const MIDI_COMMAND_NOTE_ON: u8 = 0x90;
+const MIDI_COMMAND_CC: u8 = 0xb0;
 
-/// Button (Note On) Deck A
-const MIDI_STATUS_BUTTON_DECK_A: u8 = 0x97;
+const MIDI_STATUS_BUTTON_MAIN: u8 = MIDI_COMMAND_NOTE_ON | MIDI_CHANNEL_MAIN;
+const MIDI_STATUS_BUTTON_DECK_A: u8 = MIDI_COMMAND_NOTE_ON | MIDI_CHANNEL_DECK_A;
+const MIDI_STATUS_BUTTON_DECK_B: u8 = MIDI_COMMAND_NOTE_ON | MIDI_CHANNEL_DECK_B;
 
-/// Button (Note On) Deck B
-const MIDI_STATUS_BUTTON_DECK_B: u8 = 0x98;
-
-/// Control Change (Knob/Fader/Slider/Encoder)
-const MIDI_STATUS_CC: u8 = 0xb6;
-
-/// Control Change (Knob/Fader/Slider/Encoder) Deck A
-const MIDI_STATUS_CC_DECK_A: u8 = 0xb7;
-
-/// Control Change (Knob/Fader/Slider/Encoder) Deck B
-const MIDI_STATUS_CC_DECK_B: u8 = 0xb8;
+const MIDI_STATUS_CC_MAIN: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_MAIN;
+const MIDI_STATUS_CC_DECK_A: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_DECK_A;
+const MIDI_STATUS_CC_DECK_B: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_DECK_B;
 
 const MIDI_TAP_BUTTON: u8 = 0x0b;
 

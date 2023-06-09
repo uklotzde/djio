@@ -13,9 +13,9 @@ use super::{
     MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
-    MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_BUTTON,
-    MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_CC, MIDI_STATUS_CC_DECK_A,
-    MIDI_STATUS_CC_DECK_B, MIDI_TAP_BUTTON,
+    MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB,
+    MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
+    MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{ControlIndex, LedOutput, OutputResult};
 
@@ -202,10 +202,10 @@ impl OutputGateway {
     pub fn send_led_output(&mut self, led: Led, output: LedOutput) -> OutputResult<()> {
         let (status, data1) = match led {
             Led::Main(led) => match led {
-                MainLed::TabButton => (MIDI_TAP_BUTTON, MIDI_STATUS_BUTTON),
-                MainLed::MonitorLevelKnob => (MIDI_MONITOR_LEVEL_KNOB, MIDI_STATUS_CC),
-                MainLed::MonitorBalanceKnob => (MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_CC),
-                MainLed::MasterLevelKnob => (MIDI_MASTER_LEVEL_KNOB, MIDI_STATUS_CC),
+                MainLed::TabButton => (MIDI_TAP_BUTTON, MIDI_STATUS_BUTTON_MAIN),
+                MainLed::MonitorLevelKnob => (MIDI_MONITOR_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
+                MainLed::MonitorBalanceKnob => (MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_CC_MAIN),
+                MainLed::MasterLevelKnob => (MIDI_MASTER_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
             },
             Led::Deck(deck, led) => {
                 let status = match (deck, led.is_knob()) {

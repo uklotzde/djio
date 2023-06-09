@@ -12,9 +12,9 @@ use super::{
     MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
-    MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_BUTTON,
-    MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_CC, MIDI_STATUS_CC_DECK_A,
-    MIDI_STATUS_CC_DECK_B, MIDI_TAP_BUTTON,
+    MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB,
+    MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
+    MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{
     devices::korg_kaoss_dj::{
@@ -170,7 +170,7 @@ pub fn try_decode_midi_input(
     input: &[u8],
 ) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
     let decoded = match *input {
-        [MIDI_STATUS_BUTTON, data1, data2] => {
+        [MIDI_STATUS_BUTTON_MAIN, data1, data2] => {
             let input = u7_to_button(data2);
             let sensor = match data1 {
                 0x07 => MainSensor::BrowseKnobShiftButton,
@@ -224,25 +224,25 @@ pub fn try_decode_midi_input(
             // see the comments in next match expression.
             return Ok(None);
         }
-        [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), 0x0c, data2] => {
+        [status @ (MIDI_STATUS_CC_MAIN | MIDI_STATUS_CC_DECK_A), 0x0c, data2] => {
             // The X/Y coordinates of the touch pad are always sent twice for
             // unknown reasons. According to the documentation they should
             // be sent on the main channel instead of on both deck channels.
-            debug_assert_ne!(MIDI_STATUS_CC, status);
+            debug_assert_ne!(MIDI_STATUS_CC_MAIN, status);
             debug_assert_eq!(MIDI_STATUS_CC_DECK_A, status);
             let input = SliderInput::from_u7(data2);
             (MainSensor::TouchPadXSlider.into(), input.into())
         }
-        [status @ (MIDI_STATUS_CC | MIDI_STATUS_CC_DECK_A), 0x0d, data2] => {
+        [status @ (MIDI_STATUS_CC_MAIN | MIDI_STATUS_CC_DECK_A), 0x0d, data2] => {
             // The X/Y coordinates of the touch pad are always sent twice for
             // unknown reasons. According to the documentation they should
             // be sent on the main channel instead of on both deck channels.
-            debug_assert_ne!(MIDI_STATUS_CC, status);
+            debug_assert_ne!(MIDI_STATUS_CC_MAIN, status);
             debug_assert_eq!(MIDI_STATUS_CC_DECK_A, status);
             let input = SliderInput::from_u7(data2);
             (MainSensor::TouchPadYSlider.into(), input.into())
         }
-        [MIDI_STATUS_CC, data1, data2] => match data1 {
+        [MIDI_STATUS_CC_MAIN, data1, data2] => match data1 {
             MIDI_MONITOR_LEVEL_KNOB => (
                 MainSensor::AudiolessMonitorLevelSlider.into(),
                 SliderInput::from_u7(data2).into(),

@@ -7,8 +7,8 @@ use super::{
     Deck, CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
     CONTROL_INDEX_ENUM_BIT_MASK, MIDI_CHANNEL_DECK_ONE, MIDI_CHANNEL_DECK_TWO,
     MIDI_DECK_CUE_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DEVICE_DESCRIPTOR,
-    MIDI_STATUS_BUTTON_DECK_ONE, MIDI_STATUS_BUTTON_DECK_TWO, MIDI_STATUS_CC,
-    MIDI_STATUS_CC_DECK_ONE, MIDI_STATUS_CC_DECK_TWO,
+    MIDI_STATUS_BUTTON_DECK_ONE, MIDI_STATUS_BUTTON_DECK_TWO, MIDI_STATUS_CC_DECK_ONE,
+    MIDI_STATUS_CC_DECK_TWO, MIDI_STATUS_CC_MAIN,
 };
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
@@ -127,7 +127,7 @@ impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
         input: &[u8],
     ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
         let (sensor, input): (Sensor, Input) = match *input {
-            [MIDI_STATUS_CC, data1, data2] => match data1 {
+            [MIDI_STATUS_CC_MAIN, data1, data2] => match data1 {
                 0x1f => {
                     self.last_hi = data2;
                     return Ok(None);
