@@ -156,10 +156,10 @@ impl TryFrom<ControlIndex> for Led {
 pub fn led_output_into_midi_message(led: Led, output: LedOutput) -> [u8; 3] {
     let (status, data1) = match led {
         Led::Main(led) => match led {
-            MainLed::TabButton => (MIDI_TAP_BUTTON, MIDI_STATUS_BUTTON_MAIN),
-            MainLed::MonitorLevelKnob => (MIDI_MONITOR_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
-            MainLed::MonitorBalanceKnob => (MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_CC_MAIN),
-            MainLed::MasterLevelKnob => (MIDI_MASTER_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
+            MainLed::TabButton => (MIDI_STATUS_BUTTON_MAIN, MIDI_TAP_BUTTON),
+            MainLed::MonitorLevelKnob => (MIDI_STATUS_CC_MAIN, MIDI_MONITOR_LEVEL_KNOB),
+            MainLed::MonitorBalanceKnob => (MIDI_STATUS_CC_MAIN, MIDI_MONITOR_MIX_KNOB),
+            MainLed::MasterLevelKnob => (MIDI_STATUS_CC_MAIN, MIDI_MASTER_LEVEL_KNOB),
         },
         Led::Deck(deck, led) => {
             let status = match (deck, led.is_knob()) {
