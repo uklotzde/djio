@@ -38,7 +38,10 @@ pub use self::input::{
 };
 
 mod output;
-pub use self::output::{DimLedOutput, LedOutput, OutputError, OutputResult, RgbLedOutput};
+pub use self::output::{
+    ControlOutputGateway, DimLedOutput, LedOutput, OutputError, OutputResult, RgbLedOutput,
+    SendOutputsError,
+};
 
 /// Common, information properties about a device.
 #[derive(Debug, Clone, PartialEq, Eq)]

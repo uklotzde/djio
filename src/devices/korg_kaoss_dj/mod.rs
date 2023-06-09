@@ -14,7 +14,9 @@ pub use self::input::{
 };
 
 mod output;
-pub use self::output::{DeckLed, InvalidOutputControlIndex, Led, OutputGateway};
+pub use self::output::{
+    led_output_into_midi_message, DeckLed, InvalidOutputControlIndex, Led, OutputGateway,
+};
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {

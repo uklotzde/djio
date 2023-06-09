@@ -16,7 +16,10 @@ use super::{
     MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
     MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
-use crate::{ControlIndex, LedOutput, MidiOutputConnection, OutputResult};
+use crate::{
+    ControlIndex, ControlOutputGateway, ControlRegister, LedOutput, MidiOutputConnection,
+    OutputError, OutputResult,
+};
 
 const LED_OFF: u8 = 0x00;
 const LED_ON: u8 = 0x7f;
@@ -149,6 +152,48 @@ impl TryFrom<ControlIndex> for Led {
     }
 }
 
+#[must_use]
+pub fn led_output_into_midi_message(led: Led, output: LedOutput) -> [u8; 3] {
+    let (status, data1) = match led {
+        Led::Main(led) => match led {
+            MainLed::TabButton => (MIDI_TAP_BUTTON, MIDI_STATUS_BUTTON_MAIN),
+            MainLed::MonitorLevelKnob => (MIDI_MONITOR_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
+            MainLed::MonitorBalanceKnob => (MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_CC_MAIN),
+            MainLed::MasterLevelKnob => (MIDI_MASTER_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
+        },
+        Led::Deck(deck, led) => {
+            let status = match (deck, led.is_knob()) {
+                (Deck::A, false) => MIDI_STATUS_BUTTON_DECK_A,
+                (Deck::A, true) => MIDI_STATUS_CC_DECK_A,
+                (Deck::B, false) => MIDI_STATUS_BUTTON_DECK_B,
+                (Deck::B, true) => MIDI_STATUS_CC_DECK_B,
+            };
+            let data1 = match led {
+                DeckLed::MonitorButton => MIDI_DECK_MONITOR_BUTTON,
+                DeckLed::PlayPauseButton => MIDI_DECK_PLAYPAUSE_BUTTON,
+                DeckLed::SyncButton => MIDI_DECK_SYNC_BUTTON,
+                DeckLed::CueButton => MIDI_DECK_CUE_BUTTON,
+                DeckLed::TouchStripCenterButton => MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+                DeckLed::TouchStripHotCueCenterButton => MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON,
+                DeckLed::TouchStripHotCueLeftButton => MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
+                DeckLed::TouchStripHotCueRightButton => MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON,
+                DeckLed::TouchStripLeftButton => MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
+                DeckLed::TouchStripLoopCenterButton => MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON,
+                DeckLed::TouchStripLoopLeftButton => MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
+                DeckLed::TouchStripLoopRightButton => MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON,
+                DeckLed::TouchStripRightButton => MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
+                DeckLed::GainKnob => MIDI_DECK_GAIN_KNOB,
+                DeckLed::EqHiKnob => MIDI_DECK_EQ_HI_KNOB,
+                DeckLed::EqMidKnob => MIDI_DECK_EQ_MID_KNOB,
+                DeckLed::EqLoKnob => MIDI_DECK_EQ_LO_KNOB,
+            };
+            (status, data1)
+        }
+    };
+    let data2 = led_to_u7(output);
+    [status, data1, data2]
+}
+
 #[allow(missing_debug_implementations)]
 pub struct OutputGateway<C> {
     midi_output_connection: C,
@@ -199,48 +244,17 @@ impl<C: MidiOutputConnection> OutputGateway<C> {
     }
 
     pub fn send_led_output(&mut self, led: Led, output: LedOutput) -> OutputResult<()> {
-        let (status, data1) = match led {
-            Led::Main(led) => match led {
-                MainLed::TabButton => (MIDI_TAP_BUTTON, MIDI_STATUS_BUTTON_MAIN),
-                MainLed::MonitorLevelKnob => (MIDI_MONITOR_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
-                MainLed::MonitorBalanceKnob => (MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_CC_MAIN),
-                MainLed::MasterLevelKnob => (MIDI_MASTER_LEVEL_KNOB, MIDI_STATUS_CC_MAIN),
-            },
-            Led::Deck(deck, led) => {
-                let status = match (deck, led.is_knob()) {
-                    (Deck::A, false) => MIDI_STATUS_BUTTON_DECK_A,
-                    (Deck::A, true) => MIDI_STATUS_CC_DECK_A,
-                    (Deck::B, false) => MIDI_STATUS_BUTTON_DECK_B,
-                    (Deck::B, true) => MIDI_STATUS_CC_DECK_B,
-                };
-                let data1 = match led {
-                    DeckLed::MonitorButton => MIDI_DECK_MONITOR_BUTTON,
-                    DeckLed::PlayPauseButton => MIDI_DECK_PLAYPAUSE_BUTTON,
-                    DeckLed::SyncButton => MIDI_DECK_SYNC_BUTTON,
-                    DeckLed::CueButton => MIDI_DECK_CUE_BUTTON,
-                    DeckLed::TouchStripCenterButton => MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
-                    DeckLed::TouchStripHotCueCenterButton => {
-                        MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON
-                    }
-                    DeckLed::TouchStripHotCueLeftButton => MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
-                    DeckLed::TouchStripHotCueRightButton => {
-                        MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON
-                    }
-                    DeckLed::TouchStripLeftButton => MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
-                    DeckLed::TouchStripLoopCenterButton => MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON,
-                    DeckLed::TouchStripLoopLeftButton => MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
-                    DeckLed::TouchStripLoopRightButton => MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON,
-                    DeckLed::TouchStripRightButton => MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
-                    DeckLed::GainKnob => MIDI_DECK_GAIN_KNOB,
-                    DeckLed::EqHiKnob => MIDI_DECK_EQ_HI_KNOB,
-                    DeckLed::EqMidKnob => MIDI_DECK_EQ_MID_KNOB,
-                    DeckLed::EqLoKnob => MIDI_DECK_EQ_LO_KNOB,
-                };
-                (status, data1)
-            }
-        };
-        let data2 = led_to_u7(output);
         self.midi_output_connection
-            .send_midi_output(&[status, data1, data2])
+            .send_midi_output(&led_output_into_midi_message(led, output))
+    }
+}
+
+impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
+    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
+        let ControlRegister { index, value } = *output;
+        let led = Led::try_from(index).map_err(|InvalidOutputControlIndex| OutputError::Send {
+            msg: format!("No LED with control index {index}").into(),
+        })?;
+        self.send_led_output(led, value.into())
     }
 }

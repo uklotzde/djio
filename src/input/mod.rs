@@ -7,6 +7,7 @@
 use std::{borrow::Borrow, ops::RangeInclusive};
 
 use is_sorted::IsSorted as _;
+use strum::FromRepr;
 
 use crate::{ControlRegister, ControlValue, TimeStamp};
 
@@ -27,7 +28,8 @@ where
 }
 
 /// A simple two-state button.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr)]
+#[repr(u8)]
 pub enum ButtonInput {
     Released = 0,
     Pressed = 1,
@@ -43,11 +45,8 @@ impl From<ControlValue> for ButtonInput {
 }
 
 impl From<ButtonInput> for ControlValue {
-    fn from(from: ButtonInput) -> Self {
-        match from {
-            ButtonInput::Released => Self::from_bits(0),
-            ButtonInput::Pressed => Self::from_bits(1),
-        }
+    fn from(value: ButtonInput) -> Self {
+        Self::from_bits(value as _)
     }
 }
 

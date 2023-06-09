@@ -7,10 +7,9 @@ use djio::{
     consume_midi_input_event,
     devices::{generic_midi, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     ControlInputEventSink, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
-    PortIndex, PortIndexGenerator, TimeStamp,
+    MidiInputEventDecoder, MidiInputHandler, MidiOutputConnection, MidiPortDescriptor, MidirDevice,
+    MidirDeviceManager, OutputError, OutputResult, PortIndex, PortIndexGenerator, TimeStamp,
 };
-use midir::MidiOutputConnection;
 
 #[derive(Debug, Clone, Default)]
 struct LogMidiInputEventSink {
@@ -48,6 +47,7 @@ impl ControlInputEventSink for LogMidiInputEventSink {
 struct MidiController {
     decoder: Option<Box<dyn MidiInputEventDecoder>>,
     event_sink: LogMidiInputEventSink,
+    output_connection: Option<midir::MidiOutputConnection>,
 }
 
 impl MidiInputConnector for MidiController {
@@ -77,6 +77,15 @@ impl MidiInputHandler for MidiController {
     }
 }
 
+impl MidiOutputConnection for MidiController {
+    fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()> {
+        self.output_connection
+            .as_mut()
+            .ok_or(OutputError::Disconnected)?
+            .send_midi_output(output)
+    }
+}
+
 fn main() {
     pretty_env_logger::init();
 
@@ -102,16 +111,19 @@ impl djio::NewMidiDevice for NewMidiDevice {
 
 enum OutputGateway {
     KorgKaossDj {
-        gateway: korg_kaoss_dj::OutputGateway<MidiOutputConnection>,
+        gateway: korg_kaoss_dj::OutputGateway<midir::MidiOutputConnection>,
     },
     GenericMidi {
-        gateway: generic_midi::OutputGateway<MidiOutputConnection>,
+        gateway: generic_midi::OutputGateway<midir::MidiOutputConnection>,
     },
 }
 
 impl OutputGateway {
     #[must_use]
-    fn attach<T>(midi_device: &MidirDevice<T>, midi_output_connection: MidiOutputConnection) -> Self
+    fn attach<T>(
+        midi_device: &MidirDevice<T>,
+        midi_output_connection: midir::MidiOutputConnection,
+    ) -> Self
     where
         T: MidiDevice,
     {
@@ -125,7 +137,7 @@ impl OutputGateway {
     }
 
     #[must_use]
-    fn detach(self) -> MidiOutputConnection {
+    fn detach(self) -> midir::MidiOutputConnection {
         match self {
             Self::KorgKaossDj { gateway } => gateway.detach(),
             Self::GenericMidi { gateway } => gateway.detach(),
@@ -210,7 +222,7 @@ fn run() -> anyhow::Result<()> {
                 output_gateway
                     .take()
                     .map(OutputGateway::detach)
-                    .map(MidiOutputConnection::close);
+                    .map(midir::MidiOutputConnection::close);
                 midir_device.disconnect();
             }
             (false, false) => println!("{device_name}: Disconnected"),

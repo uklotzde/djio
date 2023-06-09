@@ -20,6 +20,12 @@ pub struct MidiDeviceDescriptor {
     pub port_name_prefix: &'static str,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MidiPortDescriptor {
+    pub index: PortIndex,
+    pub name: Cow<'static, str>,
+}
+
 pub trait MidiInputConnector: Send {
     /// Invoked before (re-)connecting the input port.
     fn connect_midi_input_port(
@@ -115,15 +121,13 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MidiPortDescriptor {
-    pub index: PortIndex,
-    pub name: Cow<'static, str>,
+pub trait MidiOutputConnection {
+    fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
 }
 
-pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
+pub trait MidiDevice: MidiInputHandler + MidiInputConnector + MidiOutputConnection {}
 
-impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector {}
+impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector + MidiOutputConnection {}
 
 pub trait NewMidiDevice {
     type MidiDevice: self::MidiDevice;
@@ -133,8 +137,4 @@ pub trait NewMidiDevice {
         device: &MidiDeviceDescriptor,
         input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice;
-}
-
-pub trait MidiOutputConnection {
-    fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
 }
