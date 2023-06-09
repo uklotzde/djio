@@ -29,8 +29,8 @@ where
 /// A simple two-state button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonInput {
-    Pressed,
-    Released,
+    Released = 0,
+    Pressed = 1,
 }
 
 impl From<ControlValue> for ButtonInput {
