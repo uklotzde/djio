@@ -1,37 +1,49 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::{ControlOutputGateway, ControlRegister, MidiOutputConnection, OutputResult};
+use crate::{
+    ControlOutputGateway, ControlRegister, MidiOutputConnection, MidiOutputGateway, OutputError,
+    OutputResult,
+};
 
 #[allow(missing_debug_implementations)]
 pub struct OutputGateway<C> {
-    midi_output_connection: C,
+    midi_output_connection: Option<C>,
 }
 
-impl<C: MidiOutputConnection> OutputGateway<C> {
-    #[must_use]
-    pub fn attach(midi_output_connection: C) -> Self {
+impl<C> Default for OutputGateway<C> {
+    fn default() -> Self {
         Self {
-            midi_output_connection,
+            midi_output_connection: None,
         }
-    }
-
-    #[must_use]
-    pub fn detach(self) -> C {
-        let Self {
-            midi_output_connection,
-        } = self;
-        midi_output_connection
     }
 }
 
 impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
     fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
+        let Some(midi_output_connection) = &mut self.midi_output_connection else {
+            return Err(OutputError::Disconnected);
+        };
         let ControlRegister { index, value } = *output;
         let status = ((index.value() >> 7) & 0x7f) as u8;
         let command = (index.value() & 0x7f) as u8;
         let data = (value.to_bits() & 0x7f) as u8;
-        self.midi_output_connection
-            .send_midi_output(&[status, command, data])
+        midi_output_connection.send_midi_output(&[status, command, data])
+    }
+}
+
+impl<C: MidiOutputConnection> MidiOutputGateway<C> for OutputGateway<C> {
+    fn attach_midi_output_connection(
+        &mut self,
+        midi_output_connection: &mut Option<C>,
+    ) -> OutputResult<()> {
+        assert!(self.midi_output_connection.is_none());
+        assert!(midi_output_connection.is_some());
+        self.midi_output_connection = midi_output_connection.take();
+        Ok(())
+    }
+
+    fn detach_midi_output_connection(&mut self) -> Option<C> {
+        self.midi_output_connection.take()
     }
 }

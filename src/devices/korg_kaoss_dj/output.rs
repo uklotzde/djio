@@ -18,7 +18,7 @@ use super::{
 };
 use crate::{
     ControlIndex, ControlOutputGateway, ControlRegister, LedOutput, MidiOutputConnection,
-    OutputError, OutputResult,
+    MidiOutputGateway, OutputError, OutputResult,
 };
 
 const LED_OFF: u8 = 0x00;
@@ -194,58 +194,73 @@ pub fn led_output_into_midi_message(led: Led, output: LedOutput) -> [u8; 3] {
     [status, data1, data2]
 }
 
-#[allow(missing_debug_implementations)]
-pub struct OutputGateway<C> {
-    midi_output_connection: C,
+fn send_led_output<C: MidiOutputConnection>(
+    midi_output_connection: &mut C,
+    led: Led,
+    output: LedOutput,
+) -> OutputResult<()> {
+    midi_output_connection.send_midi_output(&led_output_into_midi_message(led, output))
 }
 
-impl<C: MidiOutputConnection> OutputGateway<C> {
-    pub fn attach(mut midi_output_connection: C) -> OutputResult<Self> {
-        // MIDI SysEx message for querying the initial position of all knobs and faders
-        const MIDI_STATUS_SYSEX: &[u8] = &[
-            0xf0, 0x42, 0x40, 0x00, 0x01, 0x28, 0x00, 0x1f, 0x70, 0x01, 0xf7,
-        ];
-        midi_output_connection.send_midi_output(MIDI_STATUS_SYSEX)?;
-        let mut gateway = Self {
-            midi_output_connection,
+fn on_attach<C: MidiOutputConnection>(midi_output_connection: &mut C) -> OutputResult<()> {
+    // MIDI SysEx message for querying the initial position of all knobs and faders
+    const MIDI_STATUS_SYSEX: &[u8] = &[
+        0xf0, 0x42, 0x40, 0x00, 0x01, 0x28, 0x00, 0x1f, 0x70, 0x01, 0xf7,
+    ];
+    midi_output_connection.send_midi_output(MIDI_STATUS_SYSEX)?;
+    for led in MainLed::iter() {
+        let output = if led.is_knob() {
+            LedOutput::On
+        } else {
+            LedOutput::Off
         };
-        gateway.reset_all_leds()?;
-        Ok(gateway)
+        send_led_output(midi_output_connection, led.into(), output)?;
     }
-
-    #[must_use]
-    pub fn detach(self) -> C {
-        let Self {
-            midi_output_connection,
-        } = self;
-        midi_output_connection
-    }
-
-    fn reset_all_leds(&mut self) -> OutputResult<()> {
-        for led in MainLed::iter() {
+    for deck in Deck::iter() {
+        for led in DeckLed::iter() {
             let output = if led.is_knob() {
                 LedOutput::On
             } else {
                 LedOutput::Off
             };
-            self.send_led_output(led.into(), output)?;
+            send_led_output(midi_output_connection, Led::Deck(deck, led), output)?;
         }
-        for deck in Deck::iter() {
-            for led in DeckLed::iter() {
-                let output = if led.is_knob() {
-                    LedOutput::On
-                } else {
-                    LedOutput::Off
-                };
-                self.send_led_output(Led::Deck(deck, led), output)?;
-            }
-        }
-        Ok(())
     }
+    Ok(())
+}
 
+fn on_detach<C: MidiOutputConnection>(midi_output_connection: &mut C) -> OutputResult<()> {
+    for led in MainLed::iter() {
+        send_led_output(midi_output_connection, led.into(), LedOutput::Off)?;
+    }
+    for deck in Deck::iter() {
+        for led in DeckLed::iter() {
+            send_led_output(midi_output_connection, Led::Deck(deck, led), LedOutput::Off)?;
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug)]
+#[allow(missing_debug_implementations)]
+pub struct OutputGateway<C> {
+    midi_output_connection: Option<C>,
+}
+
+impl<C> Default for OutputGateway<C> {
+    fn default() -> Self {
+        Self {
+            midi_output_connection: None,
+        }
+    }
+}
+
+impl<C: MidiOutputConnection> OutputGateway<C> {
     pub fn send_led_output(&mut self, led: Led, output: LedOutput) -> OutputResult<()> {
-        self.midi_output_connection
-            .send_midi_output(&led_output_into_midi_message(led, output))
+        let Some(midi_output_connection) = &mut self.midi_output_connection else {
+            return Err(OutputError::Disconnected);
+        };
+        send_led_output(midi_output_connection, led, output)
     }
 }
 
@@ -256,5 +271,30 @@ impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
             msg: format!("No LED with control index {index}").into(),
         })?;
         self.send_led_output(led, value.into())
+    }
+}
+
+impl<C: MidiOutputConnection> MidiOutputGateway<C> for OutputGateway<C> {
+    fn attach_midi_output_connection(
+        &mut self,
+        midi_output_connection: &mut Option<C>,
+    ) -> OutputResult<()> {
+        assert!(self.midi_output_connection.is_none());
+        assert!(midi_output_connection.is_some());
+        // Initialize the hardware
+        on_attach(midi_output_connection.as_mut().expect("Some"))?;
+        // Finally take ownership
+        self.midi_output_connection = midi_output_connection.take();
+        Ok(())
+    }
+
+    fn detach_midi_output_connection(&mut self) -> Option<C> {
+        // Release ownership
+        let mut midi_output_connection = self.midi_output_connection.take()?;
+        // Reset the hardware
+        if let Err(err) = on_detach(&mut midi_output_connection) {
+            log::warn!("Failed reset MIDI hardware on detach: {err}");
+        }
+        Some(midi_output_connection)
     }
 }

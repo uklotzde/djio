@@ -125,9 +125,9 @@ pub trait MidiOutputConnection {
     fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
 }
 
-pub trait MidiDevice: MidiInputHandler + MidiInputConnector + MidiOutputConnection {}
+pub trait MidiDevice: MidiInputHandler + MidiInputConnector {}
 
-impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector + MidiOutputConnection {}
+impl<D> MidiDevice for D where D: MidiInputHandler + MidiInputConnector {}
 
 pub trait NewMidiDevice {
     type MidiDevice: self::MidiDevice;
@@ -137,4 +137,12 @@ pub trait NewMidiDevice {
         device: &MidiDeviceDescriptor,
         input_port: &MidiPortDescriptor,
     ) -> Self::MidiDevice;
+}
+
+pub trait MidiOutputGateway<C: MidiOutputConnection> {
+    fn attach_midi_output_connection(
+        &mut self,
+        midi_output_connection: &mut Option<C>,
+    ) -> OutputResult<()>;
+    fn detach_midi_output_connection(&mut self) -> Option<C>;
 }

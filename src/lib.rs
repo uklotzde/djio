@@ -269,7 +269,7 @@ pub use self::midi::midir::{
 pub use self::midi::{
     consume_midi_input_event, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
     MidiInputDecodeError, MidiInputEventDecoder, MidiInputHandler, MidiOutputConnection,
-    MidiPortDescriptor, NewMidiDevice,
+    MidiOutputGateway, MidiPortDescriptor, NewMidiDevice,
 };
 
 #[cfg(test)]

@@ -1,32 +1,41 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::{ControlOutputGateway, ControlRegister, MidiOutputConnection, OutputResult};
+use crate::{
+    ControlOutputGateway, ControlRegister, MidiOutputConnection, MidiOutputGateway, OutputResult,
+};
 
 #[allow(missing_debug_implementations)]
 pub struct OutputGateway<C> {
-    midi_output_connection: C,
+    midi_output_connection: Option<C>,
 }
 
-impl<C: MidiOutputConnection> OutputGateway<C> {
-    #[must_use]
-    pub fn attach(midi_output_connection: C) -> Self {
+impl<C> Default for OutputGateway<C> {
+    fn default() -> Self {
         Self {
-            midi_output_connection,
+            midi_output_connection: None,
         }
-    }
-
-    #[must_use]
-    pub fn detach(self) -> C {
-        let Self {
-            midi_output_connection,
-        } = self;
-        midi_output_connection
     }
 }
 
 impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
     fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
         unimplemented!("TODO: Send MIDI output message for {output:?}");
+    }
+}
+
+impl<C: MidiOutputConnection> MidiOutputGateway<C> for OutputGateway<C> {
+    fn attach_midi_output_connection(
+        &mut self,
+        midi_output_connection: &mut Option<C>,
+    ) -> OutputResult<()> {
+        assert!(self.midi_output_connection.is_none());
+        assert!(midi_output_connection.is_some());
+        self.midi_output_connection = midi_output_connection.take();
+        Ok(())
+    }
+
+    fn detach_midi_output_connection(&mut self) -> Option<C> {
+        self.midi_output_connection.take()
     }
 }
