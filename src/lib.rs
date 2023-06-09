@@ -251,16 +251,22 @@ pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
 pub mod hid;
 
 #[cfg(feature = "hid")]
-pub use hid::{HidApi, HidDevice, HidDeviceError, HidError, HidResult, HidThread, HidUsagePage};
+pub use self::hid::{
+    HidApi, HidDevice, HidDeviceError, HidError, HidResult, HidThread, HidUsagePage,
+};
 
 #[cfg(feature = "midi")]
 mod midi;
 
+#[cfg(feature = "midir")]
+pub use self::midi::midir::{
+    MidiPortError, MidirDevice, MidirDeviceManager, MidirInputPort, MidirOutputPort,
+};
 #[cfg(feature = "midi")]
 pub use self::midi::{
     consume_midi_input_event, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputDecodeError, MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor,
-    MidiPortError, MidirDevice, MidirDeviceManager, MidirInputPort, MidirOutputPort, NewMidiDevice,
+    MidiInputDecodeError, MidiInputEventDecoder, MidiInputHandler, MidiOutputConnection,
+    MidiPortDescriptor, NewMidiDevice,
 };
 
 #[cfg(test)]

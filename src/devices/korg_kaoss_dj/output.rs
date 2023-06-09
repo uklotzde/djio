@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use midir::MidiOutputConnection;
 use strum::{EnumCount, EnumIter, FromRepr, IntoEnumIterator as _};
 
 use super::{
@@ -17,7 +16,7 @@ use super::{
     MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
     MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
-use crate::{ControlIndex, LedOutput, OutputResult};
+use crate::{ControlIndex, LedOutput, MidiOutputConnection, OutputResult};
 
 const LED_OFF: u8 = 0x00;
 const LED_ON: u8 = 0x7f;
@@ -151,17 +150,17 @@ impl TryFrom<ControlIndex> for Led {
 }
 
 #[allow(missing_debug_implementations)]
-pub struct OutputGateway {
-    midi_output_connection: MidiOutputConnection,
+pub struct OutputGateway<C> {
+    midi_output_connection: C,
 }
 
-impl OutputGateway {
-    pub fn attach(mut midi_output_connection: MidiOutputConnection) -> OutputResult<Self> {
+impl<C: MidiOutputConnection> OutputGateway<C> {
+    pub fn attach(mut midi_output_connection: C) -> OutputResult<Self> {
         // MIDI SysEx message for querying the initial position of all knobs and faders
         const MIDI_STATUS_SYSEX: &[u8] = &[
             0xf0, 0x42, 0x40, 0x00, 0x01, 0x28, 0x00, 0x1f, 0x70, 0x01, 0xf7,
         ];
-        midi_output_connection.send(MIDI_STATUS_SYSEX)?;
+        midi_output_connection.send_midi_output(MIDI_STATUS_SYSEX)?;
         let mut gateway = Self {
             midi_output_connection,
         };
@@ -170,7 +169,7 @@ impl OutputGateway {
     }
 
     #[must_use]
-    pub fn detach(self) -> MidiOutputConnection {
+    pub fn detach(self) -> C {
         let Self {
             midi_output_connection,
         } = self;
@@ -241,7 +240,7 @@ impl OutputGateway {
             }
         };
         let data2 = led_to_u7(output);
-        self.midi_output_connection.send(&[status, data1, data2])?;
-        Ok(())
+        self.midi_output_connection
+            .send_midi_output(&[status, data1, data2])
     }
 }

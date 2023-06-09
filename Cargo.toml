@@ -32,10 +32,11 @@ anyhow = "1.0.71"
 pretty_env_logger = "0.5.0"
 
 [features]
-default = ["all-controllers"]
+default = ["all-controllers", "midir"]
 hid = ["dep:hidapi"]
 jack = ["midir?/jack"]
-midi = ["dep:midir"]
+midi = []
+midir = ["dep:midir"]
 serde = ["dep:serde"]
 # TODO: Extract each controller into a separate crate after the API has settled.
 all-controllers = ["midi-controllers", "hid-controllers"]
@@ -49,4 +50,4 @@ ni-traktor-kontrol-s4mk3 = ["hid"]
 [[example]]
 name = "midi-dj-controller-hotplug"
 path = "examples/midi_dj_controller_hotplug.rs"
-required-features = ["midi-controllers"]
+required-features = ["midi-controllers", "midir"]

@@ -5,7 +5,7 @@ use std::io::{stdin, stdout, Write as _};
 
 use djio::{
     consume_midi_input_event,
-    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
+    devices::{generic_midi, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     ControlInputEventSink, MidiDevice, MidiDeviceDescriptor, MidiInputConnector,
     MidiInputEventDecoder, MidiInputHandler, MidiPortDescriptor, MidirDevice, MidirDeviceManager,
     PortIndex, PortIndexGenerator, TimeStamp,
@@ -102,10 +102,10 @@ impl djio::NewMidiDevice for NewMidiDevice {
 
 enum OutputGateway {
     KorgKaossDj {
-        gateway: korg_kaoss_dj::OutputGateway,
+        gateway: korg_kaoss_dj::OutputGateway<MidiOutputConnection>,
     },
-    Generic {
-        midi_output_connection: MidiOutputConnection,
+    GenericMidi {
+        gateway: generic_midi::OutputGateway<MidiOutputConnection>,
     },
 }
 
@@ -119,9 +119,8 @@ impl OutputGateway {
             let gateway = korg_kaoss_dj::OutputGateway::attach(midi_output_connection).unwrap();
             Self::KorgKaossDj { gateway }
         } else {
-            Self::Generic {
-                midi_output_connection,
-            }
+            let gateway = generic_midi::OutputGateway::attach(midi_output_connection);
+            Self::GenericMidi { gateway }
         }
     }
 
@@ -129,9 +128,7 @@ impl OutputGateway {
     fn detach(self) -> MidiOutputConnection {
         match self {
             Self::KorgKaossDj { gateway } => gateway.detach(),
-            Self::Generic {
-                midi_output_connection,
-            } => midi_output_connection,
+            Self::GenericMidi { gateway } => gateway.detach(),
         }
     }
 }

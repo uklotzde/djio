@@ -13,6 +13,8 @@ fmt:
 # Run clippy
 check:
     cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings --cap-lints warn
+    cargo check --locked --workspace --all-targets --no-default-features
+    cargo check --locked --workspace --all-targets --no-default-features --features all-controllers
 
 # Run unit tests
 test:
