@@ -10,11 +10,11 @@ _default:
 fmt:
     cargo fmt --all
 
-# Run clippy
+# Run clippy and check some feature combinations
 check:
-    cargo clippy --locked --workspace --no-deps --all-targets -- -D warnings --cap-lints warn
     cargo check --locked --workspace --all-targets --no-default-features
     cargo check --locked --workspace --all-targets --no-default-features --features all-controllers
+    cargo clippy --locked --workspace --no-deps --all-targets --all-features -- -D warnings --cap-lints warn
 
 # Run unit tests
 test:
