@@ -15,11 +15,9 @@ use super::{
     MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB,
     MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
     MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
+    CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_ENUM_BIT_MASK, MIDI_DEVICE_DESCRIPTOR,
 };
 use crate::{
-    devices::korg_kaoss_dj::{
-        CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_ENUM_BIT_MASK, MIDI_DEVICE_DESCRIPTOR,
-    },
     ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, Input,
     MidiInputConnector, MidiInputDecodeError, SliderEncoderInput, SliderInput, StepEncoderInput,
     TimeStamp,
