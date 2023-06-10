@@ -91,7 +91,7 @@ pub trait MidiInputHandler: Send {
 
 impl<D> MidiInputHandler for D
 where
-    D: DerefMut + Send,
+    D: DerefMut + Send + ?Sized,
     <D as Deref>::Target: MidiInputHandler,
 {
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {

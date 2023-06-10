@@ -4,7 +4,10 @@
 //! Sending control data to actuators like LEDs and motorized platters
 //! or for configuring devices.
 
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    ops::{Deref, DerefMut},
+};
 
 use strum::FromRepr;
 use thiserror::Error;
@@ -126,5 +129,19 @@ pub trait ControlOutputGateway {
         }
         debug_assert_eq!(sent_ok, outputs.len());
         Ok(())
+    }
+}
+
+impl<T> ControlOutputGateway for T
+where
+    T: DerefMut + ?Sized,
+    <T as Deref>::Target: ControlOutputGateway,
+{
+    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
+        self.deref_mut().send_output(output)
+    }
+
+    fn send_outputs(&mut self, outputs: &[ControlRegister]) -> Result<(), SendOutputsError> {
+        self.deref_mut().send_outputs(outputs)
     }
 }
