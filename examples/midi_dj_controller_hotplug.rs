@@ -137,18 +137,23 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
     }
 }
 
-fn reconnect_midi_controller(
-    device: &mut MidirDevice<MidiController>,
+fn reconnect_midi_controller<I>(
+    device: &mut MidirDevice<I::MidiInputGateway>,
+    new_input_gateway: Option<&I>,
     mut output_gateway: Option<Box<DynMidiControlOutputGateway>>,
-) -> anyhow::Result<Option<Box<DynMidiControlOutputGateway>>> {
-    let _detached_midi_output_connection = output_gateway
+) -> anyhow::Result<Option<Box<DynMidiControlOutputGateway>>>
+where
+    I: djio::NewMidiInputGateway,
+    I::MidiInputGateway: Send,
+{
+    let _detached_output_connection = output_gateway
         .as_mut()
         .and_then(|boxed| boxed.as_mut().detach_midi_output_connection());
-    let midi_output_connection = device
-        .reconnect(Some(NewMidiInputGateway), None)
+    let output_connection = device
+        .reconnect(new_input_gateway, None)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
-    let mut midi_output_connection = Some(Box::new(midi_output_connection) as _);
-    let output_gateway = new_midi_control_output_gateway(&device, &mut midi_output_connection)?;
+    let mut output_connection = Some(Box::new(output_connection) as _);
+    let output_gateway = new_midi_control_output_gateway(device, &mut output_connection)?;
     Ok(output_gateway)
 }
 
@@ -156,7 +161,7 @@ fn disconnect_midi_controller(
     device: &mut MidirDevice<MidiController>,
     mut output_gateway: Option<Box<DynMidiControlOutputGateway>>,
 ) {
-    let _detached_midi_output_connection = output_gateway
+    let _detached_output_connection = output_gateway
         .as_mut()
         .and_then(|boxed| boxed.as_mut().detach_midi_output_connection());
     device.disconnect();
@@ -198,9 +203,12 @@ fn run() -> anyhow::Result<()> {
         }
     };
 
+    let new_midi_input_gateway = Some(NewMidiInputGateway);
+
     let device_name = midir_device.descriptor().device.name();
     println!("{device_name}: Connecting");
-    let mut output_gateway = reconnect_midi_controller(&mut midir_device, None)?;
+    let mut output_gateway =
+        reconnect_midi_controller(&mut midir_device, new_midi_input_gateway.as_ref(), None)?;
 
     println!("Starting endless loop, press CTRL-C to exit...");
     loop {
@@ -210,8 +218,11 @@ fn run() -> anyhow::Result<()> {
         ) {
             (true, false) => {
                 println!("{device_name}: Reconnecting");
-                output_gateway =
-                    reconnect_midi_controller(&mut midir_device, output_gateway.take())?;
+                output_gateway = reconnect_midi_controller(
+                    &mut midir_device,
+                    new_midi_input_gateway.as_ref(),
+                    output_gateway.take(),
+                )?;
             }
             (false, true) => {
                 println!("{device_name}: Disconnecting");

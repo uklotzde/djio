@@ -113,16 +113,16 @@ where
 
     pub fn reconnect<F>(
         &mut self,
-        new_midi_input_gateway: Option<F>,
+        new_input_gateway: Option<&F>,
         output_connection: Option<MidiOutputConnection>,
     ) -> Result<MidiOutputConnection, MidiPortError>
     where
-        F: NewMidiInputGateway<MidiInputGateway = I>,
+        F: NewMidiInputGateway<MidiInputGateway = I> + ?Sized,
     {
         let input_connection = self.input_connection.take();
         debug_assert!(!self.is_connected());
         debug_assert_eq!(input_connection.is_some(), output_connection.is_some());
-        let input_connection = self.reconnect_input(input_connection, new_midi_input_gateway)?;
+        let input_connection = self.reconnect_input(input_connection, new_input_gateway)?;
         let output_connection = self.reconnect_output(output_connection)?;
         self.input_connection = Some(input_connection);
         debug_assert!(self.is_connected());
@@ -143,21 +143,21 @@ where
     fn reconnect_input<F>(
         &mut self,
         connection: Option<MidiInputConnection<I>>,
-        new_midi_input_gateway: Option<F>,
+        new_input_gateway: Option<&F>,
     ) -> Result<MidiInputConnection<I>, MidiPortError>
     where
-        F: NewMidiInputGateway<MidiInputGateway = I>,
+        F: NewMidiInputGateway<MidiInputGateway = I> + ?Sized,
     {
         let port_name = &self.input_port.descriptor.name;
         let (input, mut input_gateway) =
             if let Some((input, input_gateway)) = connection.map(MidiInputConnection::close) {
                 (input, input_gateway)
             } else {
-                let Some(new_midi_input_gateway) = new_midi_input_gateway else {
+                let Some(new_input_gateway) = &new_input_gateway else {
                     return Err(MidiPortError::Disconnected);
                 };
                 let input = MidiInput::new(port_name)?;
-                let input_gateway = new_midi_input_gateway
+                let input_gateway = new_input_gateway
                     .new_midi_input_gateway(&self.descriptor, &self.input_port.descriptor);
                 (input, input_gateway)
             };
