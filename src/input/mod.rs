@@ -65,16 +65,20 @@ impl PadButtonInput {
     pub const PRESSURE_RANGE: RangeInclusive<f32> = Self::MIN_PRESSURE..=Self::MAX_PRESSURE;
 
     #[must_use]
-    pub fn is_pressed(self) -> bool {
-        debug_assert!(self.pressure >= Self::MIN_PRESSURE);
-        debug_assert!(self.pressure <= Self::MAX_PRESSURE);
-        self.pressure != Self::MIN_PRESSURE
+    pub fn as_button(self) -> ButtonInput {
+        debug_assert!(Self::PRESSURE_RANGE.contains(&self.pressure));
+        if self.pressure > Self::MIN_PRESSURE {
+            ButtonInput::Pressed
+        } else {
+            ButtonInput::Released
+        }
     }
 
     #[must_use]
     pub fn from_u7(input: u8) -> Self {
         debug_assert!(input <= 127);
         let pressure = f32::from(input) / 127.0;
+        debug_assert!(Self::PRESSURE_RANGE.contains(&pressure));
         Self { pressure }
     }
 
@@ -82,6 +86,7 @@ impl PadButtonInput {
     pub fn from_u14(input: u16) -> Self {
         debug_assert!(input <= 16383);
         let pressure = f32::from(input) / 16383.0;
+        debug_assert!(Self::PRESSURE_RANGE.contains(&pressure));
         Self { pressure }
     }
 }
@@ -89,6 +94,7 @@ impl PadButtonInput {
 impl From<ControlValue> for PadButtonInput {
     fn from(from: ControlValue) -> Self {
         let pressure = f32::from_bits(from.to_bits());
+        debug_assert!(Self::PRESSURE_RANGE.contains(&pressure));
         Self { pressure }
     }
 }
@@ -117,6 +123,7 @@ impl SliderInput {
     pub fn from_u7(input: u8) -> Self {
         debug_assert!(input <= 127);
         let position = f32::from(input) / 127.0;
+        debug_assert!(Self::POSITION_RANGE.contains(&position));
         Self { position }
     }
 
@@ -124,6 +131,7 @@ impl SliderInput {
     pub fn from_u14(input: u16) -> Self {
         debug_assert!(input <= 16383);
         let position = f32::from(input) / 16383.0;
+        debug_assert!(Self::POSITION_RANGE.contains(&position));
         Self { position }
     }
 
@@ -139,6 +147,7 @@ impl SliderInput {
 impl From<ControlValue> for SliderInput {
     fn from(from: ControlValue) -> Self {
         let position = f32::from_bits(from.to_bits());
+        debug_assert!(Self::POSITION_RANGE.contains(&position));
         Self { position }
     }
 }
@@ -173,6 +182,7 @@ impl CenterSliderInput {
         } else {
             f32::from(input - 64) / 63.0
         };
+        debug_assert!(Self::POSITION_RANGE.contains(&position));
         Self { position }
     }
 
@@ -185,6 +195,7 @@ impl CenterSliderInput {
         } else {
             f32::from(input - 8192) / 8191.0
         };
+        debug_assert!(Self::POSITION_RANGE.contains(&position));
         Self { position }
     }
 
@@ -205,6 +216,7 @@ impl CenterSliderInput {
 impl From<ControlValue> for CenterSliderInput {
     fn from(from: ControlValue) -> Self {
         let position = f32::from_bits(from.to_bits());
+        debug_assert!(Self::POSITION_RANGE.contains(&position));
         Self { position }
     }
 }
