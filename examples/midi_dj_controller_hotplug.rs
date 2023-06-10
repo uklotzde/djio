@@ -7,8 +7,9 @@ use djio::{
     consume_midi_input_event,
     devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     ControlInputEventSink, MidiControlOutputGateway, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputEventDecoder, MidiInputGateway, MidiInputHandler, MidiPortDescriptor, MidirDevice,
-    MidirDeviceManager, OutputResult, PortIndex, PortIndexGenerator, TimeStamp,
+    MidiInputEventDecoder, MidiInputGateway, MidiInputHandler, MidiOutputConnection,
+    MidiPortDescriptor, MidirDevice, MidirDeviceManager, OutputResult, PortIndex,
+    PortIndexGenerator, TimeStamp,
 };
 
 #[derive(Debug, Clone, Default)]
@@ -99,18 +100,21 @@ impl djio::NewMidiInputGateway for NewMidiInputGateway {
     }
 }
 
+type DynMidiOutputConnection = dyn MidiOutputConnection;
+type DynMidiControlOutputGateway = dyn MidiControlOutputGateway<Box<DynMidiOutputConnection>>;
+
 fn new_midi_control_output_gateway<I>(
     midi_device: &MidirDevice<I>,
-    midi_output_connection: &mut Option<midir::MidiOutputConnection>,
-) -> OutputResult<Option<Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>>>>
+    midi_output_connection: &mut Option<Box<DynMidiOutputConnection>>,
+) -> OutputResult<Option<Box<DynMidiControlOutputGateway>>>
 where
     I: MidiInputGateway,
 {
-    let mut output_gateway: Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>> =
+    let mut output_gateway: Box<DynMidiControlOutputGateway> =
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            Box::<korg_kaoss_dj::OutputGateway<midir::MidiOutputConnection>>::default() as _
+            Box::<korg_kaoss_dj::OutputGateway<Box<DynMidiOutputConnection>>>::default() as _
         } else if midi_device.descriptor() == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
-            Box::<denon_dj_mc6000mk2::OutputGateway<midir::MidiOutputConnection>>::default() as _
+            Box::<denon_dj_mc6000mk2::OutputGateway<Box<DynMidiOutputConnection>>>::default() as _
         } else {
             return Ok(None);
         };
@@ -171,11 +175,10 @@ fn run() -> anyhow::Result<()> {
 
     let device_name = midir_device.descriptor().device.name();
     println!("{device_name}: connecting");
-    let mut midi_output_connection = Some(
-        midir_device
-            .reconnect(Some(NewMidiInputGateway), None)
-            .map_err(|err| anyhow::anyhow!("{err}"))?,
-    );
+    let midi_output_connection = midir_device
+        .reconnect(Some(NewMidiInputGateway), None)
+        .map_err(|err| anyhow::anyhow!("{err}"))?;
+    let mut midi_output_connection = Some(Box::new(midi_output_connection) as _);
     let mut output_gateway =
         new_midi_control_output_gateway(&midir_device, &mut midi_output_connection)?;
 

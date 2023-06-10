@@ -38,7 +38,7 @@ pub trait MidiInputConnector: Send {
 
 impl<D> MidiInputConnector for D
 where
-    D: DerefMut + Send,
+    D: DerefMut + Send + ?Sized,
     <D as Deref>::Target: MidiInputConnector,
 {
     fn connect_midi_input_port(
@@ -124,6 +124,15 @@ where
 
 pub trait MidiOutputConnection {
     fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
+}
+
+impl<T> MidiOutputConnection for Box<T>
+where
+    T: MidiOutputConnection + ?Sized,
+{
+    fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()> {
+        self.as_mut().send_midi_output(output)
+    }
 }
 
 pub trait MidiInputGateway: MidiInputConnector + MidiInputHandler {}
