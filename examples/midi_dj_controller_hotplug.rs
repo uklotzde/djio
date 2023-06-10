@@ -99,7 +99,7 @@ impl djio::NewMidiInputGateway for NewMidiInputGateway {
     }
 }
 
-fn new_midi_controller_output_gateway<I>(
+fn new_midi_control_output_gateway<I>(
     midi_device: &MidirDevice<I>,
     midi_output_connection: &mut Option<midir::MidiOutputConnection>,
 ) -> OutputResult<Option<Box<dyn MidiControlOutputGateway<midir::MidiOutputConnection>>>>
@@ -177,7 +177,7 @@ fn run() -> anyhow::Result<()> {
             .map_err(|err| anyhow::anyhow!("{err}"))?,
     );
     let mut output_gateway =
-        new_midi_controller_output_gateway(&midir_device, &mut midi_output_connection)?;
+        new_midi_control_output_gateway(&midir_device, &mut midi_output_connection)?;
 
     println!("Starting endless loop, press CTRL-C to exit...");
     loop {
@@ -197,7 +197,7 @@ fn run() -> anyhow::Result<()> {
                     midi_output_connection = Some(detached_midi_output_connection);
                 }
                 output_gateway =
-                    new_midi_controller_output_gateway(&midir_device, &mut midi_output_connection)?;
+                    new_midi_control_output_gateway(&midir_device, &mut midi_output_connection)?;
             }
             (false, true) => {
                 println!("{device_name}: Disconnecting");
