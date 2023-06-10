@@ -18,7 +18,7 @@ use super::{
     MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, Input,
+    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, ControlValue,
     MidiInputConnector, MidiInputDecodeError, SliderEncoderInput, SliderInput, StepEncoderInput,
     TimeStamp,
 };
@@ -166,7 +166,7 @@ fn midi_status_to_deck(status: u8) -> Deck {
 #[allow(clippy::too_many_lines)]
 pub fn try_decode_midi_input(
     input: &[u8],
-) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
+) -> Result<Option<(Sensor, ControlValue)>, MidiInputDecodeError> {
     let decoded = match *input {
         [MIDI_STATUS_BUTTON_MAIN, data1, data2] => {
             let input = u7_to_button(data2);
@@ -271,7 +271,7 @@ pub fn try_decode_midi_input(
         },
         [status @ (MIDI_STATUS_CC_DECK_A | MIDI_STATUS_CC_DECK_B), data1, data2] => {
             let deck = midi_status_to_deck(status);
-            let (sensor, input) = match data1 {
+            let (sensor, value) = match data1 {
                 0x0e => (
                     DeckSensor::TouchWheelBendSliderEncoder,
                     SliderEncoderInput::from_u7(data2).into(),
@@ -316,7 +316,7 @@ pub fn try_decode_midi_input(
                     return Err(MidiInputDecodeError);
                 }
             };
-            (Sensor::Deck(deck, sensor), input)
+            (Sensor::Deck(deck, sensor), value)
         }
         _ => {
             return Err(MidiInputDecodeError);
@@ -329,12 +329,12 @@ pub fn try_decode_midi_input_event(
     ts: TimeStamp,
     input: &[u8],
 ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
-    let Some((sensor, input)) = try_decode_midi_input(input)? else {
+    let Some((sensor, value)) = try_decode_midi_input(input)? else {
         return Ok(None);
     };
     let input = ControlRegister {
         index: sensor.into(),
-        value: input.into(),
+        value,
     };
     let event = ControlInputEvent { ts, input };
     Ok(Some(event))

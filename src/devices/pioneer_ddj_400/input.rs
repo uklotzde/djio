@@ -24,8 +24,8 @@ use super::{
 };
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
-    Input, MidiInputConnector, MidiInputDecodeError, SelectorInput, SliderInput, StepEncoderInput,
-    TimeStamp,
+    ControlValue, MidiInputConnector, MidiInputDecodeError, SelectorInput, SliderInput,
+    StepEncoderInput, TimeStamp,
 };
 
 #[derive(Debug, Clone, Copy, From)]
@@ -242,18 +242,17 @@ impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
         input: &[u8],
     ) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> {
         // TODO: make this more readable
-        let (sensor, input): (Sensor, Input) =
-            if let Some(ev) = try_decode_button_event(self, input)? {
-                ev
-            } else if let Some(ev) = try_decode_cc_event(self, input)? {
-                ev
-            } else {
-                return Err(MidiInputDecodeError);
-            };
+        let (sensor, value) = if let Some(ev) = try_decode_button_event(self, input)? {
+            ev
+        } else if let Some(ev) = try_decode_cc_event(self, input)? {
+            ev
+        } else {
+            return Err(MidiInputDecodeError);
+        };
         log::debug!("{sensor:?} {input:?}");
         let input = ControlRegister {
             index: sensor.into(),
-            value: input.into(),
+            value,
         };
         let event = ControlInputEvent { ts, input };
         Ok(Some(event))
@@ -263,7 +262,7 @@ impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
 fn try_decode_button_event(
     decoder: &mut MidiInputEventDecoder,
     input: &[u8],
-) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
+) -> Result<Option<(Sensor, ControlValue)>, MidiInputDecodeError> {
     let sensor = match *input {
         [MIDI_STATUS_BUTTON_MAIN, data1, _] => {
             let sensor = match data1 {
@@ -342,21 +341,21 @@ fn try_decode_button_event(
         _ => return Ok(None),
     };
 
-    let input = if input[1] == 0x11 {
+    let value = if input[1] == 0x11 {
         let choice = u32::from(decoder.last_hi);
         SelectorInput { choice }.into()
     } else {
         u7_to_button(input[2]).into()
     };
-    Ok(Some((sensor, input)))
+    Ok(Some((sensor, value)))
 }
 
 #[allow(clippy::too_many_lines)]
 fn try_decode_cc_event(
     decoder: &mut MidiInputEventDecoder,
     input: &[u8],
-) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
-    let (sensor, input) = match *input {
+) -> Result<Option<(Sensor, ControlValue)>, MidiInputDecodeError> {
+    let (sensor, value) = match *input {
         [MIDI_STATUS_CC_MAIN, data1, data2] => match data1 {
             0x1f | 0x08 | 0x0d | 0x0c | 0x17 | 0x18 => {
                 decoder.last_hi = data2;
@@ -409,7 +408,7 @@ fn try_decode_cc_event(
         },
         [status @ (MIDI_STATUS_CC_DECK_ONE | MIDI_STATUS_CC_DECK_TWO), data1, data2] => {
             let deck = midi_status_to_deck(status);
-            let (sensor, input) = match data1 {
+            let (sensor, value) = match data1 {
                 0x00 | 0x13 | 0x07 | 0x0f | 0x0b | 0x04 => {
                     decoder.last_hi = data2;
                     return Ok(None);
@@ -452,13 +451,13 @@ fn try_decode_cc_event(
                     return Err(MidiInputDecodeError);
                 }
             };
-            (Sensor::Deck(deck, sensor), input)
+            (Sensor::Deck(deck, sensor), value)
         }
         _ => {
             return Err(MidiInputDecodeError);
         }
     };
-    Ok(Some((sensor, input)))
+    Ok(Some((sensor, value)))
 }
 
 impl MidiInputConnector for MidiInputEventDecoder {

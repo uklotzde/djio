@@ -6,7 +6,6 @@
 
 use std::{borrow::Borrow, ops::RangeInclusive};
 
-use derive_more::From;
 use is_sorted::IsSorted as _;
 use strum::FromRepr;
 
@@ -373,31 +372,6 @@ impl From<SelectorInput> for ControlValue {
     fn from(from: SelectorInput) -> Self {
         let SelectorInput { choice } = from;
         Self::from_bits(choice)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, From)]
-pub enum Input {
-    Button(ButtonInput),
-    PadButton(PadButtonInput),
-    Slider(SliderInput),
-    CenterSlider(CenterSliderInput),
-    StepEncoder(StepEncoderInput),
-    SliderEncoder(SliderEncoderInput),
-    SelectorInput(SelectorInput),
-}
-
-impl From<Input> for ControlValue {
-    fn from(from: Input) -> Self {
-        match from {
-            Input::Button(input) => input.into(),
-            Input::PadButton(input) => input.into(),
-            Input::Slider(input) => input.into(),
-            Input::CenterSlider(input) => input.into(),
-            Input::StepEncoder(input) => input.into(),
-            Input::SliderEncoder(input) => input.into(),
-            Input::SelectorInput(input) => input.into(),
-        }
     }
 }
 

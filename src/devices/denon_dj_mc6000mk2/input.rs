@@ -9,8 +9,8 @@ use crate::{
         MIDI_CMD_CC, MIDI_CMD_NOTE_OFF, MIDI_CMD_NOTE_ON, MIDI_DECK_CUE_BUTTON,
         MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
     },
-    u7_be_to_u14, ButtonInput, CenterSliderInput, Input, MidiInputDecodeError, SliderEncoderInput,
-    SliderInput, StepEncoderInput,
+    u7_be_to_u14, ButtonInput, CenterSliderInput, ControlValue, MidiInputDecodeError,
+    SliderEncoderInput, SliderInput, StepEncoderInput,
 };
 
 fn midi_status_to_deck_cmd(status: u8) -> (Deck, u8) {
@@ -90,12 +90,12 @@ impl From<MainSensor> for Sensor {
 #[allow(clippy::too_many_lines)]
 pub fn try_decode_midi_input(
     input: &[u8],
-) -> Result<Option<(Sensor, Input)>, MidiInputDecodeError> {
+) -> Result<Option<(Sensor, ControlValue)>, MidiInputDecodeError> {
     let [status, data1, data2] = *input else {
         return Err(MidiInputDecodeError);
     };
     let (deck, cmd) = midi_status_to_deck_cmd(status);
-    let (sensor, input) = match cmd {
+    let (sensor, value) = match cmd {
         MIDI_CMD_NOTE_OFF | MIDI_CMD_NOTE_ON => {
             let input = midi_value_to_button(data2);
             debug_assert_eq!(cmd == MIDI_CMD_NOTE_ON, input == ButtonInput::Pressed);
@@ -174,5 +174,5 @@ pub fn try_decode_midi_input(
             return Err(MidiInputDecodeError);
         }
     };
-    Ok(Some((sensor, input)))
+    Ok(Some((sensor, value)))
 }
