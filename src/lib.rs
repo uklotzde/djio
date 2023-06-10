@@ -34,7 +34,7 @@ mod input;
 pub use self::input::{
     input_events_ordered_chronologically, ButtonInput, CenterSliderInput, ControlInputEvent,
     ControlInputEventSink, Input, InputEvent, PadButtonInput, SliderEncoderInput, SliderInput,
-    StepEncoderInput,
+    StepEncoderInput, SwitchInput,
 };
 
 mod output;
