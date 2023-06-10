@@ -342,23 +342,25 @@ impl From<SliderEncoderInput> for ControlValue {
     }
 }
 
-/// A switch with multiple positions.
+/// Choose one out of many, discrete possible choices
+///
+/// Useful for configuration settings, e.g. selecting a mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SwitchInput {
-    pub position: u32,
+pub struct SelectorInput {
+    pub choice: u32,
 }
 
-impl From<ControlValue> for SwitchInput {
+impl From<ControlValue> for SelectorInput {
     fn from(from: ControlValue) -> Self {
-        let position = from.to_bits();
-        Self { position }
+        let choice = from.to_bits();
+        Self { choice }
     }
 }
 
-impl From<SwitchInput> for ControlValue {
-    fn from(from: SwitchInput) -> Self {
-        let SwitchInput { position } = from;
-        Self::from_bits(position)
+impl From<SelectorInput> for ControlValue {
+    fn from(from: SelectorInput) -> Self {
+        let SelectorInput { choice } = from;
+        Self::from_bits(choice)
     }
 }
 
@@ -370,7 +372,7 @@ pub enum Input {
     CenterSlider(CenterSliderInput),
     StepEncoder(StepEncoderInput),
     SliderEncoder(SliderEncoderInput),
-    SwitchInput(SwitchInput),
+    SelectorInput(SelectorInput),
 }
 
 impl From<Input> for ControlValue {
@@ -382,7 +384,7 @@ impl From<Input> for ControlValue {
             Input::CenterSlider(input) => input.into(),
             Input::StepEncoder(input) => input.into(),
             Input::SliderEncoder(input) => input.into(),
-            Input::SwitchInput(input) => input.into(),
+            Input::SelectorInput(input) => input.into(),
         }
     }
 }

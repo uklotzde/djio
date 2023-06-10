@@ -24,7 +24,7 @@ use super::{
 };
 use crate::{
     u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
-    Input, MidiInputConnector, MidiInputDecodeError, SliderInput, StepEncoderInput, SwitchInput,
+    Input, MidiInputConnector, MidiInputDecodeError, SelectorInput, SliderInput, StepEncoderInput,
     TimeStamp,
 };
 
@@ -325,7 +325,6 @@ fn try_decode_button_event(
                 0x58 => DeckSensor::BeatSyncButton,
                 0x60 => DeckSensor::TempoRangeButton,
                 0x6d => DeckSensor::BeatLoopModeButton,
-
                 _ => {
                     return Err(MidiInputDecodeError);
                 }
@@ -344,8 +343,8 @@ fn try_decode_button_event(
     };
 
     let input = if input[1] == 0x11 {
-        let position = u32::from(decoder.last_hi);
-        SwitchInput { position }.into()
+        let choice = u32::from(decoder.last_hi);
+        SelectorInput { choice }.into()
     } else {
         u7_to_button(input[2]).into()
     };
