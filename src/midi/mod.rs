@@ -27,7 +27,7 @@ pub struct MidiPortDescriptor {
     pub name: Cow<'static, str>,
 }
 
-pub trait MidiInputConnector: Send {
+pub trait MidiInputConnector {
     /// Invoked before (re-)connecting the input port.
     fn connect_midi_input_port(
         &mut self,
@@ -38,7 +38,7 @@ pub trait MidiInputConnector: Send {
 
 impl<D> MidiInputConnector for D
 where
-    D: DerefMut + Send + ?Sized,
+    D: DerefMut + ?Sized,
     <D as Deref>::Target: MidiInputConnector,
 {
     fn connect_midi_input_port(
@@ -54,7 +54,7 @@ where
 pub struct MidiInputDecodeError;
 
 /// Decode and map received MIDI messages into [`ControlInputEvent`]s.
-pub trait MidiInputEventDecoder: Send {
+pub trait MidiInputEventDecoder {
     /// Decode the next MIDI message
     ///
     /// Not each successfully decoded MIDI input might result in an event,
@@ -68,7 +68,7 @@ pub trait MidiInputEventDecoder: Send {
 
 impl<F> MidiInputEventDecoder for F
 where
-    F: FnMut(TimeStamp, &[u8]) -> Result<Option<ControlInputEvent>, MidiInputDecodeError> + Send,
+    F: FnMut(TimeStamp, &[u8]) -> Result<Option<ControlInputEvent>, MidiInputDecodeError>,
 {
     fn try_decode_midi_input_event(
         &mut self,
@@ -80,7 +80,7 @@ where
 }
 
 /// Passive callback for sinking MIDI input messages
-pub trait MidiInputHandler: Send {
+pub trait MidiInputHandler {
     /// Invoked for each incoming message.
     ///
     /// Returns `true` if the message has been accepted and handled
@@ -91,7 +91,7 @@ pub trait MidiInputHandler: Send {
 
 impl<D> MidiInputHandler for D
 where
-    D: DerefMut + Send + ?Sized,
+    D: DerefMut + ?Sized,
     <D as Deref>::Target: MidiInputHandler,
 {
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {

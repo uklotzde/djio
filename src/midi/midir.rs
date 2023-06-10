@@ -48,7 +48,7 @@ pub struct MidirOutputPort {
 #[allow(missing_debug_implementations)]
 pub struct MidirDevice<I>
 where
-    I: MidiInputGateway + 'static,
+    I: MidiInputGateway + Send + 'static,
 {
     descriptor: MidiDeviceDescriptor,
     input_port: MidirInputPort,
@@ -58,7 +58,7 @@ where
 
 impl<I> MidirDevice<I>
 where
-    I: MidiInputGateway,
+    I: MidiInputGateway + Send,
 {
     #[must_use]
     fn new(
@@ -92,7 +92,7 @@ where
     #[must_use]
     pub fn is_available<J>(&self, device_manager: &MidirDeviceManager<J>) -> bool
     where
-        J: MidiInputGateway,
+        J: MidiInputGateway + Send,
     {
         device_manager
             .filter_input_ports_by_name(|port_name| port_name == self.input_port.descriptor.name)
@@ -203,7 +203,7 @@ pub struct MidirDeviceManager<I> {
 
 impl<I> MidirDeviceManager<I>
 where
-    I: MidiInputGateway,
+    I: MidiInputGateway + Send,
 {
     pub fn new() -> Result<Self, midir::InitError> {
         let mut input = MidiInput::new("input port watcher")?;

@@ -46,7 +46,7 @@ impl ControlInputEventSink for LogMidiInputEventSink {
 
 #[derive(Default)]
 struct MidiController {
-    decoder: Option<Box<dyn MidiInputEventDecoder>>,
+    decoder: Option<Box<dyn MidiInputEventDecoder + Send>>,
     event_sink: LogMidiInputEventSink,
 }
 
@@ -108,7 +108,7 @@ fn new_midi_control_output_gateway<I>(
     midi_output_connection: &mut Option<Box<DynMidiOutputConnection>>,
 ) -> OutputResult<Option<Box<DynMidiControlOutputGateway>>>
 where
-    I: MidiInputGateway,
+    I: MidiInputGateway + Send,
 {
     let mut output_gateway: Box<DynMidiControlOutputGateway> =
         if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
