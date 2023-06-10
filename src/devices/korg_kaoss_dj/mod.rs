@@ -20,7 +20,7 @@ pub use self::output::{
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
-        vendor_name: Cow::Borrowed("Korg"),
+        vendor_name: Cow::Borrowed("KORG"),
         product_name: Cow::Borrowed("KAOSS DJ"),
     },
     port_name_prefix: "KAOSS DJ",
