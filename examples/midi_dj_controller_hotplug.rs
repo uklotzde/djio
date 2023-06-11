@@ -1,7 +1,10 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::io::{stdin, stdout, Write as _};
+use std::{
+    io::{stdin, stdout, Write as _},
+    time::Duration,
+};
 
 use djio::{
     consume_midi_input_event,
@@ -167,6 +170,13 @@ fn disconnect_midi_controller(
     device.disconnect();
 }
 
+// Controls the frequency of the polling thread while the device is connected.
+const CONNECTED_DEVICE_SLEEP_DURATION: Duration = Duration::from_millis(1000);
+
+// Poll more frequently while the device is not connected to reconnect it
+// promptly when it becomes available again.
+const DISCONNECTED_DEVICE_SLEEP_DURATION: Duration = Duration::from_millis(250);
+
 fn run() -> anyhow::Result<()> {
     let port_index_generator = PortIndexGenerator::new();
     let device_manager = MidirDeviceManager::<MidiController>::new()?;
@@ -229,9 +239,14 @@ fn run() -> anyhow::Result<()> {
                 disconnect_midi_controller(&mut midir_device, output_gateway.take());
                 midir_device.disconnect();
             }
-            (false, false) => println!("{device_name}: Disconnected"),
-            (true, true) => println!("{device_name}: Connected"),
+            (false, false) => {
+                println!("{device_name}: Disconnected");
+                std::thread::sleep(DISCONNECTED_DEVICE_SLEEP_DURATION);
+            }
+            (true, true) => {
+                println!("{device_name}: Connected");
+                std::thread::sleep(CONNECTED_DEVICE_SLEEP_DURATION);
+            }
         }
-        std::thread::sleep(std::time::Duration::from_millis(1000));
     }
 }
