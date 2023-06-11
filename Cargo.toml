@@ -22,7 +22,10 @@ strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.40"
 
 # Optional dependencies
-midir = { version = "0.9.1", optional = true }
+#midir = { version = "0.9.1", optional = true }
+# TODO: Remove midir patch
+# <https://github.com/Boddlnagg/midir/pull/133>
+midir = { git = "https://github.com/uklotzde/midir.git", branch = "input-callback-data-param-send", optional = true }
 hidapi = { version = "2.3.3", optional = true }
 
 serde = { version = "1.0", optional = true, features = ["derive"] }
