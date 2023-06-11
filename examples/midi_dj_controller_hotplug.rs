@@ -149,11 +149,16 @@ where
     I: djio::NewMidiInputGateway,
     I::MidiInputGateway: Send,
 {
-    let _detached_output_connection = output_gateway
-        .as_mut()
-        .and_then(|boxed| boxed.as_mut().detach_midi_output_connection());
+    let _detached_output_connection = output_gateway.as_mut().and_then(
+        |boxed: &mut Box<dyn MidiControlOutputGateway<Box<dyn MidiOutputConnection>>>| {
+            boxed.as_mut().detach_midi_output_connection()
+        },
+    );
+    // Unfortunately, we cannot recover and reuse the wrapped `midir::MidiOutputConnection`
+    // from the detached output connection and instead must create a new one.
+    let reusable_output_connection = None;
     let output_connection = device
-        .reconnect(new_input_gateway, None)
+        .reconnect(new_input_gateway, reusable_output_connection)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
     let mut output_connection = Some(Box::new(output_connection) as _);
     let output_gateway = new_midi_control_output_gateway(device, &mut output_connection)?;
