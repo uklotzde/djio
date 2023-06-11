@@ -10,7 +10,7 @@ use midir::{
 use thiserror::Error;
 
 use super::{MidiDeviceDescriptor, MidiInputGateway, MidiPortDescriptor, NewMidiInputGateway};
-use crate::{OutputError, PortIndexGenerator, TimeStamp};
+use crate::{MidiInputHandler, OutputError, PortIndexGenerator, TimeStamp};
 
 #[derive(Debug, Error)]
 pub enum MidiPortError {
@@ -54,6 +54,18 @@ where
     input_port: MidirInputPort,
     output_port: MidirOutputPort,
     input_connection: Option<MidiInputConnection<I>>,
+}
+
+// Adapter for the midir callback closure
+fn handle_input<I>(micros: u64, input: &[u8], input_handler: &mut I)
+where
+    I: MidiInputHandler,
+{
+    let ts = TimeStamp::from_micros(micros);
+    log::trace!("Received MIDI input: {ts} {input:0x?}");
+    if !input_handler.handle_midi_input(ts, input) {
+        log::warn!("Unhandled MIDI input {ts} {input:x?}");
+    }
 }
 
 impl<I> MidirDevice<I>
@@ -166,12 +178,8 @@ where
             .connect(
                 &self.input_port.port,
                 port_name,
-                move |micros, input, input_handler| {
-                    let ts = TimeStamp::from_micros(micros);
-                    log::debug!("Received MIDI input: {ts} {input:0x?}");
-                    if !input_handler.handle_midi_input(ts, input) {
-                        log::warn!("Unhandled MIDI input {ts} {input:x?}");
-                    }
+                |micros, input, input_handler| {
+                    handle_input(micros, input, input_handler);
                 },
                 input_gateway,
             )
