@@ -92,6 +92,7 @@ impl From<ControlValue> for RgbLedOutput {
     }
 }
 
+/// First error after sending multiple outputs
 #[derive(Debug)]
 pub struct SendOutputsError {
     /// The number of outputs that have been sent successfully before an error occurred.
