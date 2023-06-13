@@ -22,6 +22,9 @@ use strum::EnumDiscriminants;
 mod atomic;
 pub use self::atomic::{AtomicValue, SharedAtomicValue, WeakAtomicValue};
 
+mod ramping;
+pub use ramping::{RampingF32, RampingMode, RampingProfile};
+
 mod registry;
 pub use self::registry::{
     DescriptorRegistration, RegisterError, RegisteredDescriptor, RegisteredId, RegisteredParam,
