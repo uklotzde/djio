@@ -33,6 +33,22 @@ pub struct RegisteredParam<'a> {
     pub id: RegisteredId,
 }
 
+impl<'a> RegisteredParam<'a> {
+    #[must_use]
+    pub fn into_owned(self) -> RegisteredParam<'static> {
+        let Self {
+            descriptor,
+            address,
+            id,
+        } = self;
+        RegisteredParam {
+            descriptor: descriptor.into_owned(),
+            address: address.into_owned(),
+            id,
+        }
+    }
+}
+
 /// Map parameter addresses to their registered identifiers.
 #[allow(missing_debug_implementations)]
 struct AddressToIdMap {

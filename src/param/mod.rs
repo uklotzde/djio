@@ -98,6 +98,12 @@ impl<'a> Name<'a> {
     pub const fn new(inner: Cow<'a, str>) -> Self {
         Self(inner)
     }
+
+    #[must_use]
+    pub fn into_owned(self) -> Name<'static> {
+        let Self(inner) = self;
+        Name::new(inner.into_owned().into())
+    }
 }
 
 impl<'a> From<Name<'a>> for Cow<'a, str> {
@@ -125,6 +131,12 @@ impl<'a> Unit<'a> {
     pub const fn new(inner: Cow<'a, str>) -> Self {
         Self(inner)
     }
+
+    #[must_use]
+    pub fn into_owned(self) -> Unit<'static> {
+        let Self(inner) = self;
+        Unit::new(inner.into_owned().into())
+    }
 }
 
 impl<'a> From<Unit<'a>> for Cow<'a, str> {
@@ -151,6 +163,23 @@ pub struct Descriptor<'a> {
 
     /// Value metadata.
     pub value: ValueDescriptor,
+}
+
+impl<'a> Descriptor<'a> {
+    pub fn into_owned(self) -> Descriptor<'static> {
+        let Self {
+            name,
+            unit,
+            direction,
+            value,
+        } = self;
+        Descriptor {
+            name: name.into_owned(),
+            unit: unit.map(Unit::into_owned),
+            direction,
+            value,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -231,6 +260,12 @@ impl<'a> Address<'a> {
     #[must_use]
     pub const fn new(inner: Cow<'a, str>) -> Self {
         Self(inner)
+    }
+
+    #[must_use]
+    pub fn into_owned(self) -> Address<'static> {
+        let Self(inner) = self;
+        Address::new(inner.into_owned().into())
     }
 }
 
