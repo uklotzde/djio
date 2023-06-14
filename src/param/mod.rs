@@ -194,7 +194,7 @@ impl ValueRangeDescriptor {
     /// Comparing values of different types is not allowed. The result
     /// is `false` in this case and a debug assertion is triggered.
     #[must_use]
-    pub fn is_value_in_range(&self, value: Value) -> bool {
+    pub fn contains(&self, value: Value) -> bool {
         let Self { min, max } = self;
         if let Some(min) = min {
             debug_assert_eq!(ValueType::from(min), ValueType::from(value));
