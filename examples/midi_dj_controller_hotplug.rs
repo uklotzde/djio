@@ -8,9 +8,9 @@ use std::{
 
 use djio::{
     consume_midi_input_event,
-    devices::{denon_dj_mc6000mk2, korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, MidiControlOutputGateway, MidiDeviceDescriptor, MidiInputConnector,
-    MidiInputEventDecoder, MidiInputGateway, MidiInputHandler, MidiOutputConnection,
+    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
+    ControlInputEventSink, MidiDeviceDescriptor, MidiInputConnector, MidiInputEventDecoder,
+    MidiInputGateway, MidiInputHandler, MidiOutputConnection, MidiOutputGateway,
     MidiPortDescriptor, MidirDevice, MidirDeviceManager, OutputResult, PortIndex,
     PortIndexGenerator, TimeStamp,
 };
@@ -48,12 +48,12 @@ impl ControlInputEventSink for LogMidiInputEventSink {
 }
 
 #[derive(Default)]
-struct MidiController {
+struct MidiLogger {
     decoder: Option<Box<dyn MidiInputEventDecoder + Send>>,
     event_sink: LogMidiInputEventSink,
 }
 
-impl MidiInputConnector for MidiController {
+impl MidiInputConnector for MidiLogger {
     fn connect_midi_input_port(
         &mut self,
         device: &MidiDeviceDescriptor,
@@ -71,7 +71,7 @@ impl MidiInputConnector for MidiController {
     }
 }
 
-impl MidiInputHandler for MidiController {
+impl MidiInputHandler for MidiLogger {
     fn handle_midi_input(&mut self, ts: TimeStamp, input: &[u8]) -> bool {
         let Some(decoder) = &mut self.decoder else {
             return false;
@@ -92,7 +92,7 @@ fn main() {
 struct NewMidiInputGateway;
 
 impl djio::NewMidiInputGateway for NewMidiInputGateway {
-    type MidiInputGateway = MidiController;
+    type MidiInputGateway = MidiLogger;
 
     fn new_midi_input_gateway(
         &self,
@@ -103,26 +103,58 @@ impl djio::NewMidiInputGateway for NewMidiInputGateway {
     }
 }
 
-type DynMidiOutputConnection = dyn MidiOutputConnection;
-type DynMidiControlOutputGateway = dyn MidiControlOutputGateway<Box<DynMidiOutputConnection>>;
+type DynMidiOutputConnection = dyn MidiOutputConnection + Send + 'static;
 
-fn new_midi_control_output_gateway<I>(
-    midi_device: &MidirDevice<I>,
-    midi_output_connection: &mut Option<Box<DynMidiOutputConnection>>,
-) -> OutputResult<Option<Box<DynMidiControlOutputGateway>>>
+trait Controller {
+    // ...
+}
+
+trait MidiController: Controller + MidiOutputGateway<Box<DynMidiOutputConnection>> {}
+
+impl<T> MidiController for T where T: Controller + MidiOutputGateway<Box<DynMidiOutputConnection>> {}
+
+#[derive(Default)]
+struct KorgKaossDj {
+    output_gateway: Option<korg_kaoss_dj::OutputGateway<Box<DynMidiOutputConnection>>>,
+}
+
+impl Controller for KorgKaossDj {}
+
+impl MidiOutputGateway<Box<DynMidiOutputConnection>> for KorgKaossDj {
+    fn attach_midi_output_connection(
+        &mut self,
+        connection: &mut Option<Box<DynMidiOutputConnection>>,
+    ) -> OutputResult<()> {
+        debug_assert!(self.output_gateway.is_none());
+        let mut output_gateway =
+            korg_kaoss_dj::OutputGateway::<Box<DynMidiOutputConnection>>::default();
+        output_gateway.attach_midi_output_connection(connection)?;
+        self.output_gateway = Some(output_gateway);
+        Ok(())
+    }
+
+    fn detach_midi_output_connection(&mut self) -> Option<Box<DynMidiOutputConnection>> {
+        self.output_gateway
+            .take()
+            .and_then(|mut output_gateway| output_gateway.detach_midi_output_connection())
+    }
+}
+
+fn new_midi_controller<I>(
+    device: &MidirDevice<I>,
+    output_connection: &mut Option<Box<DynMidiOutputConnection>>,
+) -> OutputResult<Option<Box<dyn MidiController>>>
 where
     I: MidiInputGateway + Send,
 {
-    let mut output_gateway: Box<DynMidiControlOutputGateway> =
-        if midi_device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
-            Box::<korg_kaoss_dj::OutputGateway<Box<DynMidiOutputConnection>>>::default() as _
-        } else if midi_device.descriptor() == denon_dj_mc6000mk2::MIDI_DEVICE_DESCRIPTOR {
-            Box::<denon_dj_mc6000mk2::OutputGateway<Box<DynMidiOutputConnection>>>::default() as _
+    let mut controller: Box<dyn MidiController> =
+        if device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
+            Box::<KorgKaossDj>::default() as _
         } else {
             return Ok(None);
         };
-    output_gateway.attach_midi_output_connection(midi_output_connection)?;
-    Ok(Some(output_gateway))
+    controller.attach_midi_output_connection(output_connection)?;
+    Ok(Some(controller))
 }
 
 #[derive(Debug, Clone)]
@@ -143,17 +175,12 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
 fn reconnect_midi_controller<I>(
     device: &mut MidirDevice<I::MidiInputGateway>,
     new_input_gateway: Option<&I>,
-    mut output_gateway: Option<Box<DynMidiControlOutputGateway>>,
-) -> anyhow::Result<Option<Box<DynMidiControlOutputGateway>>>
+    _detached_output_connection: Option<Box<DynMidiOutputConnection>>,
+) -> anyhow::Result<Option<Box<dyn MidiController>>>
 where
     I: djio::NewMidiInputGateway,
     I::MidiInputGateway: Send,
 {
-    let _detached_output_connection = output_gateway.as_mut().and_then(
-        |boxed: &mut Box<dyn MidiControlOutputGateway<Box<dyn MidiOutputConnection>>>| {
-            boxed.as_mut().detach_midi_output_connection()
-        },
-    );
     // Unfortunately, we cannot recover and reuse the wrapped `midir::MidiOutputConnection`
     // from the detached output connection and instead must create a new one.
     let reusable_output_connection = None;
@@ -161,18 +188,18 @@ where
         .reconnect(new_input_gateway, reusable_output_connection)
         .map_err(|err| anyhow::anyhow!("{err}"))?;
     let mut output_connection = Some(Box::new(output_connection) as _);
-    let output_gateway = new_midi_control_output_gateway(device, &mut output_connection)?;
-    Ok(output_gateway)
+    new_midi_controller(device, &mut output_connection).map_err(|err| anyhow::anyhow!("{err}"))
 }
 
 fn disconnect_midi_controller(
-    device: &mut MidirDevice<MidiController>,
-    mut output_gateway: Option<Box<DynMidiControlOutputGateway>>,
-) {
-    let _detached_output_connection = output_gateway
+    device: &mut MidirDevice<MidiLogger>,
+    mut controller: Option<Box<dyn MidiController>>,
+) -> Option<Box<DynMidiOutputConnection>> {
+    let detached_output_connection = controller
         .as_mut()
         .and_then(|boxed| boxed.as_mut().detach_midi_output_connection());
     device.disconnect();
+    detached_output_connection
 }
 
 // Controls the frequency of the polling thread while the device is connected.
@@ -184,7 +211,7 @@ const DISCONNECTED_DEVICE_SLEEP_DURATION: Duration = Duration::from_millis(250);
 
 fn run() -> anyhow::Result<()> {
     let port_index_generator = PortIndexGenerator::new();
-    let device_manager = MidirDeviceManager::<MidiController>::new()?;
+    let device_manager = MidirDeviceManager::<MidiLogger>::new()?;
     let mut dj_controllers =
         device_manager.detect_dj_controllers(MIDI_DJ_CONTROLLER_DESCRIPTORS, &port_index_generator);
     let (_descriptor, mut midir_device) = match dj_controllers.len() {
@@ -221,27 +248,26 @@ fn run() -> anyhow::Result<()> {
     let new_midi_input_gateway = Some(NewMidiInputGateway);
 
     let device_name = midir_device.descriptor().device.name();
-    println!("{device_name}: Connecting");
-    let mut output_gateway =
-        reconnect_midi_controller(&mut midir_device, new_midi_input_gateway.as_ref(), None)?;
 
     println!("Starting endless loop, press CTRL-C to exit...");
+    let mut output_connection: Option<Box<DynMidiOutputConnection>> = None;
+    let mut controller: Option<Box<dyn MidiController>> = None;
     loop {
         match (
             midir_device.is_available(&device_manager),
             midir_device.is_connected(),
         ) {
             (true, false) => {
-                println!("{device_name}: Reconnecting");
-                output_gateway = reconnect_midi_controller(
+                println!("{device_name}: Connecting");
+                controller = reconnect_midi_controller(
                     &mut midir_device,
                     new_midi_input_gateway.as_ref(),
-                    output_gateway.take(),
+                    output_connection.take(),
                 )?;
             }
             (false, true) => {
                 println!("{device_name}: Disconnecting");
-                disconnect_midi_controller(&mut midir_device, output_gateway.take());
+                disconnect_midi_controller(&mut midir_device, controller.take());
                 midir_device.disconnect();
             }
             (false, false) => {
