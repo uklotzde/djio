@@ -44,6 +44,11 @@ impl AtomicF32 {
         let bits = value.to_bits();
         self.bits.store(bits, ordering);
     }
+
+    pub fn swap(&self, value: f32, ordering: Ordering) -> f32 {
+        let bits = value.to_bits();
+        f32::from_bits(self.bits.swap(bits, ordering))
+    }
 }
 
 impl AtomicConsume for AtomicF32 {
@@ -171,6 +176,34 @@ impl AtomicValue {
             .store(value, ATOMIC_STORE_ORDERING);
     }
 
+    pub fn swap_bool(&self, value: bool) -> bool {
+        debug_assert_eq!(self.value_type(), ValueType::Bool);
+        self.as_bool()
+            .expect("bool")
+            .swap(value, ATOMIC_STORE_ORDERING)
+    }
+
+    pub fn swap_i32(&self, value: i32) -> i32 {
+        debug_assert_eq!(self.value_type(), ValueType::I32);
+        self.as_i32()
+            .expect("i32")
+            .swap(value, ATOMIC_STORE_ORDERING)
+    }
+
+    pub fn swap_u32(&self, value: u32) -> u32 {
+        debug_assert_eq!(self.value_type(), ValueType::U32);
+        self.as_u32()
+            .expect("u32")
+            .swap(value, ATOMIC_STORE_ORDERING)
+    }
+
+    pub fn swap_f32(&self, value: f32) -> f32 {
+        debug_assert_eq!(self.value_type(), ValueType::F32);
+        self.as_f32()
+            .expect("f32")
+            .swap(value, ATOMIC_STORE_ORDERING)
+    }
+
     pub fn store(&self, value: Value) {
         debug_assert_eq!(self.value_type(), value.into());
         match value {
@@ -178,6 +211,16 @@ impl AtomicValue {
             Value::I32(value) => self.store_i32(value),
             Value::U32(value) => self.store_u32(value),
             Value::F32(value) => self.store_f32(value),
+        }
+    }
+
+    pub fn swap(&self, value: Value) -> Value {
+        debug_assert_eq!(self.value_type(), value.into());
+        match value {
+            Value::Bool(value) => self.swap_bool(value).into(),
+            Value::I32(value) => self.swap_i32(value).into(),
+            Value::U32(value) => self.swap_u32(value).into(),
+            Value::F32(value) => self.swap_f32(value).into(),
         }
     }
 }
