@@ -3,7 +3,7 @@
 
 use std::borrow::Cow;
 
-use strum::{EnumCount, EnumIter};
+use strum::{EnumCount, EnumIter, FromRepr};
 
 use crate::{DeviceDescriptor, MidiDeviceDescriptor};
 
@@ -28,7 +28,8 @@ pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor 
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
 
-#[derive(Debug, Clone, Copy, EnumIter, EnumCount)]
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
+#[repr(u8)]
 pub enum Deck {
     /// Left deck
     A,
