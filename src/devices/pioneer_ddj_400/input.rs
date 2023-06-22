@@ -197,7 +197,9 @@ impl TryFrom<ControlIndex> for Sensor {
             CONTROL_INDEX_DECK_TWO => Deck::Two,
             CONTROL_INDEX_DECK_BIT_MASK => return Err(InvalidInputControlIndex),
             _ => {
-                todo!()
+                return MainSensor::from_repr(enum_index)
+                    .map(Sensor::Main)
+                    .ok_or(InvalidInputControlIndex);
             }
         };
         DeckSensor::from_repr(enum_index)
