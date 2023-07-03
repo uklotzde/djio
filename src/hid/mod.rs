@@ -219,7 +219,6 @@ pub struct HidDevice {
 ///
 /// Could be used for referencing devices persistently, e.g. in configurations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DeviceId<'a> {
     /// Vendor id
     pub vid: u16,

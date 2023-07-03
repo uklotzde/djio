@@ -22,12 +22,12 @@ strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.40"
 
 # Optional dependencies
-crossbeam-utils = { version = "0.8.16", optional = true }
-enum-as-inner = { version = "0.6.0", optional = true }
 midir = { version = "0.9.1", optional = true }
 hidapi = { version = "2.3.3", optional = true }
 
-serde = { version = "1.0", optional = true, features = ["derive"] }
+# Optional dependencies (experimental features)
+crossbeam-utils = { version = "0.8.16", optional = true }
+enum-as-inner = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 anyhow = "1.0.71"
@@ -35,21 +35,26 @@ hidapi = "2.3.3"
 pretty_env_logger = "0.5.0"
 
 [features]
-default = ["all-controllers", "midir", "param"]
+default = ["all-controllers", "midir"]
 hid = ["dep:hidapi"]
 jack = ["midir?/jack"]
 midi = []
 midir = ["dep:midir"]
-param = ["dep:crossbeam-utils", "dep:enum-as-inner"]
-serde = ["dep:serde"]
+
+# Controller support features
 # TODO: Extract each controller into a separate crate after the API has settled.
 all-controllers = ["midi-controllers", "hid-controllers"]
+# MIDI controllers
 midi-controllers = ["denon-dj-mc6000mk2", "korg-kaoss-dj", "pioneer-ddj-400"]
 denon-dj-mc6000mk2 = ["midi"]
 korg-kaoss-dj = ["midi"]
 pioneer-ddj-400 = ["midi"]
+# HID controllers
 hid-controllers = ["ni-traktor-kontrol-s4mk3"]
 ni-traktor-kontrol-s4mk3 = ["hid"]
+
+# Experimental features
+experimental-param = ["dep:crossbeam-utils", "dep:enum-as-inner"]
 
 [[example]]
 name = "midi-dj-controller-hotplug"

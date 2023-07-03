@@ -272,7 +272,7 @@ pub use self::midi::{
     MidiOutputConnection, MidiOutputGateway, MidiPortDescriptor, NewMidiInputGateway,
 };
 
-#[cfg(feature = "param")]
+#[cfg(feature = "experimental-param")]
 pub mod param;
 
 #[cfg(test)]
