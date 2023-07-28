@@ -13,13 +13,13 @@ on:
   push:
     branches:
       - "*"
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   pre-commit:
-    name: Detecting code style issues
     runs-on: ubuntu-latest
     steps:
       - name: Install ALSA and Jack dependencies
@@ -45,8 +45,8 @@ jobs:
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          # Distinguished by the action name to avoid sharing across different actions!
-          shared-key: "pre-commit"
+          # Distinguished by the action name to avoid sharing between different actions.
+          shared-key: pre-commit
 
       - name: Detect code style issues (push)
         uses: pre-commit/action@v3.0.0

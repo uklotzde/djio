@@ -3,7 +3,7 @@
 
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
 
-name: continuous-integration
+name: build-and-test
 
 permissions:
   contents: read
@@ -13,6 +13,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   CARGO_INCREMENTAL: 0
@@ -20,8 +21,7 @@ env:
   RUST_BACKTRACE: short
 
 jobs:
-  continuous-integration:
-    name: Building project and running tests
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -41,11 +41,11 @@ jobs:
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          # Distinguished by the action name to avoid sharing across different actions!
-          shared-key: "continuous-integration"
+          # Distinguished by the action name to avoid sharing between different actions.
+          shared-key: build-and-test
 
       - name: Build tests
-        run: cargo test --locked --all-targets --no-run
+        run: cargo test --locked --all-targets --all-features --no-run
 
       - name: Run tests
-        run: cargo test --locked --all-targets -- --nocapture --quiet
+        run: cargo test --locked --all-targets --all-features -- --nocapture --quiet

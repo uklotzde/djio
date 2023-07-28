@@ -12,8 +12,6 @@ on:
   push:
     paths:
       - "**/Cargo.toml"
-  #schedule:
-  #  - cron: '0 0 * * *'
   workflow_dispatch:
 
 jobs:
@@ -33,8 +31,8 @@ jobs:
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          # Distinguished by the action name to avoid sharing across different actions!
-          shared-key: "security-audit"
+          # Distinguished by the action name to avoid sharing between different actions.
+          shared-key: security-audit
 
       - name: Run security audit
         run: cargo audit --deny unsound --deny yanked
