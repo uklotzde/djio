@@ -10,15 +10,15 @@ _default:
 fmt:
     cargo fmt --all
 
-# Run clippy and check some feature combinations
-check:
-    cargo check --locked --workspace --all-targets --no-default-features
-    cargo check --locked --workspace --all-targets --no-default-features --features all-controllers
+# Run clippy with various feature combinations
+clippy:
+    cargo clippy --locked --workspace --all-targets --no-default-features
+    cargo clippy --locked --workspace --all-targets --no-default-features --features all-controllers
     cargo clippy --locked --workspace --no-deps --all-targets --all-features -- -D warnings --cap-lints warn
 
 # Run unit tests
 test:
-    RUST_BACKTRACE=1 cargo test --locked --workspace -- --nocapture
+    RUST_BACKTRACE=1 cargo test --locked --workspace --all-targets --all-features -- --nocapture
 
 # Set up (and update) tooling
 setup:
@@ -27,7 +27,7 @@ setup:
     # cargo-edit is needed for `cargo upgrade`
     cargo install cargo-edit just
     pip install -U pre-commit
-    pre-commit install --hook-type commit-msg --hook-type pre-commit
+    #pre-commit install --hook-type commit-msg --hook-type pre-commit
 
 # Upgrade (and update) dependencies
 upgrade: setup
