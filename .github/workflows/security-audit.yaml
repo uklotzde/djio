@@ -17,6 +17,7 @@ on:
 jobs:
   security-audit:
     runs-on: ubuntu-latest
+
     steps:
       - uses: dtolnay/rust-toolchain@stable
 
@@ -30,9 +31,6 @@ jobs:
 
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
-        with:
-          # Distinguished by the action name to avoid sharing between different actions.
-          shared-key: security-audit
 
       - name: Run security audit
         run: cargo audit --deny unsound --deny yanked

@@ -27,7 +27,11 @@ jobs:
     steps:
       - name: Install ALSA and Jack dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y libasound2-dev libjack-jackd2-dev libudev-dev
+          sudo apt-get update && \
+          sudo apt-get install -y \
+          libasound2-dev \
+          libjack-jackd2-dev \
+          libudev-dev
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -40,9 +44,6 @@ jobs:
 
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
-        with:
-          # Distinguished by the action name to avoid sharing between different actions.
-          shared-key: build-and-test
 
       - name: Build tests
         run: cargo test --locked --all-targets --all-features --no-run
