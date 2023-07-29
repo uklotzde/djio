@@ -21,16 +21,16 @@ env:
   RUST_BACKTRACE: short
 
 jobs:
-  build-and-test:
+  run:
     runs-on: ubuntu-latest
 
     steps:
       - name: Install ALSA and Jack dependencies
-        run: |
-          sudo apt-get update && \
-          sudo apt-get install -y \
-          libasound2-dev \
-          libjack-jackd2-dev \
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y
+          libasound2-dev
+          libjack-jackd2-dev
           libudev-dev
 
       - name: Install Rust toolchain
@@ -44,9 +44,16 @@ jobs:
 
       - name: Cache Rust toolchain and build artifacts
         uses: Swatinem/rust-cache@v2
+        with:
+          # The cache should not be shared between different workflows and jobs.
+          shared-key: ${{ github.workflow }}-${{ github.job }}
 
       - name: Build tests
-        run: cargo test --locked --all-targets --all-features --no-run
+        run: >-
+          cargo test --locked --all-targets --all-features
+          --no-run
 
       - name: Run tests
-        run: cargo test --locked --all-targets --all-features -- --nocapture --quiet
+        run: >-
+          cargo test --locked --all-targets --all-features
+          -- --nocapture --quiet
