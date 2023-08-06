@@ -18,7 +18,7 @@ clippy:
 
 # Run unit tests
 test:
-    RUST_BACKTRACE=1 cargo test --locked --workspace --all-targets --all-features -- --nocapture
+    RUST_BACKTRACE=1 cargo test --locked --all-features -- --nocapture
 
 # Set up (and update) tooling
 setup:

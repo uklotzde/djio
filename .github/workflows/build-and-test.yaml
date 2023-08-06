@@ -50,10 +50,10 @@ jobs:
 
       - name: Build tests
         run: >-
-          cargo test --locked --all-targets --all-features
+          cargo test --locked --all-features
           --no-run
 
       - name: Run tests
         run: >-
-          cargo test --locked --all-targets --all-features
+          cargo test --locked --all-features
           -- --nocapture --quiet
