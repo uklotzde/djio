@@ -142,12 +142,9 @@ where
     }
 
     pub fn disconnect(&mut self) {
-        let Some(input_connection) = self
-            .input_connection
-            .take()
-             else {
-                return;
-             };
+        let Some(input_connection) = self.input_connection.take() else {
+            return;
+        };
         input_connection.close();
         debug_assert!(!self.is_connected());
     }
@@ -267,15 +264,22 @@ where
             .into_iter()
             .filter_map(|port| {
                 let port_name = self.input.port_name(&port).ok()?;
-                let Some(device_descriptor) = device_descriptors
-                    .iter()
-                    .copied()
-                    .find(|device_descriptor| port_name.starts_with(device_descriptor.port_name_prefix)) else {
+                let Some(device_descriptor) =
+                    device_descriptors
+                        .iter()
+                        .copied()
+                        .find(|device_descriptor| {
+                            port_name.starts_with(device_descriptor.port_name_prefix)
+                        })
+                else {
                     log::debug!("Input port \"{port_name}\" does not belong to a DJ controller");
                     return None;
                 };
                 log::debug!("Detected input port \"{port_name}\" for {device_descriptor:?}");
-                Some((device_descriptor.port_name_prefix, (device_descriptor, port_name, port)))
+                Some((
+                    device_descriptor.port_name_prefix,
+                    (device_descriptor, port_name, port),
+                ))
             })
             .collect::<HashMap<_, _>>();
         let mut output_ports = self
@@ -286,11 +290,14 @@ where
                 let Some(port_name_prefix) = input_ports
                     .keys()
                     .copied()
-                    .find(|port_name_prefix| port_name.starts_with(port_name_prefix)) else {
-                        log::debug!("Output port \"{port_name}\" does not belong to a DJ controller");
-                        return None;
-                    };
-                log::debug!("Detected output port \"{port_name}\" for DJ controller \"{port_name_prefix}\"");
+                    .find(|port_name_prefix| port_name.starts_with(port_name_prefix))
+                else {
+                    log::debug!("Output port \"{port_name}\" does not belong to a DJ controller");
+                    return None;
+                };
+                log::debug!(
+                    "Detected output port \"{port_name}\" for DJ controller \"{port_name_prefix}\""
+                );
                 Some((port_name_prefix, (port_name, port)))
             })
             .collect::<HashMap<_, _>>();

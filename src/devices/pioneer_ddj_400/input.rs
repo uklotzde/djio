@@ -336,8 +336,8 @@ fn try_decode_button_event(
         | MIDI_STATUS_BUTTON_PERFORMANCE_DECK_TWO), data1, _] => {
             let deck = midi_status_to_performance_deck(status);
             let Some(sensor) = PerformancePadSensor::try_from_u8(data1) else {
-                  return Err(MidiInputDecodeError);
-                };
+                return Err(MidiInputDecodeError);
+            };
             Sensor::Performance(deck, sensor)
         }
         _ => return Ok(None),

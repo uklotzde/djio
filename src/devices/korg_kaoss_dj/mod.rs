@@ -37,6 +37,22 @@ pub enum Deck {
     B,
 }
 
+impl Deck {
+    const fn midi_channel(self) -> u8 {
+        match self {
+            Deck::A => MIDI_CHANNEL_DECK_A,
+            Deck::B => MIDI_CHANNEL_DECK_B,
+        }
+    }
+
+    const fn control_index_bit_mask(self) -> u32 {
+        match self {
+            Deck::A => CONTROL_INDEX_DECK_A,
+            Deck::B => CONTROL_INDEX_DECK_B,
+        }
+    }
+}
+
 const MIDI_CHANNEL_MAIN: u8 = 0x06;
 const MIDI_CHANNEL_DECK_A: u8 = 0x07;
 const MIDI_CHANNEL_DECK_B: u8 = 0x08;

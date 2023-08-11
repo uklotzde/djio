@@ -5,16 +5,15 @@ use strum::{EnumCount, EnumIter, FromRepr, IntoEnumIterator as _};
 
 use super::{
     Deck, CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, CONTROL_INDEX_DECK_BIT_MASK,
-    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB,
-    MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_GAIN_KNOB, MIDI_DECK_MONITOR_BUTTON,
-    MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON,
-    MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB,
-    MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
-    MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
+    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_COMMAND_CC, MIDI_COMMAND_NOTE_ON, MIDI_DECK_CUE_BUTTON,
+    MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_GAIN_KNOB,
+    MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON, MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB,
+    MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_BUTTON_MAIN, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{
     ControlIndex, ControlOutputGateway, ControlRegister, LedOutput, MidiOutputConnection,
@@ -103,13 +102,7 @@ impl Led {
     pub const fn to_control_index(self) -> ControlIndex {
         match self {
             Self::Main(led) => ControlIndex::new(led as u32),
-            Self::Deck(deck, led) => {
-                let deck_bit = match deck {
-                    Deck::A => CONTROL_INDEX_DECK_A,
-                    Deck::B => CONTROL_INDEX_DECK_B,
-                };
-                ControlIndex::new(deck_bit | led as u32)
-            }
+            Self::Deck(deck, led) => ControlIndex::new(deck.control_index_bit_mask() | led as u32),
         }
     }
 }
@@ -162,11 +155,11 @@ pub fn led_output_into_midi_message(led: Led, output: LedOutput) -> [u8; 3] {
             MainLed::MasterLevelKnob => (MIDI_STATUS_CC_MAIN, MIDI_MASTER_LEVEL_KNOB),
         },
         Led::Deck(deck, led) => {
-            let status = match (deck, led.is_knob()) {
-                (Deck::A, false) => MIDI_STATUS_BUTTON_DECK_A,
-                (Deck::A, true) => MIDI_STATUS_CC_DECK_A,
-                (Deck::B, false) => MIDI_STATUS_BUTTON_DECK_B,
-                (Deck::B, true) => MIDI_STATUS_CC_DECK_B,
+            let midi_channel = deck.midi_channel();
+            let status = if led.is_knob() {
+                MIDI_COMMAND_CC | midi_channel
+            } else {
+                MIDI_COMMAND_NOTE_ON | midi_channel
             };
             let data1 = match led {
                 DeckLed::MonitorButton => MIDI_DECK_MONITOR_BUTTON,

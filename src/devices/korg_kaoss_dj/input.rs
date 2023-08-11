@@ -113,11 +113,7 @@ impl Sensor {
         match self {
             Self::Main(sensor) => ControlIndex::new(sensor as u32),
             Self::Deck(deck, sensor) => {
-                let deck_bit = match deck {
-                    Deck::A => CONTROL_INDEX_DECK_A,
-                    Deck::B => CONTROL_INDEX_DECK_B,
-                };
-                ControlIndex::new(deck_bit | sensor as u32)
+                ControlIndex::new(deck.control_index_bit_mask() | sensor as u32)
             }
         }
     }
