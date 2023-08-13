@@ -34,9 +34,11 @@ pub mod devices;
 
 mod input;
 pub use self::input::{
-    input_events_ordered_chronologically, ButtonInput, CenterSliderInput, ControlInputEvent,
-    ControlInputEventSink, InputEvent, PadButtonInput, SelectorInput, SliderEncoderInput,
-    SliderInput, StepEncoderInput,
+    input_events_ordered_chronologically, split_crossfader_input_amplitude_preserving_approx,
+    split_crossfader_input_energy_preserving_approx, split_crossfader_input_linear,
+    split_crossfader_input_square, ButtonInput, CenterSliderInput, ControlInputEvent,
+    ControlInputEventSink, CrossfaderCurve, InputEvent, PadButtonInput, SelectorInput,
+    SliderEncoderInput, SliderInput, StepEncoderInput,
 };
 
 mod output;

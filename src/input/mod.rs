@@ -6,6 +6,7 @@
 
 use std::{borrow::Borrow, ops::RangeInclusive};
 
+use float_cmp::approx_eq;
 use is_sorted::IsSorted as _;
 use strum::FromRepr;
 
@@ -119,6 +120,11 @@ impl SliderInput {
     pub const POSITION_RANGE: RangeInclusive<f32> = Self::MIN_POSITION..=Self::MAX_POSITION;
 
     #[must_use]
+    pub fn clamp_position(position: f32) -> f32 {
+        position.max(Self::MIN_POSITION).min(Self::MAX_POSITION)
+    }
+
+    #[must_use]
     pub fn from_u7(input: u8) -> Self {
         debug_assert!(input <= 127);
         let position = f32::from(input) / 127.0;
@@ -171,6 +177,11 @@ impl CenterSliderInput {
     pub const MAX_POSITION: f32 = 1.0;
     pub const POSITION_RANGE: RangeInclusive<f32> = Self::MIN_POSITION..=Self::MAX_POSITION;
     pub const CENTER_POSITION: f32 = 0.0;
+
+    #[must_use]
+    pub fn clamp_position(position: f32) -> f32 {
+        position.max(Self::MIN_POSITION).min(Self::MAX_POSITION)
+    }
 
     #[must_use]
     #[allow(clippy::cast_possible_wrap)]
@@ -386,143 +397,117 @@ pub trait ControlInputEventSink {
     fn sink_input_events(&mut self, events: &[ControlInputEvent]);
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn pad_button_from_u7() {
-        assert_eq!(
-            PadButtonInput::MIN_PRESSURE,
-            PadButtonInput::from_u7(0).pressure
-        );
-        assert_eq!(
-            PadButtonInput::MAX_PRESSURE,
-            PadButtonInput::from_u7(127).pressure
-        );
+#[must_use]
+pub fn split_crossfader_input_linear(input: CenterSliderInput) -> (SliderInput, SliderInput) {
+    fn f_x(x: f32) -> f32 {
+        x
     }
+    let CenterSliderInput { position } = input;
+    let x = position * 0.5 + 0.5; // [0, 1]
+    let left_position = f_x(x);
+    let right_position = f_x(1.0 - x);
+    (
+        SliderInput {
+            position: left_position,
+        },
+        SliderInput {
+            position: right_position,
+        },
+    )
+}
 
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn pad_button_from_u14() {
-        assert_eq!(
-            PadButtonInput::MIN_PRESSURE,
-            PadButtonInput::from_u14(0).pressure
-        );
-        assert_eq!(
-            PadButtonInput::MAX_PRESSURE,
-            PadButtonInput::from_u14(16383).pressure
-        );
+#[must_use]
+pub fn split_crossfader_input_amplitude_preserving_approx(
+    input: CenterSliderInput,
+) -> (SliderInput, SliderInput) {
+    // <https://signalsmith-audio.co.uk/writing/2021/cheap-energy-crossfade/>
+    #[allow(clippy::cast_possible_truncation)]
+    fn f_x(x: f64) -> f32 {
+        (x.powi(2) * (3.0 - 2.0 * x)) as _
     }
+    let CenterSliderInput { position } = input;
+    let x: f64 = f64::from(position) * 0.5 + 0.5; // [0, 1]
+    let left_position = f_x(x).max(0.0).min(1.0);
+    let right_position = f_x(1.0 - x).max(0.0).min(1.0);
+    (
+        SliderInput {
+            position: SliderInput::clamp_position(left_position),
+        },
+        SliderInput {
+            position: SliderInput::clamp_position(right_position),
+        },
+    )
+}
 
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn step_encoder_from_u7() {
-        assert_eq!(0, StepEncoderInput::from_u7(0).delta);
-        assert_eq!(1, StepEncoderInput::from_u7(1).delta);
-        assert_eq!(63, StepEncoderInput::from_u7(63).delta);
-        assert_eq!(-64, StepEncoderInput::from_u7(64).delta);
-        assert_eq!(-1, StepEncoderInput::from_u7(127).delta);
+#[must_use]
+pub fn split_crossfader_input_energy_preserving_approx(
+    input: CenterSliderInput,
+) -> (SliderInput, SliderInput) {
+    // <https://signalsmith-audio.co.uk/writing/2021/cheap-energy-crossfade/>
+    #[allow(clippy::cast_possible_truncation)]
+    fn f_x(x: f64) -> f32 {
+        let y = x * (1.0 - x);
+        (y * (1.0 + 1.4186 * y) + x).powi(2) as _
     }
+    let CenterSliderInput { position } = input;
+    let x = f64::from(position) * 0.5 + 0.5; // [0, 1]
+    let left_position = f_x(x).max(0.0).min(1.0);
+    let right_position = f_x(1.0 - x).max(0.0).min(1.0);
+    (
+        SliderInput {
+            position: SliderInput::clamp_position(left_position),
+        },
+        SliderInput {
+            position: SliderInput::clamp_position(right_position),
+        },
+    )
+}
 
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn step_encoder_from_u14() {
-        assert_eq!(0, StepEncoderInput::from_u14(0).delta);
-        assert_eq!(1, StepEncoderInput::from_u14(1).delta);
-        assert_eq!(8191, StepEncoderInput::from_u14(8191).delta);
-        assert_eq!(-8192, StepEncoderInput::from_u14(8192).delta);
-        assert_eq!(-1, StepEncoderInput::from_u14(16383).delta);
-    }
+#[must_use]
+pub fn split_crossfader_input_square(input: CenterSliderInput) -> (SliderInput, SliderInput) {
+    let CenterSliderInput { position } = input;
+    let left_position = if approx_eq!(f32, position, CenterSliderInput::MAX_POSITION) {
+        SliderInput::MIN_POSITION
+    } else {
+        SliderInput::MAX_POSITION
+    };
+    let right_position = if approx_eq!(f32, position, CenterSliderInput::MIN_POSITION) {
+        SliderInput::MIN_POSITION
+    } else {
+        SliderInput::MAX_POSITION
+    };
+    (
+        SliderInput {
+            position: SliderInput::clamp_position(left_position),
+        },
+        SliderInput {
+            position: SliderInput::clamp_position(right_position),
+        },
+    )
+}
 
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn slider_from_u7() {
-        assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u7(0).position);
-        assert_eq!(
-            SliderInput::MAX_POSITION,
-            SliderInput::from_u7(127).position
-        );
-    }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CrossfaderCurve {
+    Linear,
+    AmplitudePreserving,
+    EnergyPreserving,
+    Square,
+}
 
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn slider_from_u14() {
-        assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u14(0).position);
-        assert_eq!(
-            SliderInput::MAX_POSITION,
-            SliderInput::from_u14(16383).position
-        );
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn center_slider_from_u7() {
-        assert_eq!(
-            CenterSliderInput::MIN_POSITION,
-            CenterSliderInput::from_u7(0).position
-        );
-        assert!(CenterSliderInput::MIN_POSITION < CenterSliderInput::from_u7(1).position);
-        assert!(CenterSliderInput::CENTER_POSITION > CenterSliderInput::from_u7(63).position);
-        assert_eq!(
-            CenterSliderInput::CENTER_POSITION,
-            CenterSliderInput::from_u7(64).position
-        );
-        assert!(CenterSliderInput::CENTER_POSITION < CenterSliderInput::from_u7(65).position);
-        assert!(CenterSliderInput::MAX_POSITION > CenterSliderInput::from_u7(126).position);
-        assert_eq!(
-            CenterSliderInput::MAX_POSITION,
-            CenterSliderInput::from_u7(127).position
-        );
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn center_slider_from_u14() {
-        assert_eq!(
-            CenterSliderInput::MIN_POSITION,
-            CenterSliderInput::from_u14(0).position
-        );
-        assert!(CenterSliderInput::MIN_POSITION < CenterSliderInput::from_u14(1).position);
-        assert!(CenterSliderInput::CENTER_POSITION > CenterSliderInput::from_u14(8191).position);
-        assert_eq!(
-            CenterSliderInput::CENTER_POSITION,
-            CenterSliderInput::from_u14(8192).position
-        );
-        assert!(CenterSliderInput::CENTER_POSITION < CenterSliderInput::from_u14(8193).position);
-        assert!(CenterSliderInput::MAX_POSITION > CenterSliderInput::from_u14(16382).position);
-        assert_eq!(
-            CenterSliderInput::MAX_POSITION,
-            CenterSliderInput::from_u14(16383).position
-        );
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn slider_encoder_from_u7() {
-        assert_eq!(0.0, SliderEncoderInput::from_u7(0).delta);
-        assert_eq!(
-            SliderEncoderInput::DELTA_PER_CW_REV,
-            SliderEncoderInput::from_u7(63).delta
-        );
-        assert_eq!(
-            SliderEncoderInput::DELTA_PER_CCW_REV,
-            SliderEncoderInput::from_u7(64).delta
-        );
-    }
-
-    #[test]
-    #[allow(clippy::float_cmp)]
-    fn slider_encoder_from_u14() {
-        assert_eq!(0.0, SliderEncoderInput::from_u14(0).delta);
-        assert_eq!(
-            SliderEncoderInput::DELTA_PER_CW_REV,
-            SliderEncoderInput::from_u14(8191).delta
-        );
-        assert_eq!(
-            SliderEncoderInput::DELTA_PER_CCW_REV,
-            SliderEncoderInput::from_u14(8192).delta
-        );
+impl CrossfaderCurve {
+    #[must_use]
+    pub fn split_input(
+        input: CenterSliderInput,
+        curve: CrossfaderCurve,
+    ) -> (SliderInput, SliderInput) {
+        match curve {
+            Self::Linear => split_crossfader_input_linear(input),
+            Self::AmplitudePreserving => split_crossfader_input_amplitude_preserving_approx(input),
+            Self::EnergyPreserving => split_crossfader_input_energy_preserving_approx(input),
+            Self::Square => split_crossfader_input_square(input),
+        }
     }
 }
+
+#[cfg(test)]
+mod tests;
