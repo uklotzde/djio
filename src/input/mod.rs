@@ -496,11 +496,8 @@ pub enum CrossfaderCurve {
 
 impl CrossfaderCurve {
     #[must_use]
-    pub fn split_input(
-        input: CenterSliderInput,
-        curve: CrossfaderCurve,
-    ) -> (SliderInput, SliderInput) {
-        match curve {
+    pub fn split_input(self, input: CenterSliderInput) -> (SliderInput, SliderInput) {
+        match self {
             Self::Linear => split_crossfader_input_linear(input),
             Self::AmplitudePreserving => split_crossfader_input_amplitude_preserving_approx(input),
             Self::EnergyPreserving => split_crossfader_input_energy_preserving_approx(input),
