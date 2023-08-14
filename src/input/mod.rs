@@ -147,6 +147,19 @@ impl SliderInput {
             position: Self::MAX_POSITION - position,
         }
     }
+
+    /// Interpret the position as a factor for adjusting the volume of a signal.
+    ///
+    /// Source: <https://stackoverflow.com/questions/49014440/what-is-the-correct-audio-volume-slider-formula>
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn position_as_volume_factor(self, silence_db: f64) -> f32 {
+        let volume_factor =
+            10.0f64.powf((1.0 - f64::from(self.position)) * silence_db / 20.0) as f32;
+        // Still in range after transformation
+        debug_assert!(Self::POSITION_RANGE.contains(&volume_factor));
+        volume_factor
+    }
 }
 
 impl From<ControlValue> for SliderInput {
