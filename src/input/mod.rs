@@ -417,8 +417,10 @@ pub fn split_crossfader_input_linear(input: CenterSliderInput) -> (SliderInput, 
     }
     let CenterSliderInput { position } = input;
     let x = position * 0.5 + 0.5; // [0, 1]
-    let left_position = f_x(1.0 - x).max(0.0).min(1.0);
-    let right_position = f_x(x).max(0.0).min(1.0);
+    let left_position = f_x(1.0 - x);
+    let right_position = f_x(x);
+    debug_assert!(SliderInput::POSITION_RANGE.contains(&left_position));
+    debug_assert!(SliderInput::POSITION_RANGE.contains(&right_position));
     (
         SliderInput {
             position: left_position,
@@ -440,8 +442,8 @@ pub fn split_crossfader_input_amplitude_preserving_approx(
     }
     let CenterSliderInput { position } = input;
     let x: f64 = f64::from(position) * 0.5 + 0.5; // [0, 1]
-    let left_position = f_x(1.0 - x).max(0.0).min(1.0);
-    let right_position = f_x(x).max(0.0).min(1.0);
+    let left_position = f_x(1.0 - x);
+    let right_position = f_x(x);
     (
         SliderInput {
             position: SliderInput::clamp_position(left_position),
@@ -464,8 +466,8 @@ pub fn split_crossfader_input_energy_preserving_approx(
     }
     let CenterSliderInput { position } = input;
     let x = f64::from(position) * 0.5 + 0.5; // [0, 1]
-    let left_position = f_x(1.0 - x).max(0.0).min(1.0);
-    let right_position = f_x(x).max(0.0).min(1.0);
+    let left_position = f_x(1.0 - x);
+    let right_position = f_x(x);
     (
         SliderInput {
             position: SliderInput::clamp_position(left_position),
@@ -491,10 +493,10 @@ pub fn split_crossfader_input_square(input: CenterSliderInput) -> (SliderInput, 
     };
     (
         SliderInput {
-            position: SliderInput::clamp_position(left_position),
+            position: left_position,
         },
         SliderInput {
-            position: SliderInput::clamp_position(right_position),
+            position: right_position,
         },
     )
 }
