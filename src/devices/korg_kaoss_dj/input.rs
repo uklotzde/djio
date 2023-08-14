@@ -6,16 +6,15 @@ use strum::{EnumCount, EnumIter, FromRepr};
 use super::{
     Deck, CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, CONTROL_INDEX_DECK_BIT_MASK,
     CONTROL_INDEX_ENUM_BIT_MASK, MIDI_CHANNEL_DECK_A, MIDI_CHANNEL_DECK_B, MIDI_DECK_CUE_BUTTON,
-    MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_GAIN_KNOB,
-    MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON,
-    MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON, MIDI_DEVICE_DESCRIPTOR, MIDI_MASTER_LEVEL_KNOB,
-    MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB, MIDI_STATUS_BUTTON_DECK_A,
-    MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN, MIDI_STATUS_CC_DECK_A,
-    MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
+    MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_MONITOR_BUTTON,
+    MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
+    MIDI_DECK_TOUCHSTRIP_LOOP_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_RIGHT_BUTTON, MIDI_DECK_TRIM_KNOB,
+    MIDI_DEVICE_DESCRIPTOR, MIDI_MASTER_LEVEL_KNOB, MIDI_MONITOR_LEVEL_KNOB, MIDI_MONITOR_MIX_KNOB,
+    MIDI_STATUS_BUTTON_DECK_A, MIDI_STATUS_BUTTON_DECK_B, MIDI_STATUS_BUTTON_MAIN,
+    MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{
     ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, ControlValue,
@@ -75,9 +74,9 @@ pub enum DeckSensor {
     TouchStripHotCueCenterButton,
     TouchStripHotCueRightButton,
     TouchWheelScratchButton,
-    LevelFaderSlider,
+    VolumeFaderSlider,
     TouchStripSlider,
-    GainKnobCenterSlider,
+    TrimKnobCenterSlider,
     EqHiKnobCenterSlider,
     EqLoKnobCenterSlider,
     EqMidKnobCenterSlider,
@@ -281,15 +280,15 @@ pub fn try_decode_midi_input(
                     SliderEncoderInput::from_u7(data2).into(),
                 ),
                 0x18 => (
-                    DeckSensor::LevelFaderSlider,
+                    DeckSensor::VolumeFaderSlider,
                     SliderInput::from_u7(data2).into(),
                 ),
                 0x19 => (
                     DeckSensor::PitchFaderCenterSlider,
                     CenterSliderInput::from_u7(data2).inverse().into(),
                 ),
-                MIDI_DECK_GAIN_KNOB => (
-                    DeckSensor::GainKnobCenterSlider,
+                MIDI_DECK_TRIM_KNOB => (
+                    DeckSensor::TrimKnobCenterSlider,
                     CenterSliderInput::from_u7(data2).into(),
                 ),
                 MIDI_DECK_EQ_HI_KNOB => (
