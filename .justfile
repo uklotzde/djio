@@ -32,7 +32,7 @@ setup:
 # Upgrade (and update) dependencies
 upgrade: setup
     pre-commit autoupdate
-    cargo upgrade
+    cargo upgrade --incompatible
     cargo update
 
 # Run pre-commit hooks

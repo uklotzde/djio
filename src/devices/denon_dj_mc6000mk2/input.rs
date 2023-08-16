@@ -65,13 +65,13 @@ pub enum DeckSensor {
     CueButton,
     PlayPauseButton,
     SyncButton,
-    VolumeFaderSlider,
     JogWheelBendSliderEncoder,
     JogWheelScratchSliderEncoder,
-    TrimKnobCenterSlider,
-    EqHiKnobCenterSlider,
     EqLoKnobCenterSlider,
     EqMidKnobCenterSlider,
+    EqHiKnobCenterSlider,
+    GainKnobCenterSlider,
+    VolumeFaderSlider,
 }
 
 #[derive(Debug)]
@@ -113,7 +113,7 @@ pub fn try_decode_midi_input(
         }
         MIDI_CMD_CC => match data1 {
             0x01 | 0x07 | 0x0c | 0x11 => (
-                Sensor::Deck(deck, DeckSensor::TrimKnobCenterSlider),
+                Sensor::Deck(deck, DeckSensor::GainKnobCenterSlider),
                 CenterSliderInput::from_u7(data2).into(),
             ),
             0x02 | 0x08 | 0x0d | 0x12 => (

@@ -88,7 +88,7 @@ const MIDI_DECK_PLAYPAUSE_BUTTON: u8 = 0x1b;
 const MIDI_DECK_SYNC_BUTTON: u8 = 0x1d;
 const MIDI_DECK_CUE_BUTTON: u8 = 0x1e;
 
-const MIDI_DECK_TRIM_KNOB: u8 = 0x1a;
+const MIDI_DECK_GAIN_KNOB: u8 = 0x1a;
 const MIDI_DECK_EQ_HI_KNOB: u8 = 0x1b;
 const MIDI_DECK_EQ_MID_KNOB: u8 = 0x1c;
 const MIDI_DECK_EQ_LO_KNOB: u8 = 0x1d;
