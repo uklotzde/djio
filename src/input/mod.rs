@@ -4,7 +4,7 @@
 //! Receiving and processing sensor data from devices
 //! .
 
-use std::{borrow::Borrow, ops::RangeInclusive};
+use std::{borrow::Borrow, cmp::Ordering, ops::RangeInclusive};
 
 use float_cmp::approx_eq;
 use is_sorted::IsSorted as _;
@@ -148,17 +148,20 @@ impl SliderInput {
         }
     }
 
-    /// Interpret the position as a factor for adjusting the volume of a signal.
+    /// Interpret the position as a ratio for adjusting the volume of a signal.
     ///
-    /// Source: <https://stackoverflow.com/questions/49014440/what-is-the-correct-audio-volume-slider-formula>
+    /// The position is interpreted as a volume level between the silence level
+    /// (< 0 dB) and 0 dB.
+    ///
+    /// Multiply the signal with the returned value to adjust the volume.
     #[must_use]
     #[allow(clippy::cast_possible_truncation)]
-    pub fn position_as_volume_factor(self, silence_db: f64) -> f32 {
-        let volume_factor =
-            10.0f64.powf((1.0 - f64::from(self.position)) * silence_db / 20.0) as f32;
+    pub fn position_as_gain_ratio(self, silence_db: f64) -> f32 {
+        debug_assert!(silence_db < 0.0);
+        let gain_ratio = db_to_ratio((1.0 - f64::from(self.position)) * silence_db) as f32;
         // Still in range after transformation
-        debug_assert!(Self::POSITION_RANGE.contains(&volume_factor));
-        volume_factor
+        debug_assert!(Self::POSITION_RANGE.contains(&gain_ratio));
+        gain_ratio
     }
 }
 
@@ -231,6 +234,39 @@ impl CenterSliderInput {
         } else {
             Self {
                 position: -position,
+            }
+        }
+    }
+
+    /// Interpret the position as a ratio for tuning the volume of a signal.
+    ///
+    /// The position is interpreted as a volume level between the the `min_db`
+    /// (< 0 dB) and `max_db` (> 0 dB), e.g. -26 dB and +6 dB (Pioneer DJM).
+    ///
+    /// Multiply the signal with the returned value to tune the volume.
+    #[must_use]
+    #[allow(clippy::cast_possible_truncation)]
+    pub fn position_as_gain_ratio(self, min_db: f64, max_db: f64) -> f32 {
+        debug_assert!(min_db < 0.0);
+        debug_assert!(max_db > 0.0);
+        debug_assert!(min_db < max_db);
+        match self
+            .position
+            .partial_cmp(&Self::CENTER_POSITION)
+            .unwrap_or(Ordering::Equal)
+        {
+            Ordering::Equal => 1.0,
+            Ordering::Less => {
+                let gain_ratio = db_to_ratio(f64::from(-self.position) * min_db) as f32;
+                // Still in range after transformation
+                debug_assert!(Self::POSITION_RANGE.contains(&gain_ratio));
+                gain_ratio
+            }
+            Ordering::Greater => {
+                let gain_ratio = db_to_ratio(f64::from(self.position) * max_db) as f32;
+                // Still in range after transformation
+                debug_assert!(Self::POSITION_RANGE.contains(&gain_ratio));
+                gain_ratio
             }
         }
     }
@@ -519,6 +555,11 @@ impl CrossfaderCurve {
             Self::Square => split_crossfader_input_square(input),
         }
     }
+}
+
+#[inline]
+fn db_to_ratio(gain: f64) -> f64 {
+    10.0f64.powf(gain / 20.0)
 }
 
 #[cfg(test)]
