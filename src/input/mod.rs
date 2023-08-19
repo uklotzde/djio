@@ -259,7 +259,7 @@ impl CenterSliderInput {
             .unwrap_or(Ordering::Equal)
         {
             Ordering::Equal => center_value,
-            Ordering::Less => -position * (center_value - min_value) + min_value,
+            Ordering::Less => position * (center_value - min_value) + center_value,
             Ordering::Greater => position * (max_value - center_value) + center_value,
         }
     }
