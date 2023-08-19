@@ -258,14 +258,10 @@ impl CenterSliderInput {
             Ordering::Equal => 1.0,
             Ordering::Less => {
                 let gain_ratio = db_to_ratio(f64::from(-self.position) * min_db) as f32;
-                // Still in range after transformation
-                debug_assert!(Self::POSITION_RANGE.contains(&gain_ratio));
                 gain_ratio
             }
             Ordering::Greater => {
                 let gain_ratio = db_to_ratio(f64::from(self.position) * max_db) as f32;
-                // Still in range after transformation
-                debug_assert!(Self::POSITION_RANGE.contains(&gain_ratio));
                 gain_ratio
             }
         }
