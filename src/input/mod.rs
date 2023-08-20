@@ -4,7 +4,11 @@
 //! Receiving and processing sensor data from devices
 //! .
 
-use std::{borrow::Borrow, cmp::Ordering, ops::RangeInclusive};
+use std::{
+    borrow::Borrow,
+    cmp::Ordering,
+    ops::{Add, Mul, RangeInclusive, Sub},
+};
 
 use float_cmp::approx_eq;
 use is_sorted::IsSorted as _;
@@ -149,9 +153,12 @@ impl SliderInput {
     }
 
     #[must_use]
-    pub fn map_position_linear(self, min_value: f32, max_value: f32) -> f32 {
+    pub fn map_position_linear<T>(self, min_value: T, max_value: T) -> T
+    where
+        T: From<f32> + Sub<Output = T> + Mul<Output = T> + Add<Output = T> + Copy,
+    {
         let Self { position } = self;
-        min_value + position * (max_value - min_value)
+        min_value + T::from(position) * (max_value - min_value)
     }
 
     /// Interpret the position as a ratio for adjusting the volume of a signal.
@@ -248,7 +255,10 @@ impl CenterSliderInput {
 
     #[must_use]
     #[inline]
-    pub fn map_position_linear(self, min_value: f32, center_value: f32, max_value: f32) -> f32 {
+    pub fn map_position_linear<T>(self, min_value: T, center_value: T, max_value: T) -> T
+    where
+        T: From<f32> + Sub<Output = T> + Mul<Output = T> + Add<Output = T> + Copy + PartialOrd,
+    {
         debug_assert!(
             (min_value <= center_value && center_value <= max_value)
                 || (min_value >= center_value && center_value >= max_value)
@@ -259,8 +269,8 @@ impl CenterSliderInput {
             .unwrap_or(Ordering::Equal)
         {
             Ordering::Equal => center_value,
-            Ordering::Less => position * (center_value - min_value) + center_value,
-            Ordering::Greater => position * (max_value - center_value) + center_value,
+            Ordering::Less => T::from(position) * (center_value - min_value) + center_value,
+            Ordering::Greater => T::from(position) * (max_value - center_value) + center_value,
         }
     }
 
