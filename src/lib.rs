@@ -43,8 +43,8 @@ pub use self::input::{
 
 mod output;
 pub use self::output::{
-    ControlOutputGateway, DimLedOutput, LedOutput, OutputError, OutputResult, RgbLedOutput,
-    SendOutputsError,
+    BlinkingLedsOutput, BlinkingLedsTicker, ControlOutputGateway, DimLedOutput, LedOutput,
+    LedState, OutputError, OutputResult, RgbLedOutput, SendOutputsError,
 };
 
 /// Common, information properties about a device.

@@ -17,6 +17,7 @@ include = ["/src", "/README.md", "/LICENSES"]
 anyhow = "1.0.75"
 derive_more = "0.99.17"
 float-cmp = "0.9.0"
+futures = "0.3.28"
 is_sorted = "0.1.1"
 log = "0.4.20"
 strum = { version = "0.25.0", features = ["derive"] }

@@ -9,6 +9,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+use futures::StreamExt as _;
 use strum::FromRepr;
 use thiserror::Error;
 
@@ -144,5 +145,111 @@ where
 
     fn send_outputs(&mut self, outputs: &[ControlRegister]) -> Result<(), SendOutputsError> {
         self.deref_mut().send_outputs(outputs)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LedState {
+    Off,
+    BlinkFast,
+    BlinkSlow,
+    On,
+}
+
+impl LedState {
+    #[must_use]
+    pub const fn is_blinking(self) -> bool {
+        match self {
+            Self::BlinkFast | Self::BlinkSlow => true,
+            Self::Off | Self::On => false,
+        }
+    }
+
+    /// Initial LED output
+    ///
+    /// Blinking should always start by turning on the LED before
+    /// the periodic switching takes over.
+    #[must_use]
+    pub const fn initial_output(self) -> LedOutput {
+        self.output(BlinkingLedsOutput::ON)
+    }
+
+    /// LED output depending on the current blinking state
+    #[must_use]
+    pub const fn output(self, blinking_leds_output: BlinkingLedsOutput) -> LedOutput {
+        match self {
+            Self::Off => LedOutput::Off,
+            Self::BlinkFast => blinking_leds_output.fast,
+            Self::BlinkSlow => blinking_leds_output.slow,
+            Self::On => LedOutput::On,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BlinkingLedsOutput {
+    pub fast: LedOutput,
+    pub slow: LedOutput,
+}
+
+impl BlinkingLedsOutput {
+    pub const ON: Self = Self {
+        fast: LedOutput::On,
+        slow: LedOutput::On,
+    };
+}
+
+#[derive(Debug, Default)]
+pub struct BlinkingLedsTicker(usize);
+
+impl BlinkingLedsTicker {
+    fn output_from_value(value: usize) -> BlinkingLedsOutput {
+        match value & 0b11 {
+            0b00 => BlinkingLedsOutput {
+                fast: LedOutput::On,
+                slow: LedOutput::On,
+            },
+            0b01 => BlinkingLedsOutput {
+                fast: LedOutput::Off,
+                slow: LedOutput::On,
+            },
+            0b10 => BlinkingLedsOutput {
+                fast: LedOutput::On,
+                slow: LedOutput::Off,
+            },
+            0b11 => BlinkingLedsOutput {
+                fast: LedOutput::Off,
+                slow: LedOutput::Off,
+            },
+            _ => unreachable!(),
+        }
+    }
+
+    #[must_use]
+    pub fn tick(&mut self) -> BlinkingLedsOutput {
+        let value = self.0;
+        self.0 = self.0.wrapping_add(1);
+        Self::output_from_value(value)
+    }
+
+    #[must_use]
+    pub fn output(&self) -> BlinkingLedsOutput {
+        let value = self.0;
+        Self::output_from_value(value)
+    }
+
+    pub fn map_into_output_stream(
+        self,
+        periodic: impl futures::Stream<Item = ()> + 'static,
+    ) -> impl futures::Stream<Item = BlinkingLedsOutput> {
+        futures::stream::unfold(
+            (self, Box::pin(periodic)),
+            |(mut ticker, mut periodic)| async move {
+                periodic.next().await.map(|()| {
+                    let output = ticker.tick();
+                    (output, (ticker, periodic))
+                })
+            },
+        )
     }
 }
