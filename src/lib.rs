@@ -31,7 +31,7 @@ use std::{
 };
 
 mod controller;
-pub use self::controller::{BoxedControllerTask, Controller};
+pub use self::controller::{BoxedControllerTask, Controller, ControllerTypes};
 
 pub mod devices;
 
