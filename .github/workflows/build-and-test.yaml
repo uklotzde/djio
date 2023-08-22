@@ -35,6 +35,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Check out repository
         uses: actions/checkout@v3
@@ -48,12 +50,16 @@ jobs:
           # The cache should not be shared between different workflows and jobs.
           shared-key: ${{ github.workflow }}-${{ github.job }}
 
-      - name: Build tests
+      - name: Check WASM target with default features
+        run: >-
+          cargo check --locked --target wasm32-unknown-unknown
+
+      - name: Build tests with all features enabled
         run: >-
           cargo test --locked --all-features
           --no-run
 
-      - name: Run tests
+      - name: Run tests with all features enabled
         run: >-
           cargo test --locked --all-features
           -- --nocapture --quiet

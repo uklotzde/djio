@@ -254,10 +254,10 @@ pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
     u16::from(hi) << 7 | u16::from(lo)
 }
 
-#[cfg(feature = "hid")]
+#[cfg(all(feature = "hid", not(target_family = "wasm")))]
 pub mod hid;
 
-#[cfg(feature = "hid")]
+#[cfg(all(feature = "hid", not(target_family = "wasm")))]
 pub use self::hid::{
     HidApi, HidDevice, HidDeviceError, HidError, HidResult, HidThread, HidUsagePage,
 };

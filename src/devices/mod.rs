@@ -21,10 +21,10 @@ pub const MIDI_DJ_CONTROLLER_DESCRIPTORS: &[&crate::MidiDeviceDescriptor] = &[
     crate::devices::pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR,
 ];
 
-#[cfg(feature = "ni-traktor-kontrol-s4mk3")]
+#[cfg(all(feature = "ni-traktor-kontrol-s4mk3", not(target_family = "wasm")))]
 pub mod ni_traktor_kontrol_s4mk3;
 
 // Descriptors of supported HID DJ controllers for auto-detection.
-#[cfg(feature = "hid-controllers")]
+#[cfg(all(feature = "hid-controllers", not(target_family = "wasm")))]
 pub const HID_DJ_CONTROLLER_DESCRIPTORS: &[&crate::DeviceDescriptor] =
     &[crate::devices::ni_traktor_kontrol_s4mk3::DEVICE_DESCRIPTOR];
