@@ -30,6 +30,9 @@ use std::{
     time::Duration,
 };
 
+mod controller;
+pub use self::controller::{BoxedControllerTask, Controller};
+
 pub mod devices;
 
 mod input;
