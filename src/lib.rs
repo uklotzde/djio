@@ -33,6 +33,9 @@ use std::{
 mod controller;
 pub use self::controller::{BoxedControllerTask, Controller, ControllerTypes};
 
+#[cfg(feature = "controller-thread")]
+pub use self::controller::thread::ControllerThread;
+
 pub mod devices;
 
 mod input;

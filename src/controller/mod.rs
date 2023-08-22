@@ -3,6 +3,9 @@
 
 use std::future::Future;
 
+#[cfg(feature = "controller-thread")]
+pub(super) mod thread;
+
 /// Asynchronous context listener task.
 ///
 /// Listens for changes in [`ControllerTypes::Context`] and updates

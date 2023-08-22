@@ -25,6 +25,7 @@ thiserror = "1.0.47"
 
 # Optional dependencies
 midir = { version = "0.9.1", optional = true }
+tokio = { version = "1.32.0", default-features = false, optional = true }
 
 # Optional dependencies (experimental features)
 crossbeam-utils = { version = "0.8.16", optional = true }
@@ -40,11 +41,12 @@ hidapi = "2.4.1"
 pretty_env_logger = "0.5.0"
 
 [features]
-default = ["all-controllers", "midir"]
+default = ["all-controllers", "midir", "controller-thread"]
 hid = ["dep:hidapi"]
 jack = ["midir?/jack"]
 midi = []
 midir = ["dep:midir"]
+controller-thread = ["dep:tokio", "tokio/rt", "tokio/time"]
 
 # Controller support features
 # TODO: Extract each controller into a separate crate after the API has settled.
