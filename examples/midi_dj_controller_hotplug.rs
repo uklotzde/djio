@@ -9,8 +9,8 @@ use std::{
 use djio::{
     consume_midi_input_event,
     devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
-    ControlInputEventSink, MidiDeviceDescriptor, MidiInputConnector, MidiInputEventDecoder,
-    MidiInputGateway, MidiInputHandler, MidiOutputConnection, MidiOutputGateway,
+    BoxedMidiOutputConnection, ControlInputEventSink, MidiDeviceDescriptor, MidiInputConnector,
+    MidiInputEventDecoder, MidiInputGateway, MidiInputHandler, MidiOutputGateway,
     MidiPortDescriptor, MidirDevice, MidirDeviceManager, OutputResult, PortIndex,
     PortIndexGenerator, TimeStamp,
 };
@@ -103,37 +103,35 @@ impl djio::NewMidiInputGateway for NewMidiInputGateway {
     }
 }
 
-type DynMidiOutputConnection = dyn MidiOutputConnection + Send + 'static;
-
 trait Controller {
     // ...
 }
 
-trait MidiController: Controller + MidiOutputGateway<Box<DynMidiOutputConnection>> {}
+trait MidiController: Controller + MidiOutputGateway<BoxedMidiOutputConnection> {}
 
-impl<T> MidiController for T where T: Controller + MidiOutputGateway<Box<DynMidiOutputConnection>> {}
+impl<T> MidiController for T where T: Controller + MidiOutputGateway<BoxedMidiOutputConnection> {}
 
 #[derive(Default)]
 struct KorgKaossDj {
-    output_gateway: Option<korg_kaoss_dj::OutputGateway<Box<DynMidiOutputConnection>>>,
+    output_gateway: Option<korg_kaoss_dj::OutputGateway<BoxedMidiOutputConnection>>,
 }
 
 impl Controller for KorgKaossDj {}
 
-impl MidiOutputGateway<Box<DynMidiOutputConnection>> for KorgKaossDj {
+impl MidiOutputGateway<BoxedMidiOutputConnection> for KorgKaossDj {
     fn attach_midi_output_connection(
         &mut self,
-        connection: &mut Option<Box<DynMidiOutputConnection>>,
+        connection: &mut Option<BoxedMidiOutputConnection>,
     ) -> OutputResult<()> {
         debug_assert!(self.output_gateway.is_none());
         let mut output_gateway =
-            korg_kaoss_dj::OutputGateway::<Box<DynMidiOutputConnection>>::default();
+            korg_kaoss_dj::OutputGateway::<BoxedMidiOutputConnection>::default();
         output_gateway.attach_midi_output_connection(connection)?;
         self.output_gateway = Some(output_gateway);
         Ok(())
     }
 
-    fn detach_midi_output_connection(&mut self) -> Option<Box<DynMidiOutputConnection>> {
+    fn detach_midi_output_connection(&mut self) -> Option<BoxedMidiOutputConnection> {
         self.output_gateway
             .take()
             .and_then(|mut output_gateway| output_gateway.detach_midi_output_connection())
@@ -142,7 +140,7 @@ impl MidiOutputGateway<Box<DynMidiOutputConnection>> for KorgKaossDj {
 
 fn new_midi_controller<I>(
     device: &MidirDevice<I>,
-    output_connection: &mut Option<Box<DynMidiOutputConnection>>,
+    output_connection: &mut Option<BoxedMidiOutputConnection>,
 ) -> OutputResult<Option<Box<dyn MidiController>>>
 where
     I: MidiInputGateway + Send,
@@ -175,7 +173,7 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
 fn reconnect_midi_controller<I>(
     device: &mut MidirDevice<I::MidiInputGateway>,
     new_input_gateway: Option<&I>,
-    _detached_output_connection: Option<Box<DynMidiOutputConnection>>,
+    _detached_output_connection: Option<BoxedMidiOutputConnection>,
 ) -> anyhow::Result<Option<Box<dyn MidiController>>>
 where
     I: djio::NewMidiInputGateway,
@@ -194,7 +192,7 @@ where
 fn disconnect_midi_controller(
     device: &mut MidirDevice<MidiLogger>,
     mut controller: Option<Box<dyn MidiController>>,
-) -> Option<Box<DynMidiOutputConnection>> {
+) -> Option<BoxedMidiOutputConnection> {
     let detached_output_connection = controller
         .as_mut()
         .and_then(|boxed| boxed.as_mut().detach_midi_output_connection());
@@ -250,7 +248,7 @@ fn run() -> anyhow::Result<()> {
     let device_name = midir_device.descriptor().device.name();
 
     println!("Starting endless loop, press CTRL-C to exit...");
-    let mut output_connection: Option<Box<DynMidiOutputConnection>> = None;
+    let mut output_connection: Option<BoxedMidiOutputConnection> = None;
     let mut controller: Option<Box<dyn MidiController>> = None;
     loop {
         match (

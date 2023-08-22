@@ -126,6 +126,8 @@ pub trait MidiOutputConnection {
     fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
 }
 
+pub type BoxedMidiOutputConnection = Box<dyn MidiOutputConnection + Send + 'static>;
+
 impl<T> MidiOutputConnection for Box<T>
 where
     T: MidiOutputConnection + ?Sized,
