@@ -213,6 +213,7 @@ impl DeviceContext {
         })
     }
 
+    #[allow(clippy::missing_panics_doc)] // Never panics
     pub fn detach(self) -> HidResult<HidDevice> {
         log::info!("Terminating I/O thread");
         self.command_tx

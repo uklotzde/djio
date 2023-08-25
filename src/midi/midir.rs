@@ -254,6 +254,7 @@ where
     }
 
     #[must_use]
+    #[allow(clippy::missing_panics_doc)] // Never panics
     pub fn detect_dj_controllers(
         &self,
         device_descriptors: &[&MidiDeviceDescriptor],

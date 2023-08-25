@@ -148,6 +148,9 @@ impl AtomicValue {
         }
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn store_bool(&self, value: bool) {
         debug_assert_eq!(self.value_type(), ValueType::Bool);
         self.as_bool()
@@ -155,6 +158,9 @@ impl AtomicValue {
             .store(value, ATOMIC_STORE_ORDERING);
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn store_i32(&self, value: i32) {
         debug_assert_eq!(self.value_type(), ValueType::I32);
         self.as_i32()
@@ -162,6 +168,9 @@ impl AtomicValue {
             .store(value, ATOMIC_STORE_ORDERING);
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn store_u32(&self, value: u32) {
         debug_assert_eq!(self.value_type(), ValueType::U32);
         self.as_u32()
@@ -169,6 +178,9 @@ impl AtomicValue {
             .store(value, ATOMIC_STORE_ORDERING);
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn store_f32(&self, value: f32) {
         debug_assert_eq!(self.value_type(), ValueType::F32);
         self.as_f32()
@@ -176,6 +188,9 @@ impl AtomicValue {
             .store(value, ATOMIC_STORE_ORDERING);
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn swap_bool(&self, value: bool) -> bool {
         debug_assert_eq!(self.value_type(), ValueType::Bool);
         self.as_bool()
@@ -183,6 +198,9 @@ impl AtomicValue {
             .swap(value, ATOMIC_STORE_ORDERING)
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn swap_i32(&self, value: i32) -> i32 {
         debug_assert_eq!(self.value_type(), ValueType::I32);
         self.as_i32()
@@ -190,6 +208,9 @@ impl AtomicValue {
             .swap(value, ATOMIC_STORE_ORDERING)
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn swap_u32(&self, value: u32) -> u32 {
         debug_assert_eq!(self.value_type(), ValueType::U32);
         self.as_u32()
@@ -197,6 +218,9 @@ impl AtomicValue {
             .swap(value, ATOMIC_STORE_ORDERING)
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn swap_f32(&self, value: f32) -> f32 {
         debug_assert_eq!(self.value_type(), ValueType::F32);
         self.as_f32()
