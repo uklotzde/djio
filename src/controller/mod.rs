@@ -50,3 +50,15 @@ pub trait Controller {
         event: <Self::Types as ControllerTypes>::InputEvent,
     ) -> Option<<Self::Types as ControllerTypes>::ControlAction>;
 }
+
+#[cfg(feature = "midi")]
+pub trait MidiController:
+    Controller + crate::MidiOutputGateway<crate::BoxedMidiOutputConnection>
+{
+}
+
+#[cfg(feature = "midi")]
+impl<T> MidiController for T where
+    T: Controller + crate::MidiOutputGateway<crate::BoxedMidiOutputConnection>
+{
+}
