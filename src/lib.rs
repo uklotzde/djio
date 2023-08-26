@@ -31,7 +31,9 @@ use std::{
 };
 
 mod controller;
-pub use self::controller::{BoxedControllerTask, Controller, ControllerTypes};
+pub use self::controller::{
+    BoxedControllerTask, Controller, ControllerDescriptor, ControllerTypes,
+};
 
 #[cfg(feature = "midi")]
 pub use self::controller::MidiController;
@@ -56,11 +58,18 @@ pub use self::output::{
     LedState, OutputError, OutputResult, RgbLedOutput, SendOutputsError,
 };
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AudioInterfaceDescriptor {
+    pub num_input_channels: u8,
+    pub num_output_channels: u8,
+}
+
 /// Common, information properties about a device.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceDescriptor {
     pub vendor_name: Cow<'static, str>,
     pub product_name: Cow<'static, str>,
+    pub audio_interface: Option<AudioInterfaceDescriptor>,
 }
 
 impl DeviceDescriptor {

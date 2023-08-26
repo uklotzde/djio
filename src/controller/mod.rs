@@ -21,10 +21,32 @@ pub trait ControllerTypes {
     type ControlAction;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ControllerDescriptor {
+    /// Number of physical decks
+    pub num_decks: u8,
+
+    /// Number of virtual decks
+    pub num_virtual_decks: u8,
+
+    /// Number of mixer channels
+    ///
+    /// Usually equals the number of virtual decks.
+    pub num_mixer_channels: u8,
+
+    /// Number of performance pads per deck
+    pub num_pads_per_deck: u8,
+
+    /// Number of effect units
+    pub num_effect_units: u8,
+}
+
 pub trait Controller {
     type Types: ControllerTypes;
 
     fn device_descriptor(&self) -> &DeviceDescriptor;
+
+    fn controller_descriptor(&self) -> &ControllerDescriptor;
 
     /// Attach a context listener task.
     ///

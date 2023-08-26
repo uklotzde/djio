@@ -5,7 +5,9 @@ use std::borrow::Cow;
 
 use strum::{EnumCount, EnumIter, FromRepr};
 
-use crate::{DeviceDescriptor, MidiDeviceDescriptor};
+use crate::{
+    AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, MidiDeviceDescriptor,
+};
 
 mod input;
 pub use self::input::{
@@ -18,15 +20,29 @@ pub use self::output::{
     led_output_into_midi_message, DeckLed, InvalidOutputControlIndex, Led, MainLed, OutputGateway,
 };
 
+pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
+    num_input_channels: 0,
+    num_output_channels: 4,
+};
+
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
         vendor_name: Cow::Borrowed("KORG"),
         product_name: Cow::Borrowed("KAOSS DJ"),
+        audio_interface: Some(AUDIO_INTERFACE_DESCRIPTOR),
     },
     port_name_prefix: "KAOSS DJ",
 };
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
+
+pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
+    num_decks: Deck::COUNT as u8,
+    num_virtual_decks: 0,
+    num_mixer_channels: Deck::COUNT as u8,
+    num_pads_per_deck: 0,
+    num_effect_units: 0,
+};
 
 #[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
 #[repr(u8)]

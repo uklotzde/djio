@@ -14,4 +14,5 @@ pub use self::output::OutputGateway;
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &DeviceDescriptor {
     vendor_name: Cow::Borrowed("Unknown"),
     product_name: Cow::Borrowed("Generic MIDI"),
+    audio_interface: None,
 };

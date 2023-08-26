@@ -17,12 +17,27 @@ use crate::{
             JoinedThread, ReceiveCommandResult,
         },
     },
-    DeviceDescriptor, HidDevice, HidDeviceError, HidResult, HidThread,
+    AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, HidDevice, HidDeviceError,
+    HidResult, HidThread,
+};
+
+pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
+    num_input_channels: 0, // TODO
+    num_output_channels: 4,
 };
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &DeviceDescriptor {
     vendor_name: Cow::Borrowed("Native Instruments"),
     product_name: Cow::Borrowed("TRAKTOR KONTROL S4MK3"),
+    audio_interface: Some(AUDIO_INTERFACE_DESCRIPTOR),
+};
+
+pub const CONTROLLER_DESCRIPTOR: ControllerDescriptor = ControllerDescriptor {
+    num_decks: 2,
+    num_virtual_decks: 4,
+    num_mixer_channels: 4,
+    num_pads_per_deck: 8,
+    num_effect_units: 2,
 };
 
 #[derive(Debug, Clone, Default)]

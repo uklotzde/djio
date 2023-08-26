@@ -3,20 +3,36 @@
 
 use std::borrow::Cow;
 
-use crate::{DeviceDescriptor, MidiDeviceDescriptor};
+use crate::{
+    AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, MidiDeviceDescriptor,
+};
 
 pub mod input;
 pub use self::input::{DeckSensor, EffectSensor, MainSensor, MidiInputEventDecoder, Sensor};
+
+pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
+    num_input_channels: 0,
+    num_output_channels: 4,
+};
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
         vendor_name: Cow::Borrowed("Pioneer"),
         product_name: Cow::Borrowed("DDJ-400"),
+        audio_interface: Some(AUDIO_INTERFACE_DESCRIPTOR),
     },
     port_name_prefix: "DDJ-400",
 };
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
+
+pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
+    num_decks: 2,
+    num_virtual_decks: 2,
+    num_mixer_channels: 2,
+    num_pads_per_deck: 8,
+    num_effect_units: 1,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Deck {
