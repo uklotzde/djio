@@ -3,6 +3,8 @@
 
 use std::future::Future;
 
+use crate::DeviceDescriptor;
+
 #[cfg(feature = "controller-thread")]
 pub(super) mod thread;
 
@@ -21,6 +23,8 @@ pub trait ControllerTypes {
 
 pub trait Controller {
     type Types: ControllerTypes;
+
+    fn device_descriptor(&self) -> &DeviceDescriptor;
 
     /// Attach a context listener task.
     ///
@@ -55,10 +59,5 @@ pub trait Controller {
 pub trait MidiController:
     Controller + crate::MidiOutputGateway<crate::BoxedMidiOutputConnection>
 {
-}
-
-#[cfg(feature = "midi")]
-impl<T> MidiController for T where
-    T: Controller + crate::MidiOutputGateway<crate::BoxedMidiOutputConnection>
-{
+    fn midi_device_descriptor(&self) -> &crate::MidiDeviceDescriptor;
 }
