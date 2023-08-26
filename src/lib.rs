@@ -151,25 +151,10 @@ impl PortIndexGenerator {
 
     #[must_use]
     pub fn next(&self) -> PortIndex {
-        let mut old_value = self.0.load(Ordering::Relaxed);
-        loop {
-            let next = PortIndex::new(old_value).next();
-            match self.0.compare_exchange_weak(
-                old_value,
-                next.value(),
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(value) => {
-                    debug_assert_eq!(old_value, value);
-                    return next;
-                }
-                Err(value) => {
-                    debug_assert_ne!(old_value, value);
-                    old_value = value;
-                }
-            }
-        }
+        let prev_value = self.0.fetch_add(1, Ordering::Relaxed);
+        // fetch_add() wraps around on overflow
+        let next_value = prev_value.wrapping_add(1);
+        PortIndex::new(next_value)
     }
 }
 
