@@ -16,6 +16,8 @@ pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor 
     port_name_prefix: "DDJ-400",
 };
 
+pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
+
 #[derive(Debug, Clone, Copy)]
 pub enum Deck {
     /// Left
