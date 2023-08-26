@@ -36,6 +36,7 @@ pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor 
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
 
+#[allow(clippy::cast_possible_truncation)]
 pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
     num_decks: Deck::COUNT as u8,
     num_virtual_decks: 0,

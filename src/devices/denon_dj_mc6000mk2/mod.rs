@@ -5,7 +5,9 @@ use std::borrow::Cow;
 
 use strum::{EnumCount, EnumIter};
 
-use crate::{AudioInterfaceDescriptor, DeviceDescriptor, MidiDeviceDescriptor, ControllerDescriptor};
+use crate::{
+    AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, MidiDeviceDescriptor,
+};
 
 mod input;
 pub use self::input::{try_decode_midi_input, DeckSensor, MainSensor, Sensor, SideSensor};
@@ -29,6 +31,7 @@ pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor 
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
 
+#[allow(clippy::cast_possible_truncation)]
 pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
     num_decks: Side::COUNT as u8,
     num_virtual_decks: Deck::COUNT as u8,

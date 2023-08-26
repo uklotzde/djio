@@ -34,7 +34,9 @@ pub struct ControllerDescriptor {
     /// Usually equals the number of virtual decks.
     pub num_mixer_channels: u8,
 
-    /// Number of performance pads per deck
+    /// Number of pads per deck
+    ///
+    /// Pads could either be multi-purpose performance pads or dedicated hot cue pads.
     pub num_pads_per_deck: u8,
 
     /// Number of effect units
