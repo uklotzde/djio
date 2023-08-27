@@ -16,8 +16,8 @@ pub struct SingleMidiControllerContext<T> {
 
 impl<T: crate::ControllerTypes> SingleMidiControllerContext<T> {
     #[must_use]
-    pub fn is_attached(&self) -> bool {
-        self.attached.is_some()
+    pub fn attached_controller(&self) -> Option<&BoxedMidiController<T>> {
+        Some(&self.attached.as_ref()?.controller)
     }
 
     pub fn attach_controller(

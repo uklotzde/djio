@@ -3,7 +3,7 @@
 
 use std::future::Future;
 
-use crate::DeviceDescriptor;
+use crate::{DeviceDescriptor, PortIndex};
 
 #[cfg(feature = "midi")]
 pub(super) mod midi;
@@ -54,6 +54,9 @@ pub trait Controller {
 
     #[must_use]
     fn controller_descriptor(&self) -> &ControllerDescriptor;
+
+    #[must_use]
+    fn input_port_index(&self) -> PortIndex;
 
     /// Attach a context listener task.
     ///
