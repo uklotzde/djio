@@ -151,10 +151,14 @@ impl PortIndexGenerator {
 
     #[must_use]
     pub fn next(&self) -> PortIndex {
-        let prev_value = self.0.fetch_add(1, Ordering::Relaxed);
-        // fetch_add() wraps around on overflow
-        let next_value = prev_value.wrapping_add(1);
-        PortIndex::new(next_value)
+        loop {
+            let prev_value = self.0.fetch_add(1, Ordering::Relaxed);
+            // fetch_add() wraps around on overflow
+            let next_value = prev_value.wrapping_add(1);
+            if next_value != PortIndex::INVALID.value() {
+                return PortIndex::new(next_value);
+            }
+        }
     }
 }
 
