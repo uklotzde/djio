@@ -1,29 +1,19 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::{BoxedMidiOutputConnection, Controller, MidiDeviceDescriptor, MidiOutputGateway};
+use crate::BoxedMidiController;
 
-pub trait MidiController: Controller + MidiOutputGateway<BoxedMidiOutputConnection> {
-    #[must_use]
-    fn midi_device_descriptor(&self) -> &MidiDeviceDescriptor;
-}
-
-pub type BoxedMidiController<T> = Box<dyn MidiController<Types = T> + Send + 'static>;
-
-#[cfg(feature = "controller-thread")]
 struct AttachedMidiController<T> {
     controller: BoxedMidiController<T>,
     controller_thread: Option<crate::ControllerThread>,
 }
 
-#[cfg(feature = "controller-thread")]
 #[allow(missing_debug_implementations)]
 #[derive(Default)]
 pub struct SingleMidiControllerContext<T> {
     attached: Option<AttachedMidiController<T>>,
 }
 
-#[cfg(feature = "controller-thread")]
 impl<T: crate::ControllerTypes> SingleMidiControllerContext<T> {
     #[must_use]
     pub fn is_attached(&self) -> bool {
