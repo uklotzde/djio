@@ -31,10 +31,12 @@ use std::{
 };
 
 mod controller;
+#[cfg(all(feature = "midi", feature = "controller-thread"))]
+pub use self::controller::midi::SingleMidiControllerContext;
+#[cfg(feature = "midi")]
+pub use self::controller::midi::{BoxedMidiController, MidiController};
 #[cfg(feature = "controller-thread")]
 pub use self::controller::thread::ControllerThread;
-#[cfg(feature = "midi")]
-pub use self::controller::MidiController;
 pub use self::controller::{
     BoxedControllerTask, Controller, ControllerDescriptor, ControllerTypes,
 };

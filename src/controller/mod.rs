@@ -5,6 +5,9 @@ use std::future::Future;
 
 use crate::DeviceDescriptor;
 
+#[cfg(feature = "midi")]
+pub(super) mod midi;
+
 #[cfg(feature = "controller-thread")]
 pub(super) mod thread;
 
@@ -17,7 +20,7 @@ pub type BoxedControllerTask = Box<dyn Future<Output = ()> + Send + 'static>;
 
 pub trait ControllerTypes {
     type Context;
-    type InputEvent;
+    type InputEvent: std::fmt::Debug;
     type ControlAction;
 }
 
@@ -46,8 +49,10 @@ pub struct ControllerDescriptor {
 pub trait Controller {
     type Types: ControllerTypes;
 
+    #[must_use]
     fn device_descriptor(&self) -> &DeviceDescriptor;
 
+    #[must_use]
     fn controller_descriptor(&self) -> &ControllerDescriptor;
 
     /// Attach a context listener task.
@@ -77,11 +82,4 @@ pub trait Controller {
         &mut self,
         event: <Self::Types as ControllerTypes>::InputEvent,
     ) -> Option<<Self::Types as ControllerTypes>::ControlAction>;
-}
-
-#[cfg(feature = "midi")]
-pub trait MidiController:
-    Controller + crate::MidiOutputGateway<crate::BoxedMidiOutputConnection>
-{
-    fn midi_device_descriptor(&self) -> &crate::MidiDeviceDescriptor;
 }
