@@ -214,7 +214,7 @@ impl ControlValue {
 
 /// Generic, indexed input/output control value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ControlRegister {
+pub struct Control {
     pub index: ControlIndex,
     pub value: ControlValue,
 }

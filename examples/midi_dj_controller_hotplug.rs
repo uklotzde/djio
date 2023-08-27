@@ -31,7 +31,7 @@ impl MidiInputConnector for LogMidiInputEventSink {
 }
 
 impl ControlInputEventSink for LogMidiInputEventSink {
-    fn sink_input_events(&mut self, events: &[djio::ControlInputEvent]) {
+    fn sink_control_input_events(&mut self, events: &[djio::ControlInputEvent]) {
         match &self.input_port {
             Some(input_port) => {
                 for event in events {
@@ -161,7 +161,7 @@ struct LoggingInputPortEventSink {
 }
 
 impl ControlInputEventSink for LoggingInputPortEventSink {
-    fn sink_input_events(&mut self, events: &[djio::ControlInputEvent]) {
+    fn sink_control_input_events(&mut self, events: &[djio::ControlInputEvent]) {
         log::info!(
             "Received {num_events} input event(s) from port {port_index}: {events:?}",
             num_events = events.len(),

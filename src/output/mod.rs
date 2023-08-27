@@ -13,7 +13,7 @@ use futures::StreamExt as _;
 use strum::FromRepr;
 use thiserror::Error;
 
-use crate::{ControlRegister, ControlValue};
+use crate::{Control, ControlValue};
 
 #[derive(Debug, Error)]
 pub enum OutputError {
@@ -109,12 +109,12 @@ pub struct SendOutputsError {
 
 pub trait ControlOutputGateway {
     /// Send a single output
-    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()>;
+    fn send_output(&mut self, output: &Control) -> OutputResult<()>;
 
     /// Send multiple outputs
     ///
     /// The default implementation sends single outputs subsequently in order.
-    fn send_outputs(&mut self, outputs: &[ControlRegister]) -> Result<(), SendOutputsError> {
+    fn send_outputs(&mut self, outputs: &[Control]) -> Result<(), SendOutputsError> {
         let mut sent_ok = 0;
         for output in outputs {
             match self.send_output(output) {
@@ -139,11 +139,11 @@ where
     T: DerefMut + ?Sized,
     <T as Deref>::Target: ControlOutputGateway,
 {
-    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
+    fn send_output(&mut self, output: &Control) -> OutputResult<()> {
         self.deref_mut().send_output(output)
     }
 
-    fn send_outputs(&mut self, outputs: &[ControlRegister]) -> Result<(), SendOutputsError> {
+    fn send_outputs(&mut self, outputs: &[Control]) -> Result<(), SendOutputsError> {
         self.deref_mut().send_outputs(outputs)
     }
 }

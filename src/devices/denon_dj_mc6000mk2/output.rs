@@ -1,9 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use crate::{
-    ControlOutputGateway, ControlRegister, MidiOutputConnection, MidiOutputGateway, OutputResult,
-};
+use crate::{Control, ControlOutputGateway, MidiOutputConnection, MidiOutputGateway, OutputResult};
 
 #[allow(missing_debug_implementations)]
 pub struct OutputGateway<C> {
@@ -19,7 +17,7 @@ impl<C> Default for OutputGateway<C> {
 }
 
 impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
-    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
+    fn send_output(&mut self, output: &Control) -> OutputResult<()> {
         unimplemented!("TODO: Send MIDI output message for {output:?}");
     }
 }

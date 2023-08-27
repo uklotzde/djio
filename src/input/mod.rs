@@ -14,7 +14,7 @@ use float_cmp::approx_eq;
 use is_sorted::IsSorted as _;
 use strum::FromRepr;
 
-use crate::{ControlRegister, ControlValue, TimeStamp};
+use crate::{Control, ControlValue, TimeStamp};
 
 /// Time-stamped input event
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -462,7 +462,7 @@ impl From<SelectorInput> for ControlValue {
     }
 }
 
-pub type ControlInputEvent = InputEvent<ControlRegister>;
+pub type ControlInputEvent = InputEvent<Control>;
 
 pub trait ControlInputEventSink {
     /// Callback for sinking control input events
@@ -470,7 +470,7 @@ pub trait ControlInputEventSink {
     /// The caller will provide one or more events per invocation.
     /// Multiple events are ordered chronologically according to
     /// their time stamps.
-    fn sink_input_events(&mut self, events: &[ControlInputEvent]);
+    fn sink_control_input_events(&mut self, events: &[ControlInputEvent]);
 }
 
 #[must_use]

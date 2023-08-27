@@ -23,7 +23,7 @@ use super::{
     MIDI_STATUS_CC_EFFECT, MIDI_STATUS_CC_MAIN,
 };
 use crate::{
-    u7_be_to_u14, ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister,
+    u7_be_to_u14, ButtonInput, CenterSliderInput, Control, ControlIndex, ControlInputEvent,
     ControlValue, MidiInputConnector, MidiInputDecodeError, SelectorInput, SliderInput,
     StepEncoderInput, TimeStamp,
 };
@@ -252,7 +252,7 @@ impl crate::MidiInputEventDecoder for MidiInputEventDecoder {
             return Err(MidiInputDecodeError);
         };
         log::debug!("{sensor:?} {input:?}");
-        let input = ControlRegister {
+        let input = Control {
             index: sensor.into(),
             value,
         };

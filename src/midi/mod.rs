@@ -111,7 +111,7 @@ where
 {
     match decoder.try_decode_midi_input_event(ts, input) {
         Ok(Some(event)) => {
-            event_sink.sink_input_events(&[event]);
+            event_sink.sink_control_input_events(&[event]);
             true
         }
         Ok(None) => true,

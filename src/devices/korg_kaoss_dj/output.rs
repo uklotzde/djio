@@ -17,7 +17,7 @@ use super::{
     MIDI_STATUS_BUTTON_MAIN, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{
-    ControlIndex, ControlOutputGateway, ControlRegister, LedOutput, MidiOutputConnection,
+    Control, ControlIndex, ControlOutputGateway, LedOutput, MidiOutputConnection,
     MidiOutputGateway, OutputError, OutputResult,
 };
 
@@ -261,8 +261,8 @@ impl<C: MidiOutputConnection> OutputGateway<C> {
 }
 
 impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
-    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
-        let ControlRegister { index, value } = *output;
+    fn send_output(&mut self, output: &Control) -> OutputResult<()> {
+        let Control { index, value } = *output;
         let led = Led::try_from(index).map_err(|InvalidOutputControlIndex| OutputError::Send {
             msg: format!("No LED with control index {index}").into(),
         })?;

@@ -18,7 +18,7 @@ use super::{
     MIDI_STATUS_CC_DECK_A, MIDI_STATUS_CC_DECK_B, MIDI_STATUS_CC_MAIN, MIDI_TAP_BUTTON,
 };
 use crate::{
-    ButtonInput, CenterSliderInput, ControlIndex, ControlInputEvent, ControlRegister, ControlValue,
+    ButtonInput, CenterSliderInput, Control, ControlIndex, ControlInputEvent, ControlValue,
     MidiInputConnector, MidiInputDecodeError, SliderEncoderInput, SliderInput, StepEncoderInput,
     TimeStamp,
 };
@@ -328,7 +328,7 @@ pub fn try_decode_midi_input_event(
     let Some((sensor, value)) = try_decode_midi_input(input)? else {
         return Ok(None);
     };
-    let input = ControlRegister {
+    let input = Control {
         index: sensor.into(),
         value,
     };

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use crate::{
-    ControlOutputGateway, ControlRegister, MidiOutputConnection, MidiOutputGateway, OutputError,
+    Control, ControlOutputGateway, MidiOutputConnection, MidiOutputGateway, OutputError,
     OutputResult,
 };
 
@@ -20,11 +20,11 @@ impl<C> Default for OutputGateway<C> {
 }
 
 impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
-    fn send_output(&mut self, output: &ControlRegister) -> OutputResult<()> {
+    fn send_output(&mut self, output: &Control) -> OutputResult<()> {
         let Some(midi_output_connection) = &mut self.midi_output_connection else {
             return Err(OutputError::Disconnected);
         };
-        let ControlRegister { index, value } = *output;
+        let Control { index, value } = *output;
         let status = ((index.value() >> 7) & 0x7f) as u8;
         let command = (index.value() & 0x7f) as u8;
         let data = (value.to_bits() & 0x7f) as u8;
