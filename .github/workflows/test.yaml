@@ -3,7 +3,8 @@
 
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow
 
-name: build-and-test
+# Same as file name
+name: test
 
 permissions:
   contents: read
@@ -53,11 +54,6 @@ jobs:
       - name: Check WASM target with default features
         run: >-
           cargo check --locked --target wasm32-unknown-unknown
-
-      - name: Build tests with all features enabled
-        run: >-
-          cargo test --locked --all-features
-          --no-run
 
       - name: Run tests with all features enabled
         run: >-
