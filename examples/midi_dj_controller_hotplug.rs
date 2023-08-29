@@ -138,6 +138,33 @@ impl MidiOutputGateway<BoxedMidiOutputConnection> for KorgKaossDj {
     }
 }
 
+#[derive(Default)]
+struct PioneerDdj400 {
+    output_gateway: Option<pioneer_ddj_400::OutputGateway<BoxedMidiOutputConnection>>,
+}
+
+impl Controller for PioneerDdj400 {}
+
+impl MidiOutputGateway<BoxedMidiOutputConnection> for PioneerDdj400 {
+    fn attach_midi_output_connection(
+        &mut self,
+        connection: &mut Option<BoxedMidiOutputConnection>,
+    ) -> OutputResult<()> {
+        debug_assert!(self.output_gateway.is_none());
+        let mut output_gateway =
+            pioneer_ddj_400::OutputGateway::<BoxedMidiOutputConnection>::default();
+        output_gateway.attach_midi_output_connection(connection)?;
+        self.output_gateway = Some(output_gateway);
+        Ok(())
+    }
+
+    fn detach_midi_output_connection(&mut self) -> Option<BoxedMidiOutputConnection> {
+        self.output_gateway
+            .take()
+            .and_then(|mut output_gateway| output_gateway.detach_midi_output_connection())
+    }
+}
+
 fn new_midi_controller<I>(
     device: &MidirDevice<I>,
     output_connection: &mut Option<BoxedMidiOutputConnection>,
@@ -148,6 +175,8 @@ where
     let mut controller: Box<dyn MidiController> =
         if device.descriptor() == korg_kaoss_dj::MIDI_DEVICE_DESCRIPTOR {
             Box::<KorgKaossDj>::default() as _
+        } else if device.descriptor() == pioneer_ddj_400::MIDI_DEVICE_DESCRIPTOR {
+            Box::<PioneerDdj400>::default() as _
         } else {
             return Ok(None);
         };

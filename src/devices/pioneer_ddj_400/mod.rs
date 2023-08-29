@@ -3,12 +3,19 @@
 
 use std::borrow::Cow;
 
+use strum::{EnumCount, EnumIter, FromRepr};
+
 use crate::{
     AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, MidiDeviceDescriptor,
 };
 
 pub mod input;
 pub use self::input::{DeckSensor, EffectSensor, MainSensor, MidiInputEventDecoder, Sensor};
+
+pub mod output;
+pub use self::output::{
+    led_output_into_midi_message, DeckLed, InvalidOutputControlIndex, Led, MainLed, OutputGateway,
+};
 
 pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
     num_input_channels: 0,
@@ -34,12 +41,29 @@ pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
     num_effect_units: 1,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
+#[repr(u8)]
 pub enum Deck {
     /// Left
     One,
     /// Right
     Two,
+}
+
+impl Deck {
+    const fn midi_channel(self) -> u8 {
+        match self {
+            Deck::One => MIDI_CHANNEL_DECK_ONE,
+            Deck::Two => MIDI_CHANNEL_DECK_TWO,
+        }
+    }
+
+    const fn control_index_bit_mask(self) -> u32 {
+        match self {
+            Deck::One => CONTROL_INDEX_DECK_ONE,
+            Deck::Two => CONTROL_INDEX_DECK_TWO,
+        }
+    }
 }
 
 const MIDI_CHANNEL_MAIN: u8 = 0x06;
@@ -65,6 +89,11 @@ const MIDI_STATUS_CC_MAIN: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_MAIN;
 const MIDI_STATUS_CC_EFFECT: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_EFFECT;
 const MIDI_STATUS_CC_DECK_ONE: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_DECK_ONE;
 const MIDI_STATUS_CC_DECK_TWO: u8 = MIDI_COMMAND_CC | MIDI_CHANNEL_DECK_TWO;
+
+const MIDI_DECK_PLAYPAUSE_BUTTON: u8 = 0x0B;
+
+const MIDI_MASTER_CUE: u8 = 0x63;
+const MIDI_BEAT_FX: u8 = 0x47;
 
 const CONTROL_INDEX_DECK_ONE: u32 = 0x0100;
 const CONTROL_INDEX_DECK_TWO: u32 = 0x0200;
