@@ -52,7 +52,7 @@ impl From<ControlValue> for LedOutput {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct DimLedOutput {
-    brightness: u8,
+    pub brightness: u8,
 }
 
 impl From<DimLedOutput> for ControlValue {
@@ -72,9 +72,9 @@ impl From<ControlValue> for DimLedOutput {
 /// RGB LED
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RgbLedOutput {
-    red: u8,
-    green: u8,
-    blue: u8,
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
 }
 
 impl From<RgbLedOutput> for ControlValue {
