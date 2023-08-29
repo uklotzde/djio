@@ -475,7 +475,7 @@ pub trait ControlInputEventSink {
 
 #[must_use]
 pub fn split_crossfader_input_linear(input: CenterSliderInput) -> (SliderInput, SliderInput) {
-    fn f_x(x: f32) -> f32 {
+    const fn f_x(x: f32) -> f32 {
         x
     }
     let CenterSliderInput { position } = input;

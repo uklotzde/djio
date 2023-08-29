@@ -24,7 +24,7 @@ use crate::{
 const LED_OFF: u8 = 0x00;
 const LED_ON: u8 = 0x7f;
 
-fn led_to_u7(output: LedOutput) -> u8 {
+const fn led_to_u7(output: LedOutput) -> u8 {
     match output {
         LedOutput::Off => LED_OFF,
         LedOutput::On => LED_ON,
@@ -148,7 +148,7 @@ impl TryFrom<ControlIndex> for Led {
 }
 
 #[must_use]
-pub fn led_output_into_midi_message(led: Led, output: LedOutput) -> [u8; 3] {
+pub const fn led_output_into_midi_message(led: Led, output: LedOutput) -> [u8; 3] {
     let (status, data1) = match led {
         Led::Main(led) => match led {
             MainLed::TabButton => (MIDI_STATUS_BUTTON_MAIN, MIDI_TAP_BUTTON),

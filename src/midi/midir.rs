@@ -73,7 +73,7 @@ where
     I: MidiInputGateway + Send,
 {
     #[must_use]
-    fn new(
+    const fn new(
         descriptor: MidiDeviceDescriptor,
         input_port: MidirInputPort,
         output_port: MidirOutputPort,
@@ -87,17 +87,17 @@ where
     }
 
     #[must_use]
-    pub fn descriptor(&self) -> &MidiDeviceDescriptor {
+    pub const fn descriptor(&self) -> &MidiDeviceDescriptor {
         &self.descriptor
     }
 
     #[must_use]
-    pub fn input_port(&self) -> &MidirInputPort {
+    pub const fn input_port(&self) -> &MidirInputPort {
         &self.input_port
     }
 
     #[must_use]
-    pub fn output_port(&self) -> &MidirOutputPort {
+    pub const fn output_port(&self) -> &MidirOutputPort {
         &self.output_port
     }
 
@@ -119,7 +119,7 @@ where
     }
 
     #[must_use]
-    pub fn is_connected(&self) -> bool {
+    pub const fn is_connected(&self) -> bool {
         self.input_connection.is_some()
     }
 

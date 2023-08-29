@@ -250,7 +250,7 @@ impl DeviceContext {
     }
 
     #[must_use]
-    pub fn info(&self) -> &DeviceInfo {
+    pub const fn info(&self) -> &DeviceInfo {
         &self.info
     }
 

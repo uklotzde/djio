@@ -114,7 +114,7 @@ impl AtomicValue {
     }
 
     #[must_use]
-    pub fn value_type(&self) -> ValueType {
+    pub const fn value_type(&self) -> ValueType {
         match self {
             Self::Bool(_) => ValueType::Bool,
             Self::I32(_) => ValueType::I32,

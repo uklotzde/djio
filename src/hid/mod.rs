@@ -262,7 +262,7 @@ impl<'a> TryFrom<&'a DeviceInfo> for DeviceId<'a> {
 
 impl HidDevice {
     #[must_use]
-    pub fn new(info: DeviceInfo) -> Self {
+    pub const fn new(info: DeviceInfo) -> Self {
         Self {
             info,
             connected: None,
@@ -270,12 +270,12 @@ impl HidDevice {
     }
 
     #[must_use]
-    pub fn info(&self) -> &DeviceInfo {
+    pub const fn info(&self) -> &DeviceInfo {
         &self.info
     }
 
     #[must_use]
-    pub fn is_connected(&self) -> bool {
+    pub const fn is_connected(&self) -> bool {
         self.connected.is_some()
     }
 

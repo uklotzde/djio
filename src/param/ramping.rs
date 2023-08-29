@@ -54,7 +54,7 @@ fn steps_as_f32(steps: usize) -> f32 {
 impl RampingF32 {
     /// Create an immediate value without interpolation
     #[must_use]
-    pub fn new(value: f32) -> Self {
+    pub const fn new(value: f32) -> Self {
         Self {
             profile: RampingProfile::immediate(),
             initial_value: value,
@@ -106,7 +106,7 @@ impl RampingF32 {
     }
 
     #[must_use]
-    pub fn target_value(&self) -> f32 {
+    pub const fn target_value(&self) -> f32 {
         self.target_value
     }
 

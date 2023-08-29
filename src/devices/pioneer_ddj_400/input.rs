@@ -127,7 +127,7 @@ impl PerformancePadSensor {
             Self::KeyShift(nr) => nr + 0x70,
         }
     }
-    fn try_from_u8(pad_id: u8) -> Option<Self> {
+    const fn try_from_u8(pad_id: u8) -> Option<Self> {
         let sensor = match pad_id {
             0x00..=0x07 => Self::HotCue(pad_id),
             0x10..=0x17 => Self::PadFx1(pad_id - 0x10),
