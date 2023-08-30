@@ -276,7 +276,7 @@ impl CenterSliderInput {
 
     /// Interpret the position as a ratio for tuning the volume of a signal.
     ///
-    /// The position is interpreted as a volume level between the the `min_db`
+    /// The position is interpreted as a volume level between the `min_db`
     /// (< 0 dB) and `max_db` (> 0 dB), e.g. -26 dB and +6 dB (Pioneer DJM).
     ///
     /// Multiply the signal with the returned value to tune the volume.

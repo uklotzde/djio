@@ -56,7 +56,7 @@ pub use self::input::{
 mod output;
 pub use self::output::{
     BlinkingLedsOutput, BlinkingLedsTicker, ControlOutputGateway, DimLedOutput, LedOutput,
-    LedState, OutputError, OutputResult, RgbLedOutput, SendOutputsError,
+    LedState, OutputError, OutputResult, RgbLedOutput, SendOutputsError, VirtualLed,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
