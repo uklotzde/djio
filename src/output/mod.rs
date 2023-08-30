@@ -266,12 +266,30 @@ pub struct VirtualLed {
 impl VirtualLed {
     pub const OFF: Self = Self::initial_state(LedState::Off);
 
+    /// Create a new virtual LED
     #[must_use]
     pub const fn initial_state(state: LedState) -> Self {
         let output = state.initial_output();
         Self { state, output }
     }
 
+    /// Update the state
+    ///
+    /// The output is initialized accordingly to reflect the new state.
+    ///
+    /// Returns `true` if the state has changed.
+    pub fn update_state(&mut self, state: LedState) -> bool {
+        if self.state == state {
+            // Unchanged
+            return false;
+        }
+        *self = Self::initial_state(state);
+        true
+    }
+
+    /// Update the blinking output
+    ///
+    /// The output is updated accordingly while the state remains unchanged.
     pub fn update_blinking_output(&mut self, blinking_leds_output: BlinkingLedsOutput) {
         let Self { state, output } = self;
         *output = state.output(blinking_leds_output);
