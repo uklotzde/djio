@@ -56,7 +56,7 @@ pub use self::input::{
 mod output;
 #[cfg(feature = "blinking-led-task")]
 pub use self::output::blinking_led_task;
-#[cfg(feature = "spawn-blinking-led-task")]
+#[cfg(feature = "blinking-led-task-tokio-rt")]
 pub use self::output::spawn_blinking_led_task;
 pub use self::output::{
     BlinkingLedOutput, BlinkingLedTicker, ControlOutputGateway, DimLedOutput, LedOutput, LedState,

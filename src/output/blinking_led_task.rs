@@ -10,7 +10,7 @@ use crate::{BlinkingLedOutput, BlinkingLedTicker};
 #[allow(clippy::manual_async_fn)] // Explicit return type to to enforce the trait bounds
 pub fn blinking_led_task(
     period: Duration,
-    publisher: Publisher<BlinkingLedOutput>,
+    mut publisher: Publisher<BlinkingLedOutput>,
 ) -> impl Future<Output = ()> + Send + 'static {
     async move {
         let mut ticker = BlinkingLedTicker::default();
@@ -23,7 +23,7 @@ pub fn blinking_led_task(
     }
 }
 
-#[cfg(feature = "spawn-blinking-led-task")]
+#[cfg(feature = "blinking-led-task-tokio-rt")]
 #[must_use]
 pub fn spawn_blinking_led_task(period: Duration) -> Subscriber<BlinkingLedOutput> {
     let (publisher, subscriber) = new_pubsub(BlinkingLedOutput::ON);

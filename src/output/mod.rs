@@ -20,7 +20,7 @@ use crate::{Control, ControlValue};
 mod blinking_led_task;
 #[cfg(feature = "blinking-led-task")]
 pub use blinking_led_task::blinking_led_task;
-#[cfg(feature = "spawn-blinking-led-task")]
+#[cfg(feature = "blinking-led-task-tokio-rt")]
 pub use blinking_led_task::spawn_blinking_led_task;
 
 #[derive(Debug, Error)]
@@ -187,8 +187,8 @@ impl LedState {
     pub const fn output(self, blinking_led_output: BlinkingLedOutput) -> LedOutput {
         match self {
             Self::Off => LedOutput::Off,
-            Self::BlinkFast => blinking_led_output.fast,
-            Self::BlinkSlow => blinking_led_output.slow,
+            Self::BlinkFast => blinking_led_output.fast(),
+            Self::BlinkSlow => blinking_led_output.slow(),
             Self::On => LedOutput::On,
         }
     }
@@ -197,42 +197,37 @@ impl LedState {
 pub const DEFAULT_BLINKING_LED_PERIOD: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlinkingLedOutput {
-    pub fast: LedOutput,
-    pub slow: LedOutput,
-}
+pub struct BlinkingLedOutput(u8);
 
 impl BlinkingLedOutput {
-    pub const ON: Self = Self {
-        fast: LedOutput::On,
-        slow: LedOutput::On,
-    };
+    pub const ON: Self = Self(0b11);
+
+    #[must_use]
+    pub const fn fast(self) -> LedOutput {
+        match self.0 & 0b01 {
+            0b00 => LedOutput::Off,
+            0b01 => LedOutput::On,
+            _ => unreachable!(),
+        }
+    }
+
+    #[must_use]
+    pub const fn slow(self) -> LedOutput {
+        match self.0 & 0b10 {
+            0b00 => LedOutput::Off,
+            0b10 => LedOutput::On,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct BlinkingLedTicker(usize);
 
 impl BlinkingLedTicker {
-    fn output_from_value(value: usize) -> BlinkingLedOutput {
-        match value & 0b11 {
-            0b00 => BlinkingLedOutput {
-                fast: LedOutput::On,
-                slow: LedOutput::On,
-            },
-            0b01 => BlinkingLedOutput {
-                fast: LedOutput::Off,
-                slow: LedOutput::On,
-            },
-            0b10 => BlinkingLedOutput {
-                fast: LedOutput::On,
-                slow: LedOutput::Off,
-            },
-            0b11 => BlinkingLedOutput {
-                fast: LedOutput::Off,
-                slow: LedOutput::Off,
-            },
-            _ => unreachable!(),
-        }
+    const fn output_from_value(value: usize) -> BlinkingLedOutput {
+        #[allow(clippy::cast_possible_truncation)]
+        BlinkingLedOutput(!value as u8 & 0b11)
     }
 
     #[must_use]
@@ -243,9 +238,8 @@ impl BlinkingLedTicker {
     }
 
     #[must_use]
-    pub fn output(&self) -> BlinkingLedOutput {
-        let value = self.0;
-        Self::output_from_value(value)
+    pub const fn output(&self) -> BlinkingLedOutput {
+        Self::output_from_value(self.0)
     }
 
     pub fn map_into_output_stream(
@@ -309,5 +303,21 @@ impl VirtualLed {
 impl Default for VirtualLed {
     fn default() -> Self {
         Self::OFF
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{BlinkingLedOutput, BlinkingLedTicker, LedOutput};
+
+    #[test]
+    fn blinking_led_output_on() {
+        assert_eq!(LedOutput::On, BlinkingLedOutput::ON.fast());
+        assert_eq!(LedOutput::On, BlinkingLedOutput::ON.slow());
+    }
+
+    #[test]
+    fn blinking_led_ticker_initial_output_is_on() {
+        assert_eq!(BlinkingLedOutput::ON, BlinkingLedTicker::default().output());
     }
 }

@@ -16,6 +16,10 @@ clippy:
     cargo clippy --locked --workspace --all-targets --no-default-features --features all-controllers
     cargo clippy --locked --workspace --no-deps --all-targets --all-features -- -D warnings --cap-lints warn
 
+# Run cargo check for the WASM target with default features enabled
+check-wasm:
+    cargo check --locked --workspace --target wasm32-unknown-unknown
+
 # Run unit tests
 test:
     RUST_BACKTRACE=1 cargo test --locked --all-features -- --nocapture
