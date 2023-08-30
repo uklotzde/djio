@@ -4,7 +4,7 @@
 [package]
 name = "djio"
 description = "DJ Hardware Control(ler) Support"
-version = "0.0.12"
+version = "0.0.13"
 license = "MPL-2.0"
 readme = "README.md"
 repository = "https://github.com/uklotzde/djio"
@@ -25,6 +25,7 @@ strum = { version = "0.25.0", features = ["derive"] }
 thiserror = "1.0.47"
 
 # Optional dependencies
+discro = { version = "0.11.0", optional = true }
 midir = { version = "0.9.1", optional = true }
 tokio = { version = "1.32.0", default-features = false, optional = true }
 
@@ -42,11 +43,18 @@ hidapi = "2.4.1"
 pretty_env_logger = "0.5.0"
 
 [features]
-default = ["all-controllers", "midir", "controller-thread"]
+default = [
+    "all-controllers",
+    "midir",
+    "spawn-blinking-led-task",
+    "controller-thread",
+]
 hid = ["dep:hidapi"]
 jack = ["midir?/jack"]
 midi = []
 midir = ["dep:midir"]
+blinking-led-task = ["dep:discro", "discro/tokio", "dep:tokio", "tokio/time"]
+spawn-blinking-led-task = ["blinking-led-task", "tokio/rt"]
 controller-thread = ["dep:tokio", "tokio/rt", "tokio/time"]
 
 # Controller support features

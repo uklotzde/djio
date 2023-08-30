@@ -54,9 +54,14 @@ pub use self::input::{
 };
 
 mod output;
+#[cfg(feature = "blinking-led-task")]
+pub use self::output::blinking_led_task;
+#[cfg(feature = "spawn-blinking-led-task")]
+pub use self::output::spawn_blinking_led_task;
 pub use self::output::{
-    BlinkingLedsOutput, BlinkingLedsTicker, ControlOutputGateway, DimLedOutput, LedOutput,
-    LedState, OutputError, OutputResult, RgbLedOutput, SendOutputsError, VirtualLed,
+    BlinkingLedOutput, BlinkingLedTicker, ControlOutputGateway, DimLedOutput, LedOutput, LedState,
+    OutputError, OutputResult, RgbLedOutput, SendOutputsError, VirtualLed,
+    DEFAULT_BLINKING_LED_PERIOD,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

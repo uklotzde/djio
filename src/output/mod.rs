@@ -7,6 +7,7 @@
 use std::{
     borrow::Cow,
     ops::{Deref, DerefMut},
+    time::Duration,
 };
 
 use futures::StreamExt as _;
@@ -14,6 +15,13 @@ use strum::FromRepr;
 use thiserror::Error;
 
 use crate::{Control, ControlValue};
+
+#[cfg(feature = "blinking-led-task")]
+mod blinking_led_task;
+#[cfg(feature = "blinking-led-task")]
+pub use blinking_led_task::blinking_led_task;
+#[cfg(feature = "spawn-blinking-led-task")]
+pub use blinking_led_task::spawn_blinking_led_task;
 
 #[derive(Debug, Error)]
 pub enum OutputError {
@@ -171,28 +179,30 @@ impl LedState {
     /// the periodic switching takes over.
     #[must_use]
     pub const fn initial_output(self) -> LedOutput {
-        self.output(BlinkingLedsOutput::ON)
+        self.output(BlinkingLedOutput::ON)
     }
 
     /// LED output depending on the current blinking state
     #[must_use]
-    pub const fn output(self, blinking_leds_output: BlinkingLedsOutput) -> LedOutput {
+    pub const fn output(self, blinking_led_output: BlinkingLedOutput) -> LedOutput {
         match self {
             Self::Off => LedOutput::Off,
-            Self::BlinkFast => blinking_leds_output.fast,
-            Self::BlinkSlow => blinking_leds_output.slow,
+            Self::BlinkFast => blinking_led_output.fast,
+            Self::BlinkSlow => blinking_led_output.slow,
             Self::On => LedOutput::On,
         }
     }
 }
 
+pub const DEFAULT_BLINKING_LED_PERIOD: Duration = Duration::from_millis(250);
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlinkingLedsOutput {
+pub struct BlinkingLedOutput {
     pub fast: LedOutput,
     pub slow: LedOutput,
 }
 
-impl BlinkingLedsOutput {
+impl BlinkingLedOutput {
     pub const ON: Self = Self {
         fast: LedOutput::On,
         slow: LedOutput::On,
@@ -200,24 +210,24 @@ impl BlinkingLedsOutput {
 }
 
 #[derive(Debug, Default)]
-pub struct BlinkingLedsTicker(usize);
+pub struct BlinkingLedTicker(usize);
 
-impl BlinkingLedsTicker {
-    fn output_from_value(value: usize) -> BlinkingLedsOutput {
+impl BlinkingLedTicker {
+    fn output_from_value(value: usize) -> BlinkingLedOutput {
         match value & 0b11 {
-            0b00 => BlinkingLedsOutput {
+            0b00 => BlinkingLedOutput {
                 fast: LedOutput::On,
                 slow: LedOutput::On,
             },
-            0b01 => BlinkingLedsOutput {
+            0b01 => BlinkingLedOutput {
                 fast: LedOutput::Off,
                 slow: LedOutput::On,
             },
-            0b10 => BlinkingLedsOutput {
+            0b10 => BlinkingLedOutput {
                 fast: LedOutput::On,
                 slow: LedOutput::Off,
             },
-            0b11 => BlinkingLedsOutput {
+            0b11 => BlinkingLedOutput {
                 fast: LedOutput::Off,
                 slow: LedOutput::Off,
             },
@@ -226,14 +236,14 @@ impl BlinkingLedsTicker {
     }
 
     #[must_use]
-    pub fn tick(&mut self) -> BlinkingLedsOutput {
+    pub fn tick(&mut self) -> BlinkingLedOutput {
         let value = self.0;
         self.0 = self.0.wrapping_add(1);
         Self::output_from_value(value)
     }
 
     #[must_use]
-    pub fn output(&self) -> BlinkingLedsOutput {
+    pub fn output(&self) -> BlinkingLedOutput {
         let value = self.0;
         Self::output_from_value(value)
     }
@@ -241,7 +251,7 @@ impl BlinkingLedsTicker {
     pub fn map_into_output_stream(
         self,
         periodic: impl futures::Stream<Item = ()> + 'static,
-    ) -> impl futures::Stream<Item = BlinkingLedsOutput> {
+    ) -> impl futures::Stream<Item = BlinkingLedOutput> {
         futures::stream::unfold(
             (self, Box::pin(periodic)),
             |(mut ticker, mut periodic)| async move {
@@ -290,9 +300,9 @@ impl VirtualLed {
     /// Update the blinking output
     ///
     /// The output is updated accordingly while the state remains unchanged.
-    pub fn update_blinking_output(&mut self, blinking_leds_output: BlinkingLedsOutput) {
+    pub fn update_blinking_output(&mut self, blinking_led_output: BlinkingLedOutput) {
         let Self { state, output } = self;
-        *output = state.output(blinking_leds_output);
+        *output = state.output(blinking_led_output);
     }
 }
 
