@@ -70,12 +70,21 @@ pub trait Controller {
     /// be returned. This allows to conveniently consume resources that are required
     /// for setting up the task by using [`Option::take()`].
     ///
-    /// Controllers that don't need a task may return `None`.
+    /// Stateless controllers may return `None`.
     #[must_use]
     fn attach_context_listener(
         &mut self,
         context: &<Self::Types as ControllerTypes>::Context,
     ) -> Option<BoxedControllerTask>;
+
+    /// Input port index
+    ///
+    /// Only needs to be implemented for controllers that generate input events.
+    /// The default implementation returns [`PortIndex::INVALID`].
+    #[must_use]
+    fn input_port_index(&self) -> PortIndex {
+        PortIndex::INVALID
+    }
 
     /// Map a generic input event into a control action.
     ///
@@ -85,9 +94,15 @@ pub trait Controller {
     /// Each input event induces 0 or 1 control action(s). If the input event
     /// is unsupported and should be ignored or if it only affects the internal
     /// state then `None` could be returned.
+    ///
+    /// Only needs to be implemented for controllers that generate input events.
+    /// The default implementation ignores the event and returns `None`.
     #[must_use]
     fn map_input_event(
         &mut self,
         event: <Self::Types as ControllerTypes>::InputEvent,
-    ) -> Option<<Self::Types as ControllerTypes>::ControlAction>;
+    ) -> Option<<Self::Types as ControllerTypes>::ControlAction> {
+        log::debug!("Unmapped input event: {event:?}");
+        None
+    }
 }
