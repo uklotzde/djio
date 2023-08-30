@@ -257,37 +257,29 @@ impl BlinkingLedsTicker {
 /// Virtual LED
 ///
 /// For displaying virtual LEDs or illuminated buttons in the UI.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VirtualLed {
     pub state: LedState,
     pub output: LedOutput,
 }
 
 impl VirtualLed {
+    pub const OFF: Self = Self::initial_state(LedState::Off);
+
     #[must_use]
-    pub const fn new() -> Self {
-        Self {
-            state: LedState::Off,
-            output: LedOutput::Off,
-        }
-    }
-}
-
-impl Default for VirtualLed {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl VirtualLed {
-    pub fn update_state(&mut self, new_state: LedState) {
-        let Self { state, output } = self;
-        *state = new_state;
-        *output = new_state.initial_output();
+    pub const fn initial_state(state: LedState) -> Self {
+        let output = state.initial_output();
+        Self { state, output }
     }
 
     pub fn update_blinking_output(&mut self, blinking_leds_output: BlinkingLedsOutput) {
         let Self { state, output } = self;
         *output = state.output(blinking_leds_output);
+    }
+}
+
+impl Default for VirtualLed {
+    fn default() -> Self {
+        Self::OFF
     }
 }
