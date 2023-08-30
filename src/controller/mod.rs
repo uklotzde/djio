@@ -49,14 +49,19 @@ pub struct ControllerDescriptor {
 pub trait Controller {
     type Types: ControllerTypes;
 
+    /// Device descriptor
+    ///
+    /// Each controller instance must always return the same descriptor
+    /// during its lifetime!
     #[must_use]
-    fn device_descriptor(&self) -> &DeviceDescriptor;
+    fn device_descriptor(&self) -> DeviceDescriptor;
 
+    /// Controller descriptor
+    ///
+    /// Each controller instance must always return the same descriptor
+    /// during its lifetime!
     #[must_use]
-    fn controller_descriptor(&self) -> &ControllerDescriptor;
-
-    #[must_use]
-    fn input_port_index(&self) -> PortIndex;
+    fn controller_descriptor(&self) -> ControllerDescriptor;
 
     /// Attach a context listener task.
     ///
