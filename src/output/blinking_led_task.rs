@@ -10,7 +10,7 @@ use crate::{BlinkingLedOutput, BlinkingLedTicker};
 #[allow(clippy::manual_async_fn)] // Explicit return type to to enforce the trait bounds
 pub fn blinking_led_task(
     period: Duration,
-    mut publisher: Publisher<BlinkingLedOutput>,
+    publisher: Publisher<BlinkingLedOutput>,
 ) -> impl Future<Output = ()> + Send + 'static {
     async move {
         let mut ticker = BlinkingLedTicker::default();
