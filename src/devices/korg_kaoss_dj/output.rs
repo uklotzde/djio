@@ -203,7 +203,9 @@ fn on_attach<C: MidiOutputConnection>(midi_output_connection: &mut C) -> OutputR
     const MIDI_STATUS_SYSEX: &[u8] = &[
         0xf0, 0x42, 0x40, 0x00, 0x01, 0x28, 0x00, 0x1f, 0x70, 0x01, 0xf7,
     ];
-    midi_output_connection.send_midi_output(MIDI_STATUS_SYSEX)?;
+    // First send a MIDI system reset message
+    midi_output_connection.send_midi_system_reset()?;
+    // Turn on all knob LEDs
     for led in MainLed::iter() {
         let output = if led.is_knob() {
             LedOutput::On
@@ -222,10 +224,15 @@ fn on_attach<C: MidiOutputConnection>(midi_output_connection: &mut C) -> OutputR
             send_led_output(midi_output_connection, Led::Deck(deck, led), output)?;
         }
     }
+    // Finally query the initial position of all knobs and faders
+    midi_output_connection.send_midi_output(MIDI_STATUS_SYSEX)?;
     Ok(())
 }
 
 fn on_detach<C: MidiOutputConnection>(midi_output_connection: &mut C) -> OutputResult<()> {
+    // First send a MIDI system reset message
+    midi_output_connection.send_midi_system_reset()?;
+    // Turn off all LEDs
     for led in MainLed::iter() {
         send_led_output(midi_output_connection, led.into(), LedOutput::Off)?;
     }

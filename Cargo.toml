@@ -22,7 +22,7 @@ futures = "0.3.28"
 is_sorted = "0.1.1"
 log = "0.4.20"
 strum = { version = "0.25.0", features = ["derive"] }
-thiserror = "1.0.47"
+thiserror = "1.0.48"
 
 # Optional dependencies
 discro = { version = "0.15.0", optional = true }

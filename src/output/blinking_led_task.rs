@@ -16,6 +16,7 @@ pub fn blinking_led_task(
         let mut ticker = BlinkingLedTicker::default();
         let mut interval = tokio::time::interval(period);
         loop {
+            // The first tick arrives immediately
             interval.tick().await;
             let output = ticker.tick();
             publisher.write(output);

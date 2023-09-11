@@ -14,6 +14,8 @@ use crate::{
 #[cfg(feature = "midir")]
 pub(crate) mod midir;
 
+const MIDI_OUTPUT_SYSTEM_RESET: &[u8] = &[0xff];
+
 /// MIDI-related, extended [`DeviceDescriptor`]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MidiDeviceDescriptor {
@@ -124,6 +126,10 @@ where
 
 pub trait MidiOutputConnection {
     fn send_midi_output(&mut self, output: &[u8]) -> OutputResult<()>;
+
+    fn send_midi_system_reset(&mut self) -> OutputResult<()> {
+        self.send_midi_output(MIDI_OUTPUT_SYSTEM_RESET)
+    }
 }
 
 pub type BoxedMidiOutputConnection = Box<dyn MidiOutputConnection + Send + 'static>;
