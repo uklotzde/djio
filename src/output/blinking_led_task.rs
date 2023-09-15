@@ -3,7 +3,7 @@
 
 use std::{future::Future, time::Duration};
 
-use discro::{new_pubsub, Publisher, Subscriber};
+use discro::Publisher;
 
 use crate::{BlinkingLedOutput, BlinkingLedTicker};
 
@@ -26,9 +26,10 @@ pub fn blinking_led_task(
 
 #[cfg(feature = "blinking-led-task-tokio-rt")]
 #[must_use]
-pub fn spawn_blinking_led_task(period: Duration) -> Subscriber<BlinkingLedOutput> {
-    let (publisher, subscriber) = new_pubsub(BlinkingLedOutput::ON);
+pub fn spawn_blinking_led_task(period: Duration) -> discro::ReadOnlyPublisher<BlinkingLedOutput> {
+    let publisher = Publisher::new(BlinkingLedOutput::ON);
+    let ro_publisher = publisher.clone_read_only();
     let task = blinking_led_task(period, publisher);
     tokio::spawn(task);
-    subscriber
+    ro_publisher
 }
