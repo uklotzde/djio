@@ -26,10 +26,10 @@ pub fn blinking_led_task(
 
 #[cfg(feature = "blinking-led-task-tokio-rt")]
 #[must_use]
-pub fn spawn_blinking_led_task(period: Duration) -> discro::ReadOnlyPublisher<BlinkingLedOutput> {
+pub fn spawn_blinking_led_task(period: Duration) -> discro::Subscriber<BlinkingLedOutput> {
     let publisher = Publisher::new(BlinkingLedOutput::ON);
-    let ro_publisher = publisher.clone_read_only();
+    let subscriber = publisher.subscribe();
     let task = blinking_led_task(period, publisher);
     tokio::spawn(task);
-    ro_publisher
+    subscriber
 }
