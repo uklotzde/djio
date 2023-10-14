@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    borrow::Borrow,
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
 };
@@ -344,7 +343,7 @@ impl Registry {
                     descriptor,
                     output_value,
                 } = entry;
-                debug_assert_eq!(address.borrow(), entry_address);
+                debug_assert_eq!(address, entry_address);
                 (id, descriptor.as_ref(), output_value.as_ref())
             })
     }

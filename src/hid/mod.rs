@@ -183,11 +183,8 @@ impl HidApi {
         let mut visited_paths = HashSet::new();
         Ok(self
             .query_devices()?
-            .filter_map(|info| {
-                visited_paths
-                    .insert(info.path())
-                    .then(|| HidDevice::new(info.clone()))
-            })
+            .filter(|&info| visited_paths.insert(info.path()))
+            .map(|info| HidDevice::new(info.clone()))
             .collect())
     }
 
