@@ -84,7 +84,7 @@ fn main() {
     pretty_env_logger::init();
 
     match run() {
-        Ok(_) => (),
+        Ok(()) => (),
         Err(err) => log::error!("{err}"),
     }
 }
@@ -186,7 +186,7 @@ where
 
 #[derive(Debug, Clone)]
 struct LoggingInputPortEventSink {
-    pub port_index: PortIndex,
+    port_index: PortIndex,
 }
 
 impl ControlInputEventSink for LoggingInputPortEventSink {
@@ -199,6 +199,7 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn reconnect_midi_controller<I>(
     device: &mut MidirDevice<I::MidiInputGateway>,
     new_input_gateway: Option<&I>,

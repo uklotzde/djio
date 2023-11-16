@@ -9,7 +9,7 @@ fn main() {
     pretty_env_logger::init();
 
     match run() {
-        Ok(_) => (),
+        Ok(()) => (),
         Err(err) => log::error!("{err}"),
     }
 }
@@ -87,7 +87,7 @@ fn run() -> anyhow::Result<()> {
             device_info = new_device_context.info()
         );
         new_device_context.initialize();
-        device_context = Some(new_device_context)
+        device_context = Some(new_device_context);
     }
 
     log::info!("TODO: Run event loop");
