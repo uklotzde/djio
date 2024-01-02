@@ -10,7 +10,8 @@ use std::{
     time::Duration,
 };
 
-use futures::StreamExt as _;
+use futures_core::Stream;
+use futures_util::{stream, StreamExt as _};
 use strum::FromRepr;
 use thiserror::Error;
 
@@ -244,9 +245,9 @@ impl BlinkingLedTicker {
 
     pub fn map_into_output_stream(
         self,
-        periodic: impl futures::Stream<Item = ()> + 'static,
-    ) -> impl futures::Stream<Item = BlinkingLedOutput> {
-        futures::stream::unfold(
+        periodic: impl Stream<Item = ()> + 'static,
+    ) -> impl Stream<Item = BlinkingLedOutput> {
+        stream::unfold(
             (self, Box::pin(periodic)),
             |(mut ticker, mut periodic)| async move {
                 periodic.next().await.map(|()| {

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use futures::stream::{AbortHandle, Abortable, Aborted};
+use futures_util::future::{AbortHandle, Abortable, Aborted};
 
 use super::BoxedControllerTask;
 
