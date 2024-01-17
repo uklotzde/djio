@@ -6,7 +6,7 @@
 [![Crates.io](https://img.shields.io/crates/v/djio.svg)](https://crates.io/crates/djio)
 [![Docs.rs](https://docs.rs/djio/badge.svg)](https://docs.rs/djio)
 [![Deps.rs](https://deps.rs/repo/github/uklotzde/djio/status.svg)](https://deps.rs/repo/github/uklotzde/djio)
-[![Security audit](https://github.com/uklotzde/djio/actions/workflows/security-audit.yaml/badge.svg)](https://github.com/uklotzde/djio/actions/workflows/security-audit.yaml)
+[![Dependency audit](https://github.com/uklotzde/djio/actions/workflows/dependency-audit.yaml/badge.svg)](https://github.com/uklotzde/djio/actions/workflows/dependency-audit.yaml)
 [![Continuous integration](https://github.com/uklotzde/djio/actions/workflows/test.yaml/badge.svg)](https://github.com/uklotzde/djio/actions/workflows/test.yaml)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 
