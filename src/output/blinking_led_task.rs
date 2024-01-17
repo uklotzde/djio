@@ -15,6 +15,8 @@ pub fn blinking_led_task(
     async move {
         let mut ticker = BlinkingLedTicker::default();
         let mut interval = tokio::time::interval(period);
+        // Unlikely that a tick is missed. If it happens, then simply delay the next tick.
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             // The first tick arrives immediately
             interval.tick().await;
