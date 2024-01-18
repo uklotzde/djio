@@ -19,7 +19,9 @@ anyhow = "1.0.79"
 derive_more = "0.99.17"
 float-cmp = "0.9.0"
 futures-core = { version = "0.3.30", default-features = false }
-futures-util = { version = "0.3.30", default-features = false, features = ["std"] }
+futures-util = { version = "0.3.30", default-features = false, features = [
+    "std",
+] }
 # TODO: Replace with std when available.
 # Tracking issue for RFC 2351: <https://github.com/rust-lang/rust/issues/53485>
 is_sorted = "0.1.1"
@@ -50,6 +52,7 @@ pretty_env_logger = "0.5.0"
 default = [
     "all-controllers",
     "midir",
+    "observables",
     "blinking-led-task-tokio-rt",
     "controller-thread",
 ]
@@ -57,9 +60,11 @@ midi = []
 midir = ["dep:midir"]
 jack = ["midir?/jack"]
 hid = ["dep:hidapi"]
-blinking-led-task = ["dep:discro", "discro/tokio", "dep:tokio", "tokio/time"]
+tokio = ["dep:tokio", "discro?/tokio"]
+observables = ["dep:discro"]
+blinking-led-task = ["dep:discro", "tokio", "tokio/time"]
 blinking-led-task-tokio-rt = ["blinking-led-task", "tokio/rt"]
-controller-thread = ["dep:tokio", "tokio/rt", "tokio/time"]
+controller-thread = ["tokio", "tokio/rt", "tokio/time"]
 
 # Controller support features
 # TODO: Extract each controller into a separate crate after the API has settled.

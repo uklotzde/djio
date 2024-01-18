@@ -5,7 +5,7 @@
 
 use std::time::Duration;
 
-use crate::{CenterSliderInput, LedState};
+use crate::{ButtonInput, CenterSliderInput, LedState, SliderInput};
 
 pub const PLAYBACK_RATE_DEFAULT: f32 = 1.0;
 
@@ -97,16 +97,16 @@ impl Default for Tempo {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Player {
-    /// Cue
-    pub cue: Cue,
-
-    /// Tempo
-    pub tempo: Tempo,
-
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PlaybackParams {
     /// Playback rate
-    pub playback_rate: f32,
+    ///
+    /// A value of 1.0 means normal playback speed. A value of 0.0 means paused.
+    ///
+    /// If the playback rate is negative, the media will be played backwards.
+    ///
+    /// If the playback rate affects the pitch, depends on `pitch_semitones`.
+    pub rate: f32,
 
     /// Pitch
     ///
@@ -116,13 +116,62 @@ pub struct Player {
     pub pitch_semitones: Option<i8>,
 }
 
-impl Default for Player {
+impl Default for PlaybackParams {
     fn default() -> Self {
         Self {
-            cue: Default::default(),
-            tempo: Default::default(),
-            playback_rate: PLAYBACK_RATE_DEFAULT,
+            rate: PLAYBACK_RATE_DEFAULT,
             pitch_semitones: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Player {
+    /// Cue
+    pub cue: Cue,
+
+    /// Tempo
+    pub tempo: Tempo,
+
+    pub playback_params: PlaybackParams,
+}
+
+/// `Player` with all fields optional
+///
+/// Fields that are `None` will not be updated.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct UpdatePlayer {
+    pub cue: Option<Cue>,
+    pub tempo: Option<Tempo>,
+    pub playback_params: Option<PlaybackParams>,
+}
+
+/// Deck inputs
+#[derive(Debug, Clone, Copy)]
+pub enum Input {
+    Cue(ButtonInput),
+    PlayPause(ButtonInput),
+    Sync(ButtonInput),
+    Position(SliderInput),
+    Tempo(CenterSliderInput),
+}
+
+#[cfg(feature = "observables")]
+#[derive(Default)]
+#[allow(missing_debug_implementations)]
+pub struct Observables {
+    pub playable: discro::Publisher<Option<Playable>>,
+    pub player: discro::Publisher<Player>,
+}
+
+pub trait Device {
+    /// Get the playhead position
+    #[must_use]
+    fn playhead(&self) -> Position;
+
+    /// Set the playhead position
+    fn set_playhead(&mut self, position: Position);
+
+    /// Update selected [`Player`] fields
+    fn update_player(&mut self, update_player: UpdatePlayer);
 }

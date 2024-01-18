@@ -271,6 +271,9 @@ pub use self::midi::{
 };
 
 pub mod deck;
+#[cfg(feature = "observables")]
+pub use deck::Observables as DeckObservables;
+pub use deck::{Device as DeckDevice, Input as DeckInput};
 
 #[cfg(feature = "experimental-param")]
 pub mod param;
