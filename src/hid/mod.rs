@@ -330,8 +330,10 @@ fn timeout_millis(timeout: Option<Duration>) -> i32 {
     // to prevent losing precision unintentionally.
     debug_assert_eq!(0, timeout.unwrap_or_default().subsec_nanos() % 1_000_000);
     timeout
-            .as_ref()
-            .map(Duration::as_millis)
-            // Saturating conversion from u128 to i32
-            .map_or(INF_TIMEOUT_MILLIS, |millis| millis.min(MAX_TIMEOUT_MILLIS as _) as _)
+        .as_ref()
+        .map(Duration::as_millis)
+        // Saturating conversion from u128 to i32
+        .map_or(INF_TIMEOUT_MILLIS, |millis| {
+            millis.min(MAX_TIMEOUT_MILLIS as _) as _
+        })
 }

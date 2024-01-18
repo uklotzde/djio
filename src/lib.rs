@@ -270,6 +270,8 @@ pub use self::midi::{
     MidiPortDescriptor, NewMidiInputGateway,
 };
 
+pub mod deck;
+
 #[cfg(feature = "experimental-param")]
 pub mod param;
 

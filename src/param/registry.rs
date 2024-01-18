@@ -236,7 +236,8 @@ impl Registry {
             };
             self.entries.push(new_entry);
             debug_assert_eq!(self.address_to_id.len(), self.entries.len());
-            let entry = self.entries
+            let entry = self
+                .entries
                 .last_mut()
                 // Safe unwrap after push
                 .expect("entry exists");
