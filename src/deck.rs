@@ -28,7 +28,7 @@ pub struct Cue {
 pub enum PlayState {
     /// Paused
     Paused {
-        on_cue: bool,
+        playhead_on_cue: bool,
     },
     /// Previewing while (hot) cue is pressed
     Previewing {
@@ -45,10 +45,14 @@ impl PlayState {
     #[must_use]
     pub const fn pioneer_cue_led_state(&self) -> LedState {
         match self {
-            PlayState::Paused { on_cue: true }
+            PlayState::Paused {
+                playhead_on_cue: true,
+            }
             | PlayState::Previewing { .. }
             | PlayState::Playing => LedState::On,
-            PlayState::Paused { on_cue: false } => LedState::BlinkFast,
+            PlayState::Paused {
+                playhead_on_cue: false,
+            } => LedState::BlinkFast,
             PlayState::Ended => LedState::Off,
         }
     }
@@ -61,6 +65,12 @@ impl PlayState {
             PlayState::Ended => LedState::Off,
         }
     }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Playhead {
+    pub position: Position,
+    pub is_playing: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -101,7 +111,7 @@ impl Default for Tempo {
 pub struct PlaybackParams {
     /// Playback rate
     ///
-    /// A value of 1.0 means normal playback speed. A value of 0.0 means paused.
+    /// A value of 1.0 means normal playback speed. A value of 0.0 means halt.
     ///
     /// If the playback rate is negative, the media will be played backwards.
     ///
@@ -130,9 +140,7 @@ pub struct Player {
     /// Cue
     pub cue: Cue,
 
-    /// Tempo
-    pub tempo: Tempo,
-
+    /// Playback parameters
     pub playback_params: PlaybackParams,
 }
 
@@ -142,7 +150,6 @@ pub struct Player {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct UpdatePlayer {
     pub cue: Option<Cue>,
-    pub tempo: Option<Tempo>,
     pub playback_params: Option<PlaybackParams>,
 }
 
@@ -153,7 +160,8 @@ pub enum Input {
     PlayPause(ButtonInput),
     Sync(ButtonInput),
     Position(SliderInput),
-    Tempo(CenterSliderInput),
+    RelativeTempo(CenterSliderInput),
+    PitchSemitones(Option<i8>),
 }
 
 #[cfg(feature = "observables")]
@@ -164,13 +172,41 @@ pub struct Observables {
     pub player: discro::Publisher<Player>,
 }
 
-pub trait Device {
-    /// Get the playhead position
-    #[must_use]
-    fn playhead(&self) -> Position;
+#[cfg(feature = "observables")]
+impl Observables {
+    pub fn on_playhead_changed(&mut self, playhead_on_cue: bool) {
+        self.playable.modify(|playable| {
+            let Some(playable) = playable.as_mut() else {
+                return false;
+            };
+            match playable.play_state {
+                PlayState::Paused {
+                    playhead_on_cue: paused_on_cue,
+                } => {
+                    if playhead_on_cue != paused_on_cue {
+                        playable.play_state = PlayState::Paused { playhead_on_cue };
+                        return true;
+                    }
+                }
+                PlayState::Ended => {
+                    playable.play_state = PlayState::Paused { playhead_on_cue };
+                    return true;
+                }
+                PlayState::Playing | PlayState::Previewing { .. } => (),
+            }
+            // Unchanged
+            false
+        });
+    }
+}
 
-    /// Set the playhead position
-    fn set_playhead(&mut self, position: Position);
+pub trait Adapter {
+    /// Get the playhead
+    #[must_use]
+    fn playhead(&self) -> Playhead;
+
+    /// Set the playhead
+    fn set_playhead_position(&mut self, position: Position);
 
     /// Update selected [`Player`] fields
     fn update_player(&mut self, update_player: UpdatePlayer);
