@@ -111,8 +111,9 @@ impl Default for Tempo {
 pub struct PlaybackParams {
     /// Playback rate
     ///
-    /// A value of 1.0 means normal playback speed. A value of 0.0 means halt.
+    /// Controls the tempo when the media is playing.
     ///
+    /// A value of 1.0 means normal playback speed. A value of 0.0 means halt.
     /// If the playback rate is negative, the media will be played backwards.
     ///
     /// If the playback rate affects the pitch, depends on `pitch_semitones`.
@@ -122,7 +123,8 @@ pub struct PlaybackParams {
     ///
     /// `None` if disabled, i.e. changing the tempo implicitly changes the pitch.
     ///
-    /// `Some(0)` will preserve the original pitch.
+    /// `Some(0)` will preserve the original pitch independent of the tempo. i.e.
+    /// independent of the playback rate.
     pub pitch_semitones: Option<i8>,
 }
 
@@ -144,7 +146,7 @@ pub struct Player {
     pub playback_params: PlaybackParams,
 }
 
-/// `Player` with all fields optional
+/// [`Player`] with all fields optional
 ///
 /// Fields that are `None` will not be updated.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -201,13 +203,20 @@ impl Observables {
 }
 
 pub trait Adapter {
-    /// Get the playhead
+    /// Read the current playhead
     #[must_use]
-    fn playhead(&self) -> Playhead;
+    fn read_playhead(&self) -> Option<Playhead>;
 
-    /// Set the playhead
+    /// Set the playhead position
+    ///
+    /// The playhead position might not become effective immediately,
+    /// i.e. [`Self::read_playhead()`] could still return the old position
+    /// after returning from this method.
     fn set_playhead_position(&mut self, position: Position);
 
-    /// Update selected [`Player`] fields
-    fn update_player(&mut self, update_player: UpdatePlayer);
+    /// Update selected [`Player`] properties
+    ///
+    /// If `playhead` is `Some`, then this value should be used instead
+    /// of reading the current value.
+    fn update_player(&mut self, playhead: Option<Playhead>, update_player: UpdatePlayer);
 }
