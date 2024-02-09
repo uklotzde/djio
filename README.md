@@ -3,11 +3,11 @@
 
 # djio
 
-[![Crates.io](https://img.shields.io/crates/v/djio.svg)](https://crates.io/crates/djio)
-[![Docs.rs](https://docs.rs/djio/badge.svg)](https://docs.rs/djio)
-[![Deps.rs](https://deps.rs/repo/github/uklotzde/djio/status.svg)](https://deps.rs/repo/github/uklotzde/djio)
-[![Continuous integration](https://github.com/uklotzde/djio/actions/workflows/test.yaml/badge.svg)](https://github.com/uklotzde/djio/actions/workflows/test.yaml)
-[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+[![crates.io](https://img.shields.io/crates/v/djio.svg)](https://crates.io/crates/djio)
+[![Docs](https://docs.rs/djio/badge.svg)](https://docs.rs/djio)
+[![Dependencies](https://deps.rs/repo/github/uklotzde/djio/status.svg)](https://deps.rs/repo/github/uklotzde/djio)
+[![Testing](https://github.com/uklotzde/djio/actions/workflows/test.yaml/badge.svg)](https://github.com/uklotzde/djio/actions/workflows/test.yaml)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-blue.svg)](https://opensource.org/licenses/MPL-2.0)
 
 Application-independent interfaces for accessing hardware DJ controllers through MIDI or HID.
 
