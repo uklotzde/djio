@@ -150,6 +150,12 @@ impl PortIndexGenerator {
     }
 }
 
+impl Default for PortIndexGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Index for addressing either or both device inputs and outputs
 /// in a generic manner.
 ///

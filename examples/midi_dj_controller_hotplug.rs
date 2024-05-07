@@ -185,7 +185,7 @@ where
 }
 
 #[derive(Debug, Clone)]
-struct LoggingInputPortEventSink {
+pub struct LoggingInputPortEventSink {
     port_index: PortIndex,
 }
 

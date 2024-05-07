@@ -11,8 +11,9 @@ pub const PLAYBACK_RATE_DEFAULT: f32 = 1.0;
 
 pub const PLAYBACK_RATE_PAUSED: f32 = 0.0;
 
-/// +/- 8%
-pub const TEMPO_RANGE_DEFAULT: f32 = 0.08;
+pub const TEMPO_RANGE_MAX_DEFAULT: f32 = 0.08; // +8%
+
+pub const TEMPO_RANGE_MIN_DEFAULT: f32 = -TEMPO_RANGE_MAX_DEFAULT; // symmetric
 
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct Position {
@@ -83,24 +84,30 @@ pub struct Playable {
     pub duration: Option<Duration>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Tempo {
-    pub range: f32,
-    pub input: CenterSliderInput,
+#[derive(Debug, Clone, PartialEq)]
+pub struct TempoInput {
+    pub range_min: f32,
+    pub range_max: f32,
+    pub center_slider: CenterSliderInput,
 }
 
-impl Tempo {
+impl TempoInput {
     #[must_use]
-    pub fn playback_rate(self) -> f32 {
-        PLAYBACK_RATE_DEFAULT + self.input.map_position_linear(-self.range, 0.0, self.range)
+    pub fn playback_rate(&self) -> f32 {
+        let range_center = (self.range_min + self.range_max) / 2.0;
+        PLAYBACK_RATE_DEFAULT
+            + self
+                .center_slider
+                .map_position_linear(self.range_min, range_center, self.range_max)
     }
 }
 
-impl Default for Tempo {
+impl Default for TempoInput {
     fn default() -> Self {
         Self {
-            range: TEMPO_RANGE_DEFAULT,
-            input: CenterSliderInput {
+            range_min: TEMPO_RANGE_MIN_DEFAULT,
+            range_max: TEMPO_RANGE_MAX_DEFAULT,
+            center_slider: CenterSliderInput {
                 position: CenterSliderInput::CENTER_POSITION,
             },
         }
