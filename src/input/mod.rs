@@ -125,7 +125,7 @@ impl SliderInput {
 
     #[must_use]
     pub fn clamp_position(position: f32) -> f32 {
-        position.max(Self::MIN_POSITION).min(Self::MAX_POSITION)
+        position.clamp(Self::MIN_POSITION, Self::MAX_POSITION)
     }
 
     #[must_use]
@@ -211,7 +211,7 @@ impl CenterSliderInput {
 
     #[must_use]
     pub fn clamp_position(position: f32) -> f32 {
-        position.max(Self::MIN_POSITION).min(Self::MAX_POSITION)
+        position.clamp(Self::MIN_POSITION, Self::MAX_POSITION)
     }
 
     #[must_use]
