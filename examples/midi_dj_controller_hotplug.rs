@@ -186,7 +186,7 @@ where
 
 #[derive(Debug, Clone)]
 pub struct LoggingInputPortEventSink {
-    port_index: PortIndex,
+    pub port_index: PortIndex,
 }
 
 impl ControlInputEventSink for LoggingInputPortEventSink {
