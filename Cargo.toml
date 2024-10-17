@@ -10,7 +10,7 @@ readme = "README.md"
 repository = "https://github.com/uklotzde/djio"
 keywords = ["dj", "controller", "midi", "hid"]
 categories = ["hardware-support"]
-rust-version = "1.80"
+rust-version = "1.82"
 edition = "2021"
 include = ["README.md", "LICENSES", "src/"]
 
@@ -27,9 +27,6 @@ futures-core = { version = "0.3.31", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = [
     "std",
 ] }
-# TODO: Replace with std when available.
-# Tracking issue for RFC 2351: <https://github.com/rust-lang/rust/issues/53485>
-is_sorted = "0.1.1"
 log = "0.4.22"
 strum = { version = "0.26.3", features = ["derive"] }
 thiserror = "1.0.64"

@@ -11,7 +11,6 @@ use std::{
 };
 
 use float_cmp::approx_eq;
-use is_sorted::IsSorted as _;
 use strum::FromRepr;
 
 use crate::{Control, ControlValue, TimeStamp};
