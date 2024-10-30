@@ -13,13 +13,7 @@ notice = "warn"
 default = "deny"
 unlicensed = "deny"
 copyleft = "warn"
-allow = [
-    "Apache-2.0",
-    "ISC",
-    "MIT",
-    "MPL-2.0",
-    "Unicode-DFS-2016",
-]
+allow = ["Apache-2.0", "ISC", "MIT", "MPL-2.0", "Unicode-DFS-2016"]
 
 [bans]
 multiple-versions = "warn"
