@@ -29,8 +29,7 @@ pub use self::ramping::{RampingF32, RampingMode, RampingProfile};
 
 mod registry;
 pub use self::registry::{
-    DescriptorRegistration, RegisterError, RegisteredDescriptor, RegisteredId, Registration,
-    RegistrationHeader, RegistrationStatus, Registry,
+    RegisteredId, Registration, RegistrationError, RegistrationStatus, Registry, RegistryEntry,
 };
 
 /// Direction

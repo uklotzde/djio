@@ -75,7 +75,7 @@ impl AddressToIdMap {
 }
 
 #[derive(Debug)]
-enum RegistryEntry {
+pub enum RegistryEntry {
     Pending {
         address: Address,
     },
@@ -87,48 +87,26 @@ enum RegistryEntry {
 }
 
 impl RegistryEntry {
-    const fn address(&self) -> &Address {
+    #[must_use]
+    pub const fn address(&self) -> &Address {
         match self {
             Self::Pending { address } | Self::Ready { address, .. } => address,
-        }
-    }
-
-    const fn registration(&self, status: RegistrationStatus, id: RegisteredId) -> Registration<'_> {
-        match self {
-            Self::Pending { address } => Registration {
-                header: RegistrationHeader {
-                    status,
-                    id,
-                    address,
-                },
-                descriptor: None,
-            },
-            Self::Ready {
-                address,
-                descriptor,
-                output_value,
-            } => Registration {
-                header: RegistrationHeader {
-                    status,
-                    id,
-                    address,
-                },
-                descriptor: Some(RegisteredDescriptor {
-                    descriptor,
-                    output_value: output_value.as_ref(),
-                }),
-            },
         }
     }
 }
 
 #[derive(Debug, Display, Error)]
-pub enum RegisterError {
+pub enum RegistrationError {
     /// The address is already in use and the descriptors differ.
     ///
     /// Could only occur when registering a provider.
+    ///
+    /// The address and the conflicting descriptor are returned to the caller.
     #[display("address occupied")]
-    AddressOccupied,
+    AddressOccupied {
+        address: Address,
+        descriptor: Descriptor,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,54 +115,27 @@ pub enum RegistrationStatus {
     AlreadyRegistered,
 }
 
+/// Registration with optional descriptor
+#[derive(Debug)]
+pub struct Registration<'a> {
+    pub status: RegistrationStatus,
+    pub id: RegisteredId,
+    pub entry: &'a RegistryEntry,
+}
+
 // Intermediate, internal type with borrowed contents
 #[derive(Debug)]
-struct RegisteredEntry<'a> {
+struct RegistrationMut<'a> {
     status: RegistrationStatus,
     id: RegisteredId,
     entry: &'a mut RegistryEntry,
 }
 
-/// Common properties of registrations
-///
-/// Contents borrowed from [`Registry`] entries.
-#[derive(Debug)]
-pub struct RegistrationHeader<'a> {
-    pub status: RegistrationStatus,
-    pub id: RegisteredId,
-    pub address: &'a Address,
-}
-
-/// Registration properties that require a descriptor
-///
-/// Contents borrowed from [`Registry`] entries.
-#[derive(Debug)]
-pub struct RegisteredDescriptor<'a> {
-    pub descriptor: &'a Descriptor,
-
-    /// Observable output value
-    ///
-    /// Should only be written by a single owner who once registered
-    /// the corresponding descriptor with [`Registry::register_descriptor()`].
-    ///
-    /// Readers can observe the shared value by registering for the same
-    /// address with [`Registry::register_address()`] after the descriptor
-    /// has been registered.
-    pub output_value: Option<&'a SharedAtomicValue>,
-}
-
-/// Registration with mandatory descriptor
-#[derive(Debug)]
-pub struct DescriptorRegistration<'a> {
-    pub header: RegistrationHeader<'a>,
-    pub descriptor: RegisteredDescriptor<'a>,
-}
-
-/// Registration with optional descriptor
-#[derive(Debug)]
-pub struct Registration<'a> {
-    pub header: RegistrationHeader<'a>,
-    pub descriptor: Option<RegisteredDescriptor<'a>>,
+impl<'a> From<RegistrationMut<'a>> for Registration<'a> {
+    fn from(from: RegistrationMut<'a>) -> Self {
+        let RegistrationMut { status, id, entry } = from;
+        Self { status, id, entry }
+    }
 }
 
 /// Parameter registry
@@ -207,7 +158,7 @@ impl Registry {
         self.address_to_id.iter()
     }
 
-    fn register(&mut self, address: Address) -> RegisteredEntry<'_> {
+    fn register(&mut self, address: Address) -> RegistrationMut<'_> {
         debug_assert_eq!(self.address_to_id.len(), self.entries.len());
         let (address, id) = self.address_to_id.get_or_add(address);
         let entry_id = registry_entry_id(id);
@@ -216,7 +167,7 @@ impl Registry {
             debug_assert_eq!(self.address_to_id.len(), self.entries.len());
             #[expect(unsafe_code)]
             let entry = unsafe { self.entries.get_unchecked_mut(registry_entry_id(id)) };
-            RegisteredEntry {
+            RegistrationMut {
                 status: RegistrationStatus::AlreadyRegistered,
                 id,
                 entry,
@@ -231,7 +182,7 @@ impl Registry {
                 .last_mut()
                 // Safe unwrap after push
                 .expect("entry exists");
-            RegisteredEntry {
+            RegistrationMut {
                 status: RegistrationStatus::NewlyRegistered,
                 id,
                 entry,
@@ -242,7 +193,7 @@ impl Registry {
     /// Register the parameter descriptor for an address.
     ///
     /// Re-registering the same parameter twice registers only a single parameter
-    /// if the descriptors match. If the descriptors do not match, a [`RegisterError`]
+    /// if the descriptors match. If the descriptors do not match, a [`RegistrationError`]
     /// is returned.
     ///
     /// For output parameters registering a descriptor adds a shared, atomic
@@ -255,8 +206,8 @@ impl Registry {
         &mut self,
         address: Address,
         descriptor: Descriptor,
-    ) -> Result<DescriptorRegistration<'_>, RegisterError> {
-        let RegisteredEntry { status, id, entry } = self.register(address);
+    ) -> Result<Registration<'_>, RegistrationError> {
+        let RegistrationMut { status, id, entry } = self.register(address);
         match entry {
             RegistryEntry::Pending { address } => {
                 log::debug!("Registering descriptor @ {address}: {descriptor:?}");
@@ -272,46 +223,21 @@ impl Registry {
                     descriptor,
                     output_value,
                 };
-                let RegistryEntry::Ready {
-                    address,
-                    descriptor,
-                    output_value,
-                } = entry
-                else {
-                    unreachable!("just updated");
-                };
-                Ok(DescriptorRegistration {
-                    header: RegistrationHeader {
-                        status,
-                        id,
-                        address,
-                    },
-                    descriptor: RegisteredDescriptor {
-                        descriptor,
-                        output_value: output_value.as_ref(),
-                    },
-                })
+                Ok(Registration { status, id, entry })
             }
             RegistryEntry::Ready {
                 address,
                 descriptor: registered_descriptor,
-                output_value: registered_output_value,
+                output_value: _,
             } => {
-                if registered_descriptor != &descriptor {
-                    return Err(RegisterError::AddressOccupied);
+                log::debug!("Descriptor already registered @ {address}: {registered_descriptor:?}");
+                if descriptor != *registered_descriptor {
+                    return Err(RegistrationError::AddressOccupied {
+                        address: address.clone(),
+                        descriptor,
+                    });
                 }
-                log::debug!("Descriptor already registered @ {address}: {descriptor:?}");
-                Ok(DescriptorRegistration {
-                    header: RegistrationHeader {
-                        status,
-                        id,
-                        address,
-                    },
-                    descriptor: RegisteredDescriptor {
-                        descriptor: registered_descriptor,
-                        output_value: registered_output_value.as_ref(),
-                    },
-                })
+                Ok(Registration { status, id, entry })
             }
         }
     }
@@ -321,48 +247,19 @@ impl Registry {
     /// Addresses can be registered at any time, even before the corresponding descriptor
     /// is registered. The descriptor will not be available until it has been registered.
     pub fn register_address(&mut self, address: Address) -> Registration<'_> {
-        let RegisteredEntry { status, id, entry } = self.register(address);
-        entry.registration(status, id)
+        self.register(address).into()
     }
 
-    /// Get the metadata of a parameter by id.
+    /// Find the [`RegisteredId`] for the given address.
     #[must_use]
-    pub fn get_registered(&self, id: RegisteredId) -> Option<Registration<'_>> {
-        self.entries
-            .get(registry_entry_id(id))
-            .map(|entry| entry.registration(RegistrationStatus::AlreadyRegistered, id))
+    pub fn resolve_address(&self, address: &Address) -> Option<RegisteredId> {
+        self.address_to_id.get(address)
     }
 
-    /// Find the metadata of a parameter by address.
+    /// Get the entry of a parameter by id.
     #[must_use]
-    pub fn find_registered<'a>(
-        &'a self,
-        address: &Address,
-    ) -> Option<(RegisteredId, Option<RegisteredDescriptor<'a>>)> {
-        self.address_to_id
-            .get(address)
-            .and_then(|id| {
-                self.entries
-                    .get(registry_entry_id(id))
-                    .map(|entry| (id, entry))
-            })
-            .map(|(id, entry)| {
-                debug_assert_eq!(entry.address(), address);
-                match entry {
-                    RegistryEntry::Pending { address: _ } => (id, None),
-                    RegistryEntry::Ready {
-                        address: _,
-                        descriptor,
-                        output_value,
-                    } => (
-                        id,
-                        Some(RegisteredDescriptor {
-                            descriptor,
-                            output_value: output_value.as_ref(),
-                        }),
-                    ),
-                }
-            })
+    pub fn get_entry(&self, id: RegisteredId) -> Option<&RegistryEntry> {
+        self.entries.get(registry_entry_id(id))
     }
 }
 
