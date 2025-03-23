@@ -2,17 +2,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    io::{stdin, stdout, Write as _},
+    io::{Write as _, stdin, stdout},
     time::Duration,
 };
 
 use djio::{
-    consume_midi_input_event,
-    devices::{korg_kaoss_dj, pioneer_ddj_400, MIDI_DJ_CONTROLLER_DESCRIPTORS},
     BoxedMidiOutputConnection, ControlInputEventSink, MidiDeviceDescriptor, MidiInputConnector,
     MidiInputEventDecoder, MidiInputGateway, MidiInputHandler, MidiOutputGateway,
     MidiPortDescriptor, MidirDevice, MidirDeviceManager, OutputResult, PortIndex,
-    PortIndexGenerator, TimeStamp,
+    PortIndexGenerator, TimeStamp, consume_midi_input_event,
+    devices::{MIDI_DJ_CONTROLLER_DESCRIPTORS, korg_kaoss_dj, pioneer_ddj_400},
 };
 
 #[derive(Debug, Clone, Default)]
@@ -199,7 +198,6 @@ impl ControlInputEventSink for LoggingInputPortEventSink {
     }
 }
 
-#[allow(clippy::needless_pass_by_value)]
 fn reconnect_midi_controller<I>(
     device: &mut MidirDevice<I::MidiInputGateway>,
     new_input_gateway: Option<&I>,

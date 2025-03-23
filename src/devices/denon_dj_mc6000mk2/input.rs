@@ -5,12 +5,13 @@ use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{Deck, Side};
 use crate::{
+    ButtonInput, CenterSliderInput, ControlValue, MidiInputDecodeError, SliderEncoderInput,
+    SliderInput, StepEncoderInput,
     devices::denon_dj_mc6000mk2::{
         MIDI_CMD_CC, MIDI_CMD_NOTE_OFF, MIDI_CMD_NOTE_ON, MIDI_DECK_CUE_BUTTON,
         MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SYNC_BUTTON,
     },
-    u7_be_to_u14, ButtonInput, CenterSliderInput, ControlValue, MidiInputDecodeError,
-    SliderEncoderInput, SliderInput, StepEncoderInput,
+    u7_be_to_u14,
 };
 
 fn midi_status_to_deck_cmd(status: u8) -> (Deck, u8) {
@@ -87,7 +88,6 @@ impl From<MainSensor> for Sensor {
     }
 }
 
-#[allow(clippy::too_many_lines)]
 pub fn try_decode_midi_input(
     input: &[u8],
 ) -> Result<Option<(Sensor, ControlValue)>, MidiInputDecodeError> {

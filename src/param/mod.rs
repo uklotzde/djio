@@ -14,16 +14,18 @@
 //! be sent to the real-time kernel when changed. Values of output parameters must
 //! be polled periodically for updating the corresponding hardware outputs.
 
-use std::{borrow::Cow, cmp::Ordering};
+use std::cmp::Ordering;
 
+use derive_more::{Deref, DerefMut, Display, From};
 use enum_as_inner::EnumAsInner;
+use smol_str::SmolStr;
 use strum::EnumDiscriminants;
 
 mod atomic;
 pub use self::atomic::{AtomicValue, SharedAtomicValue, WeakAtomicValue};
 
 mod ramping;
-pub use ramping::{RampingF32, RampingMode, RampingProfile};
+pub use self::ramping::{RampingF32, RampingMode, RampingProfile};
 
 mod registry;
 pub use self::registry::{
@@ -65,9 +67,7 @@ pub enum Direction {
 ///
 /// Restricted to 32-bit types for portability. All values
 /// need to be stored atomically.
-#[derive(
-    Debug, Clone, Copy, PartialEq, PartialOrd, EnumAsInner, EnumDiscriminants, derive_more::From,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, EnumAsInner, EnumDiscriminants, From)]
 #[strum_discriminants(name(ValueType))]
 pub enum Value {
     /// Boolean value
@@ -81,105 +81,58 @@ pub enum Value {
 }
 
 /// Human-readable name
-#[derive(
-    Debug,
-    Clone,
-    Eq,
-    PartialEq,
-    derive_more::From,
-    derive_more::Display,
-    derive_more::Deref,
-    derive_more::DerefMut,
-)]
-pub struct Name<'a>(Cow<'a, str>);
+#[derive(Debug, Clone, Eq, PartialEq, From, Display, Deref, DerefMut)]
+pub struct Name(SmolStr);
 
-impl<'a> Name<'a> {
+impl Name {
     #[must_use]
-    pub const fn new(inner: Cow<'a, str>) -> Self {
+    pub const fn new(inner: SmolStr) -> Self {
         Self(inner)
-    }
-
-    #[must_use]
-    pub fn into_owned(self) -> Name<'static> {
-        let Self(inner) = self;
-        Name::new(inner.into_owned().into())
     }
 }
 
-impl<'a> From<Name<'a>> for Cow<'a, str> {
-    fn from(from: Name<'a>) -> Self {
+impl From<Name> for SmolStr {
+    fn from(from: Name) -> Self {
         let Name(inner) = from;
         inner
     }
 }
 
 /// Human-readable unit label
-#[derive(
-    Debug,
-    Clone,
-    Eq,
-    PartialEq,
-    derive_more::From,
-    derive_more::Display,
-    derive_more::Deref,
-    derive_more::DerefMut,
-)]
-pub struct Unit<'a>(Cow<'a, str>);
+#[derive(Debug, Clone, Eq, PartialEq, From, Display, Deref, DerefMut)]
+pub struct Unit(SmolStr);
 
-impl<'a> Unit<'a> {
+impl Unit {
     #[must_use]
-    pub const fn new(inner: Cow<'a, str>) -> Self {
+    pub const fn new(inner: SmolStr) -> Self {
         Self(inner)
-    }
-
-    #[must_use]
-    pub fn into_owned(self) -> Unit<'static> {
-        let Self(inner) = self;
-        Unit::new(inner.into_owned().into())
     }
 }
 
-impl<'a> From<Unit<'a>> for Cow<'a, str> {
-    fn from(from: Unit<'a>) -> Self {
+impl From<Unit> for SmolStr {
+    fn from(from: Unit) -> Self {
         let Unit(inner) = from;
         inner
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Descriptor<'a> {
+pub struct Descriptor {
     /// Display name.
     ///
     /// Mandatory, but could be left empty if no innate name is available.
-    pub name: Name<'a>,
+    pub name: Name,
 
     /// Display unit.
     ///
     /// Unit of the value.
-    pub unit: Option<Unit<'a>>,
+    pub unit: Option<Unit>,
 
     /// The direction.
     pub direction: Direction,
 
     /// Value metadata.
     pub value: ValueDescriptor,
-}
-
-impl<'a> Descriptor<'a> {
-    pub fn into_owned(self) -> Descriptor<'static> {
-        let Self {
-            name,
-            unit,
-            direction,
-            value,
-        } = self;
-        Descriptor {
-            name: name.into_owned(),
-            unit: unit.map(Unit::into_owned),
-            direction,
-            value,
-        }
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -243,34 +196,18 @@ impl ValueRangeDescriptor {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    derive_more::From,
-    derive_more::Display,
-    derive_more::Deref,
-    derive_more::DerefMut,
-)]
-pub struct Address<'a>(Cow<'a, str>);
+#[derive(Debug, Clone, Eq, PartialEq, Hash, From, Display, Deref, DerefMut)]
+pub struct Address(SmolStr);
 
-impl<'a> Address<'a> {
+impl Address {
     #[must_use]
-    pub const fn new(inner: Cow<'a, str>) -> Self {
+    pub const fn new(inner: SmolStr) -> Self {
         Self(inner)
-    }
-
-    #[must_use]
-    pub fn into_owned(self) -> Address<'static> {
-        let Self(inner) = self;
-        Address::new(inner.into_owned().into())
     }
 }
 
-impl<'a> From<Address<'a>> for Cow<'a, str> {
-    fn from(from: Address<'a>) -> Self {
+impl From<Address> for SmolStr {
+    fn from(from: Address) -> Self {
         let Address(inner) = from;
         inner
     }

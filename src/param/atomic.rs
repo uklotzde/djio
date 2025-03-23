@@ -3,8 +3,8 @@
 
 //! Atomic parameter values
 use std::sync::{
-    atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering},
     Arc, Weak,
+    atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering},
 };
 
 use crossbeam_utils::atomic::AtomicConsume;
@@ -21,7 +21,7 @@ pub struct AtomicF32 {
 
 impl AtomicF32 {
     #[must_use]
-    pub fn new(value: f32) -> Self {
+    pub const fn new(value: f32) -> Self {
         let bits = value.to_bits();
         Self {
             bits: AtomicU32::new(bits),

@@ -21,7 +21,7 @@ pub enum State {
 ///
 /// Supposed to be consumed by a single receiver that could then
 /// selectively dispatch them as needed to a broader audience.
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub enum Event<'e> {
     StateChanged(State),
     ReportRead {
@@ -107,7 +107,7 @@ pub trait EventHandler {
     fn handle_event(&mut self, event: Event<'_>);
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct HidThread<C: CommandReceiver + EventHandler> {
     join_handle: JoinHandle<Environment<C>>,
 }
@@ -171,7 +171,7 @@ fn handle_command(device: &mut HidDevice, command: Command) -> Option<Event<'_>>
         } => {
             debug_assert!(buf_len > 0);
             debug_assert!(buf_len <= buf.len());
-            let expired = deadline.map_or(false, |deadline| deadline > Instant::now());
+            let expired = deadline.is_some_and(|deadline| deadline > Instant::now());
             if expired {
                 debug_assert!(deadline.is_some());
                 Some(Event::ReportWriteExpired {
@@ -193,15 +193,14 @@ fn handle_command(device: &mut HidDevice, command: Command) -> Option<Event<'_>>
     }
 }
 
-#[allow(unsafe_code)]
-#[allow(clippy::too_many_lines)] // TODO: Extract functions
+#[expect(unsafe_code)]
 fn thread_fn<C: CommandReceiver + EventHandler>(environment: &mut Environment<C>) {
     let Environment {
         connected_device: device,
         context,
     } = environment;
     // Double-buffering for deduplication of subsequent incoming reports
-    let mut read_slots = [ReadSlot::new(), ReadSlot::new()];
+    let mut read_slots = vec![ReadSlot::new(), ReadSlot::new()];
     let mut last_read_slot_index = 0;
     let mut last_read_cycle_started = Instant::now();
     while let Ok(command) = context.try_recv_command() {
@@ -242,7 +241,7 @@ fn thread_fn<C: CommandReceiver + EventHandler>(environment: &mut Environment<C>
         let mut next_read_timeout = if FIRST_READ_TIMEOUT > elapsed_since_last_read_cycle {
             let next_read_timeout = FIRST_READ_TIMEOUT - elapsed_since_last_read_cycle;
             // Truncate to milliseconds as expected by hidapi
-            #[allow(clippy::cast_possible_truncation)]
+            #[expect(clippy::cast_possible_truncation)]
             if next_read_timeout < MIN_READ_TIMEOUT {
                 // Ensure that the first timeout is not 0
                 MIN_READ_TIMEOUT
@@ -309,7 +308,7 @@ fn thread_fn<C: CommandReceiver + EventHandler>(environment: &mut Environment<C>
     context.handle_event(Event::StateChanged(State::Terminating));
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct Environment<C> {
     pub connected_device: HidDevice,
 
@@ -344,12 +343,12 @@ where
     }
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct TerminatedThread<C> {
     pub context: Environment<C>,
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub enum JoinedThread<C> {
     Terminated(TerminatedThread<C>),
     JoinError(Box<dyn Any + Send + 'static>),

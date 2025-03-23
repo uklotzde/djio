@@ -4,11 +4,11 @@
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
-    Deck, CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, CONTROL_INDEX_DECK_BIT_MASK,
-    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_CHANNEL_DECK_A, MIDI_CHANNEL_DECK_B, MIDI_DECK_CUE_BUTTON,
-    MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_GAIN_KNOB,
-    MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SHIFT_BUTTON,
-    MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
+    CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, CONTROL_INDEX_DECK_BIT_MASK,
+    CONTROL_INDEX_ENUM_BIT_MASK, Deck, MIDI_CHANNEL_DECK_A, MIDI_CHANNEL_DECK_B,
+    MIDI_DECK_CUE_BUTTON, MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB,
+    MIDI_DECK_GAIN_KNOB, MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON,
+    MIDI_DECK_SHIFT_BUTTON, MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_HOTCUE_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_HOTCUE_RIGHT_BUTTON, MIDI_DECK_TOUCHSTRIP_LEFT_BUTTON,
     MIDI_DECK_TOUCHSTRIP_LOOP_CENTER_BUTTON, MIDI_DECK_TOUCHSTRIP_LOOP_LEFT_BUTTON,
@@ -159,7 +159,7 @@ fn midi_status_to_deck(status: u8) -> Deck {
     }
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 pub fn try_decode_midi_input(
     input: &[u8],
 ) -> Result<Option<(Sensor, ControlValue)>, MidiInputDecodeError> {
@@ -181,7 +181,11 @@ pub fn try_decode_midi_input(
             };
             (sensor.into(), input.into())
         }
-        [status @ (MIDI_STATUS_BUTTON_DECK_A | MIDI_STATUS_BUTTON_DECK_B), data1, data2] => {
+        [
+            status @ (MIDI_STATUS_BUTTON_DECK_A | MIDI_STATUS_BUTTON_DECK_B),
+            data1,
+            data2,
+        ] => {
             let input = u7_to_button(data2);
             let deck = midi_status_to_deck(status);
             let sensor = match data1 {
@@ -218,7 +222,11 @@ pub fn try_decode_midi_input(
             // see the comments in next match expression.
             return Ok(None);
         }
-        [status @ (MIDI_STATUS_CC_MAIN | MIDI_STATUS_CC_DECK_A), 0x0c, data2] => {
+        [
+            status @ (MIDI_STATUS_CC_MAIN | MIDI_STATUS_CC_DECK_A),
+            0x0c,
+            data2,
+        ] => {
             // The X/Y coordinates of the touch pad are always sent twice for
             // unknown reasons. According to the documentation they should
             // be sent on the main channel instead of on both deck channels.
@@ -227,7 +235,11 @@ pub fn try_decode_midi_input(
             let input = SliderInput::from_u7(data2);
             (MainSensor::TouchPadXSlider.into(), input.into())
         }
-        [status @ (MIDI_STATUS_CC_MAIN | MIDI_STATUS_CC_DECK_A), 0x0d, data2] => {
+        [
+            status @ (MIDI_STATUS_CC_MAIN | MIDI_STATUS_CC_DECK_A),
+            0x0d,
+            data2,
+        ] => {
             // The X/Y coordinates of the touch pad are always sent twice for
             // unknown reasons. According to the documentation they should
             // be sent on the main channel instead of on both deck channels.
@@ -265,7 +277,11 @@ pub fn try_decode_midi_input(
                 return Err(MidiInputDecodeError);
             }
         },
-        [status @ (MIDI_STATUS_CC_DECK_A | MIDI_STATUS_CC_DECK_B), data1, data2] => {
+        [
+            status @ (MIDI_STATUS_CC_DECK_A | MIDI_STATUS_CC_DECK_B),
+            data1,
+            data2,
+        ] => {
             let deck = midi_status_to_deck(status);
             let (sensor, value) = match data1 {
                 0x0e => (

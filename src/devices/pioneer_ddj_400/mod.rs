@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::borrow::Cow;
-
+use smol_str::SmolStr;
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use crate::{
@@ -14,7 +13,7 @@ pub use self::input::{DeckSensor, EffectSensor, MainSensor, MidiInputEventDecode
 
 pub mod output;
 pub use self::output::{
-    led_output_into_midi_message, DeckLed, InvalidOutputControlIndex, Led, MainLed, OutputGateway,
+    DeckLed, InvalidOutputControlIndex, Led, MainLed, OutputGateway, led_output_into_midi_message,
 };
 
 pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
@@ -24,8 +23,8 @@ pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceD
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
-        vendor_name: Cow::Borrowed("Pioneer"),
-        product_name: Cow::Borrowed("DDJ-400"),
+        vendor_name: SmolStr::new_static("Pioneer"),
+        product_name: SmolStr::new_static("DDJ-400"),
         audio_interface: Some(AUDIO_INTERFACE_DESCRIPTOR),
     },
     port_name_prefix: "DDJ-400",

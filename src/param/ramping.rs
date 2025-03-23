@@ -42,7 +42,7 @@ pub struct RampingF32 {
 // ~43.7 sec at 192 kHz
 const MAX_LOSSLESS_STEPS_F32: usize = (1usize << 23) - 1; // f32 has a 23-bit mantissa
 
-#[allow(clippy::cast_precision_loss)]
+#[expect(clippy::cast_precision_loss)]
 #[inline]
 fn steps_as_f32(steps: usize) -> f32 {
     // Comment out this debug assertion if precision loss might

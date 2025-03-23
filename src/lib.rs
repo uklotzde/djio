@@ -5,11 +5,12 @@
 #![doc = include_str!("../README.md")]
 
 use std::{
-    borrow::Cow,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
     time::Duration,
 };
+
+use smol_str::{SmolStr, format_smolstr};
 
 mod controller;
 #[cfg(all(feature = "midi", feature = "controller-thread"))]
@@ -26,11 +27,11 @@ pub mod devices;
 
 mod input;
 pub use self::input::{
+    ButtonInput, CenterSliderInput, ControlInputEvent, ControlInputEventSink, CrossfaderCurve,
+    InputEvent, PadButtonInput, SelectorInput, SliderEncoderInput, SliderInput, StepEncoderInput,
     input_events_ordered_chronologically, split_crossfader_input_amplitude_preserving_approx,
     split_crossfader_input_energy_preserving_approx, split_crossfader_input_linear,
-    split_crossfader_input_square, ButtonInput, CenterSliderInput, ControlInputEvent,
-    ControlInputEventSink, CrossfaderCurve, InputEvent, PadButtonInput, SelectorInput,
-    SliderEncoderInput, SliderInput, StepEncoderInput,
+    split_crossfader_input_square,
 };
 
 mod output;
@@ -39,9 +40,9 @@ pub use self::output::blinking_led_task;
 #[cfg(feature = "blinking-led-task-tokio-rt")]
 pub use self::output::spawn_blinking_led_task;
 pub use self::output::{
-    BlinkingLedOutput, BlinkingLedTicker, ControlOutputGateway, DimLedOutput, LedOutput, LedState,
-    OutputError, OutputResult, RgbLedOutput, SendOutputsError, VirtualLed,
-    DEFAULT_BLINKING_LED_PERIOD,
+    BlinkingLedOutput, BlinkingLedTicker, ControlOutputGateway, DEFAULT_BLINKING_LED_PERIOD,
+    DimLedOutput, LedOutput, LedState, OutputError, OutputResult, RgbLedOutput, SendOutputsError,
+    VirtualLed,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,15 +54,15 @@ pub struct AudioInterfaceDescriptor {
 /// Common, information properties about a device.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DeviceDescriptor {
-    pub vendor_name: Cow<'static, str>,
-    pub product_name: Cow<'static, str>,
+    pub vendor_name: SmolStr,
+    pub product_name: SmolStr,
     pub audio_interface: Option<AudioInterfaceDescriptor>,
 }
 
 impl DeviceDescriptor {
     /// The qualified device name including both vendor and model name.
     #[must_use]
-    pub fn name(&self) -> Cow<'static, str> {
+    pub fn name(&self) -> SmolStr {
         let Self {
             vendor_name,
             product_name,
@@ -71,7 +72,7 @@ impl DeviceDescriptor {
         if vendor_name.is_empty() {
             product_name.clone()
         } else {
-            format!("{vendor_name} {product_name}").into()
+            format_smolstr!("{vendor_name} {product_name}")
         }
     }
 }
@@ -250,12 +251,11 @@ impl fmt::Display for TimeStamp {
 pub fn u7_be_to_u14(hi: u8, lo: u8) -> u16 {
     debug_assert_eq!(hi, hi & 0x7f);
     debug_assert_eq!(lo, lo & 0x7f);
-    u16::from(hi) << 7 | u16::from(lo)
+    (u16::from(hi) << 7) | u16::from(lo)
 }
 
 #[cfg(all(feature = "hid", not(target_family = "wasm")))]
 pub mod hid;
-
 #[cfg(all(feature = "hid", not(target_family = "wasm")))]
 pub use self::hid::{
     HidApi, HidDevice, HidDeviceError, HidError, HidResult, HidThread, HidUsagePage,
@@ -263,23 +263,22 @@ pub use self::hid::{
 
 #[cfg(feature = "midi")]
 mod midi;
-
 #[cfg(feature = "midir")]
 pub use self::midi::midir::{
     MidiPortError, MidirDevice, MidirDeviceManager, MidirInputPort, MidirOutputPort,
 };
 #[cfg(feature = "midi")]
 pub use self::midi::{
-    consume_midi_input_event, BoxedMidiOutputConnection, MidiControlOutputGateway,
-    MidiDeviceDescriptor, MidiInputConnector, MidiInputDecodeError, MidiInputEventDecoder,
-    MidiInputGateway, MidiInputHandler, MidiOutputConnection, MidiOutputGateway,
-    MidiPortDescriptor, NewMidiInputGateway,
+    BoxedMidiOutputConnection, MidiControlOutputGateway, MidiDeviceDescriptor, MidiInputConnector,
+    MidiInputDecodeError, MidiInputEventDecoder, MidiInputGateway, MidiInputHandler,
+    MidiOutputConnection, MidiOutputGateway, MidiPortDescriptor, NewMidiInputGateway,
+    consume_midi_input_event,
 };
 
 pub mod deck;
 #[cfg(feature = "observables")]
-pub use deck::Observables as DeckObservables;
-pub use deck::{Adapter as DeckAdapter, Input as DeckInput};
+pub use self::deck::Observables as DeckObservables;
+pub use self::deck::{Adapter as DeckAdapter, Input as DeckInput};
 
 #[cfg(feature = "experimental-param")]
 pub mod param;

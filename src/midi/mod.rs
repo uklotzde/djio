@@ -1,10 +1,9 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{
-    borrow::Cow,
-    ops::{Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
+
+use smol_str::SmolStr;
 
 use crate::{
     ControlInputEvent, ControlInputEventSink, ControlOutputGateway, DeviceDescriptor, OutputResult,
@@ -26,7 +25,7 @@ pub struct MidiDeviceDescriptor {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MidiPortDescriptor {
     pub index: PortIndex,
-    pub name: Cow<'static, str>,
+    pub name: SmolStr,
 }
 
 pub trait MidiInputConnector {

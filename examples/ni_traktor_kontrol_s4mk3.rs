@@ -3,7 +3,7 @@
 
 use std::ops::Not as _;
 
-use djio::{devices::ni_traktor_kontrol_s4mk3, HidApi, HidUsagePage};
+use djio::{HidApi, HidUsagePage, devices::ni_traktor_kontrol_s4mk3};
 
 fn main() {
     pretty_env_logger::init();

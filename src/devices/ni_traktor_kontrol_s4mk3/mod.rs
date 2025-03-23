@@ -2,14 +2,16 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    borrow::Cow,
     sync::mpsc,
     time::{Duration, Instant},
 };
 
 use hidapi::DeviceInfo;
+use smol_str::SmolStr;
 
 use crate::{
+    AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, HidDevice, HidDeviceError,
+    HidResult, HidThread,
     hid::{
         report::BufferRecycler,
         thread::{
@@ -17,8 +19,6 @@ use crate::{
             JoinedThread, ReceiveCommandResult,
         },
     },
-    AudioInterfaceDescriptor, ControllerDescriptor, DeviceDescriptor, HidDevice, HidDeviceError,
-    HidResult, HidThread,
 };
 
 pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
@@ -27,8 +27,8 @@ pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceD
 };
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &DeviceDescriptor {
-    vendor_name: Cow::Borrowed("Native Instruments"),
-    product_name: Cow::Borrowed("TRAKTOR KONTROL S4MK3"),
+    vendor_name: SmolStr::new_static("Native Instruments"),
+    product_name: SmolStr::new_static("TRAKTOR KONTROL S4MK3"),
     audio_interface: Some(AUDIO_INTERFACE_DESCRIPTOR),
 };
 
@@ -118,15 +118,17 @@ impl EventHandler for ThreadContext {
                     .get_mut(usize::from(report_id))
                     .unwrap();
                 let (_count, duration_since_last_report) = report_stats.update(Instant::now());
-                let stats_suffix = duration_since_last_report
-                    .map(|duration| {
-                        format!(
-                            " (\u{0394} = {millis:0.3} ms)",
-                            millis = duration.as_secs_f64() * 1_000.0
-                        )
-                    })
-                    .unwrap_or_default();
-                log::info!("TODO: Handle report{stats_suffix}: {data:?}");
+                log::info!(
+                    "TODO: Handle report{stats_suffix}: {data:?}",
+                    stats_suffix = duration_since_last_report
+                        .map(|duration| {
+                            format!(
+                                " (\u{0394} = {millis:0.3} ms)",
+                                millis = duration.as_secs_f64() * 1_000.0
+                            )
+                        })
+                        .unwrap_or_default()
+                );
             }
             Event::ReportReadError(err) => {
                 log::warn!("Failed to read report: {err}");
@@ -169,7 +171,7 @@ impl EventHandler for ThreadContext {
     }
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct DeviceContext {
     info: DeviceInfo,
     thread: HidThread<ThreadContext>,
@@ -228,7 +230,7 @@ impl DeviceContext {
         })
     }
 
-    #[allow(clippy::missing_panics_doc)] // Never panics
+    #[expect(clippy::missing_panics_doc)] // Never panics
     pub fn detach(self) -> HidResult<HidDevice> {
         log::info!("Terminating I/O thread");
         self.command_tx

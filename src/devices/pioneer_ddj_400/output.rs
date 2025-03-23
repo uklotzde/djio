@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use derive_more::From;
+use smol_str::format_smolstr;
 use strum::{EnumCount, EnumIter, FromRepr, IntoEnumIterator as _};
 
 use super::{
-    Deck, CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
-    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_BEAT_FX, MIDI_COMMAND_NOTE_ON, MIDI_DECK_PLAYPAUSE_BUTTON,
-    MIDI_MASTER_CUE, MIDI_STATUS_BUTTON_MAIN,
+    CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
+    CONTROL_INDEX_ENUM_BIT_MASK, Deck, MIDI_BEAT_FX, MIDI_COMMAND_NOTE_ON,
+    MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_MASTER_CUE, MIDI_STATUS_BUTTON_MAIN,
 };
 use crate::{
     Control, ControlIndex, ControlOutputGateway, LedOutput, MidiOutputConnection,
@@ -161,7 +162,6 @@ fn turn_off_all_leds<C: MidiOutputConnection>(midi_output_connection: &mut C) ->
 }
 
 #[derive(Debug)]
-#[allow(missing_debug_implementations)]
 pub struct OutputGateway<C> {
     midi_output_connection: Option<C>,
 }
@@ -187,7 +187,7 @@ impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
     fn send_output(&mut self, output: &Control) -> OutputResult<()> {
         let Control { index, value } = *output;
         let led = Led::try_from(index).map_err(|InvalidOutputControlIndex| OutputError::Send {
-            msg: format!("No LED with control index {index}").into(),
+            msg: format_smolstr!("no LED with control index {index}"),
         })?;
         self.send_led_output(led, value.into())
     }

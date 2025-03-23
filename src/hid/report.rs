@@ -22,7 +22,7 @@ impl BufferRecycler {
     pub fn try_fetch_buf(&mut self, report_id: u8) -> Option<Vec<u8>> {
         let index = usize::from(report_id);
         debug_assert!(index < self.recycled.len());
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         unsafe { self.recycled.get_unchecked_mut(index) }.pop()
     }
 
@@ -57,7 +57,7 @@ impl BufferRecycler {
         let report_id = buffer[0];
         let index = usize::from(report_id);
         debug_assert!(index < self.recycled.len());
-        #[allow(unsafe_code)]
+        #[expect(unsafe_code)]
         unsafe { self.recycled.get_unchecked_mut(index) }.push(buffer);
     }
 }

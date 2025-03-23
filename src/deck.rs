@@ -175,7 +175,7 @@ pub enum Input {
 
 #[cfg(feature = "observables")]
 #[derive(Default)]
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct Observables {
     pub playable: discro::Publisher<Option<Playable>>,
     pub player: discro::Publisher<Player>,

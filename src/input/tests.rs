@@ -4,7 +4,7 @@
 use super::*;
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn pad_button_from_u7() {
     assert_eq!(
         PadButtonInput::MIN_PRESSURE,
@@ -17,7 +17,7 @@ fn pad_button_from_u7() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn pad_button_from_u14() {
     assert_eq!(
         PadButtonInput::MIN_PRESSURE,
@@ -30,7 +30,6 @@ fn pad_button_from_u14() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
 fn step_encoder_from_u7() {
     assert_eq!(0, StepEncoderInput::from_u7(0).delta);
     assert_eq!(1, StepEncoderInput::from_u7(1).delta);
@@ -40,7 +39,6 @@ fn step_encoder_from_u7() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
 fn step_encoder_from_u14() {
     assert_eq!(0, StepEncoderInput::from_u14(0).delta);
     assert_eq!(1, StepEncoderInput::from_u14(1).delta);
@@ -50,7 +48,7 @@ fn step_encoder_from_u14() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn slider_from_u7() {
     assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u7(0).position);
     assert_eq!(
@@ -60,7 +58,7 @@ fn slider_from_u7() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn slider_from_u14() {
     assert_eq!(SliderInput::MIN_POSITION, SliderInput::from_u14(0).position);
     assert_eq!(
@@ -70,7 +68,7 @@ fn slider_from_u14() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn center_slider_from_u7() {
     assert_eq!(
         CenterSliderInput::MIN_POSITION,
@@ -91,7 +89,7 @@ fn center_slider_from_u7() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn center_slider_from_u14() {
     assert_eq!(
         CenterSliderInput::MIN_POSITION,
@@ -112,7 +110,7 @@ fn center_slider_from_u14() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn slider_encoder_from_u7() {
     assert_eq!(0.0, SliderEncoderInput::from_u7(0).delta);
     assert_eq!(
@@ -126,7 +124,7 @@ fn slider_encoder_from_u7() {
 }
 
 #[test]
-#[allow(clippy::float_cmp)]
+#[expect(clippy::float_cmp)]
 fn slider_encoder_from_u14() {
     assert_eq!(0.0, SliderEncoderInput::from_u14(0).delta);
     assert_eq!(

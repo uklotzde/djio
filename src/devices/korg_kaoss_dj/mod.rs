@@ -1,8 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::borrow::Cow;
-
+use smol_str::SmolStr;
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use crate::{
@@ -11,13 +10,13 @@ use crate::{
 
 mod input;
 pub use self::input::{
-    try_decode_midi_input, try_decode_midi_input_event, DeckSensor, InvalidInputControlIndex,
-    MainSensor, MidiInputEventDecoder, Sensor,
+    DeckSensor, InvalidInputControlIndex, MainSensor, MidiInputEventDecoder, Sensor,
+    try_decode_midi_input, try_decode_midi_input_event,
 };
 
 mod output;
 pub use self::output::{
-    led_output_into_midi_message, DeckLed, InvalidOutputControlIndex, Led, MainLed, OutputGateway,
+    DeckLed, InvalidOutputControlIndex, Led, MainLed, OutputGateway, led_output_into_midi_message,
 };
 
 pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceDescriptor {
@@ -27,8 +26,8 @@ pub const AUDIO_INTERFACE_DESCRIPTOR: AudioInterfaceDescriptor = AudioInterfaceD
 
 pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor {
     device: DeviceDescriptor {
-        vendor_name: Cow::Borrowed("KORG"),
-        product_name: Cow::Borrowed("KAOSS DJ"),
+        vendor_name: SmolStr::new_static("KORG"),
+        product_name: SmolStr::new_static("KAOSS DJ"),
         audio_interface: Some(AUDIO_INTERFACE_DESCRIPTOR),
     },
     port_name_prefix: "KAOSS DJ",
@@ -36,7 +35,7 @@ pub const MIDI_DEVICE_DESCRIPTOR: &MidiDeviceDescriptor = &MidiDeviceDescriptor 
 
 pub const DEVICE_DESCRIPTOR: &DeviceDescriptor = &MIDI_DEVICE_DESCRIPTOR.device;
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
     num_decks: Deck::COUNT as u8,
     num_virtual_decks: 0,

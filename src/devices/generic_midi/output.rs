@@ -6,7 +6,7 @@ use crate::{
     OutputResult,
 };
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct OutputGateway<C> {
     midi_output_connection: Option<C>,
 }

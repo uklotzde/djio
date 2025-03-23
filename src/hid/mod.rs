@@ -2,39 +2,39 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    borrow::Cow,
     collections::HashSet,
     ops::{Deref, DerefMut},
     time::Duration,
 };
 
+use derive_more::{Display, Error, From};
 use hidapi::DeviceInfo;
-use thiserror::Error;
+use smol_str::{SmolStr, ToSmolStr as _};
 
 pub mod report;
 
 pub mod thread;
-pub use thread::HidThread;
+pub use self::thread::HidThread;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum HidDeviceError {
-    #[error("Device not connected")]
+    #[display("not connected")]
     NotConnected,
 
-    #[error("Device not supported")]
+    #[display("not supported")]
     NotSupported,
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error, From)]
 pub enum HidError {
-    #[error(transparent)]
-    Device(#[from] HidDeviceError),
+    #[from]
+    Device(HidDeviceError),
 
-    #[error(transparent)]
-    Api(#[from] hidapi::HidError),
+    #[from]
+    Api(hidapi::HidError),
 
-    #[error(transparent)]
-    Anyhow(#[from] anyhow::Error),
+    #[from]
+    Anyhow(anyhow::Error),
 }
 
 pub type HidResult<T> = std::result::Result<T, HidError>;
@@ -84,7 +84,7 @@ pub enum HidUsagePage {
 
 impl From<u16> for HidUsagePage {
     fn from(number: u16) -> Self {
-        #[allow(clippy::match_same_arms)]
+        #[expect(clippy::match_same_arms)]
         match number {
             0x00 => Self::Undefined,
             0x01 => Self::GenericDesktop,
@@ -137,7 +137,7 @@ impl From<u16> for HidUsagePage {
     }
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct HidApi(hidapi::HidApi);
 
 impl AsRef<hidapi::HidApi> for HidApi {
@@ -188,7 +188,7 @@ impl HidApi {
             .collect())
     }
 
-    pub fn query_device_by_id(&mut self, id: &DeviceId<'_>) -> HidResult<Option<HidDevice>> {
+    pub fn query_device_by_id(&mut self, id: &DeviceId) -> HidResult<Option<HidDevice>> {
         Ok(self.query_devices()?.find_map(|info| {
             let found_id = DeviceId::try_from(info).ok();
             if Some(id) == found_id.as_ref() {
@@ -205,7 +205,7 @@ impl HidApi {
     }
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct HidDevice {
     info: DeviceInfo,
 
@@ -216,7 +216,7 @@ pub struct HidDevice {
 ///
 /// Could be used for referencing devices persistently, e.g. in configurations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct DeviceId<'a> {
+pub struct DeviceId {
     /// Vendor id
     pub vid: u16,
 
@@ -224,32 +224,19 @@ pub struct DeviceId<'a> {
     pub pid: u16,
 
     /// Non-empty serial number
-    pub sn: Cow<'a, str>,
+    pub sn: SmolStr,
 }
 
-impl DeviceId<'_> {
-    #[must_use]
-    pub fn into_owned(self) -> DeviceId<'static> {
-        let Self { vid, pid, sn } = self;
-        DeviceId {
-            vid,
-            pid,
-            sn: Cow::Owned(sn.into_owned()),
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a DeviceInfo> for DeviceId<'a> {
+impl TryFrom<&DeviceInfo> for DeviceId {
     type Error = ();
 
-    #[allow(clippy::similar_names)]
-    fn try_from(from: &'a DeviceInfo) -> std::result::Result<Self, Self::Error> {
+    fn try_from(from: &DeviceInfo) -> std::result::Result<Self, Self::Error> {
         if let Some(sn) = from.serial_number() {
             let sn = sn.trim();
             if !sn.is_empty() {
                 let vid = from.vendor_id();
                 let pid = from.product_id();
-                let sn = Cow::Borrowed(sn);
+                let sn = sn.to_smolstr();
                 return Ok(Self { vid, pid, sn });
             }
         }
@@ -324,7 +311,7 @@ impl HidDevice {
 const INF_TIMEOUT_MILLIS: i32 = -1;
 const MAX_TIMEOUT_MILLIS: i32 = i32::MAX;
 
-#[allow(clippy::cast_possible_truncation)]
+#[expect(clippy::cast_possible_truncation)]
 fn timeout_millis(timeout: Option<Duration>) -> i32 {
     // Verify that the timeout is specified in full milliseconds
     // to prevent losing precision unintentionally.

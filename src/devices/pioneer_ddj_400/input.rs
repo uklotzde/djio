@@ -13,9 +13,9 @@ use derive_more::From;
 use strum::{EnumCount, EnumIter, FromRepr};
 
 use super::{
-    Deck, CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
+    CONTROL_INDEX_DECK_BIT_MASK, CONTROL_INDEX_DECK_ONE, CONTROL_INDEX_DECK_TWO,
     CONTROL_INDEX_ENUM_BIT_MASK, CONTROL_INDEX_PERFORMANCE_DECK_ONE,
-    CONTROL_INDEX_PERFORMANCE_DECK_TWO, MIDI_CHANNEL_DECK_ONE, MIDI_CHANNEL_DECK_TWO,
+    CONTROL_INDEX_PERFORMANCE_DECK_TWO, Deck, MIDI_CHANNEL_DECK_ONE, MIDI_CHANNEL_DECK_TWO,
     MIDI_CHANNEL_PERFORMANCE_DECK_ONE, MIDI_CHANNEL_PERFORMANCE_DECK_TWO, MIDI_DEVICE_DESCRIPTOR,
     MIDI_STATUS_BUTTON_DECK_ONE, MIDI_STATUS_BUTTON_DECK_TWO, MIDI_STATUS_BUTTON_EFFECT,
     MIDI_STATUS_BUTTON_MAIN, MIDI_STATUS_BUTTON_PERFORMANCE_DECK_ONE,
@@ -23,9 +23,9 @@ use super::{
     MIDI_STATUS_CC_EFFECT, MIDI_STATUS_CC_MAIN,
 };
 use crate::{
-    u7_be_to_u14, ButtonInput, CenterSliderInput, Control, ControlIndex, ControlInputEvent,
-    ControlValue, MidiInputConnector, MidiInputDecodeError, SelectorInput, SliderInput,
-    StepEncoderInput, TimeStamp,
+    ButtonInput, CenterSliderInput, Control, ControlIndex, ControlInputEvent, ControlValue,
+    MidiInputConnector, MidiInputDecodeError, SelectorInput, SliderInput, StepEncoderInput,
+    TimeStamp, u7_be_to_u14,
 };
 
 #[derive(Debug, Clone, Copy, From)]
@@ -280,7 +280,7 @@ fn try_decode_button_event(
             sensor.into()
         }
         [MIDI_STATUS_BUTTON_EFFECT, data1, data2] => {
-            #[allow(clippy::bool_to_int_with_if)]
+            #[expect(clippy::bool_to_int_with_if)]
             let sensor = match data1 {
                 0x10 => {
                     decoder.last_hi = if data2 == 0x7f { 0 } else { 1 };
@@ -301,7 +301,11 @@ fn try_decode_button_event(
             };
             Sensor::Effect(sensor)
         }
-        [status @ (MIDI_STATUS_BUTTON_DECK_ONE | MIDI_STATUS_BUTTON_DECK_TWO), data1, _] => {
+        [
+            status @ (MIDI_STATUS_BUTTON_DECK_ONE | MIDI_STATUS_BUTTON_DECK_TWO),
+            data1,
+            _,
+        ] => {
             let deck = midi_status_to_deck(status);
             let sensor = match data1 {
                 0x0b => DeckSensor::PlayPauseButton,
@@ -332,8 +336,12 @@ fn try_decode_button_event(
             };
             Sensor::Deck(deck, sensor)
         }
-        [status @ (MIDI_STATUS_BUTTON_PERFORMANCE_DECK_ONE
-        | MIDI_STATUS_BUTTON_PERFORMANCE_DECK_TWO), data1, _] => {
+        [
+            status @ (MIDI_STATUS_BUTTON_PERFORMANCE_DECK_ONE
+            | MIDI_STATUS_BUTTON_PERFORMANCE_DECK_TWO),
+            data1,
+            _,
+        ] => {
             let deck = midi_status_to_performance_deck(status);
             let Some(sensor) = PerformancePadSensor::try_from_u8(data1) else {
                 return Err(MidiInputDecodeError);
@@ -352,7 +360,7 @@ fn try_decode_button_event(
     Ok(Some((sensor, value)))
 }
 
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 fn try_decode_cc_event(
     decoder: &mut MidiInputEventDecoder,
     input: &[u8],
@@ -408,7 +416,11 @@ fn try_decode_cc_event(
                 return Err(MidiInputDecodeError);
             }
         },
-        [status @ (MIDI_STATUS_CC_DECK_ONE | MIDI_STATUS_CC_DECK_TWO), data1, data2] => {
+        [
+            status @ (MIDI_STATUS_CC_DECK_ONE | MIDI_STATUS_CC_DECK_TWO),
+            data1,
+            data2,
+        ] => {
             let deck = midi_status_to_deck(status);
             let (sensor, value) = match data1 {
                 0x00 | 0x13 | 0x07 | 0x0f | 0x0b | 0x04 => {

@@ -5,15 +5,15 @@
 //! or for configuring devices.
 
 use std::{
-    borrow::Cow,
     ops::{Deref, DerefMut},
     time::Duration,
 };
 
+use derive_more::{Display, Error};
 use futures_core::Stream;
-use futures_util::{stream, StreamExt as _};
+use futures_util::{StreamExt as _, stream};
+use smol_str::SmolStr;
 use strum::FromRepr;
-use thiserror::Error;
 
 use crate::{Control, ControlValue};
 
@@ -24,12 +24,12 @@ pub use blinking_led_task::blinking_led_task;
 #[cfg(feature = "blinking-led-task-tokio-rt")]
 pub use blinking_led_task::spawn_blinking_led_task;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum OutputError {
-    #[error("disconnected")]
+    #[display("disconnected")]
     Disconnected,
-    #[error("send: {msg}")]
-    Send { msg: Cow<'static, str> },
+    #[display("send: {msg}")]
+    Send { msg: SmolStr },
 }
 
 pub type OutputResult<T> = std::result::Result<T, OutputError>;
@@ -89,7 +89,7 @@ pub struct RgbLedOutput {
 impl From<RgbLedOutput> for ControlValue {
     fn from(value: RgbLedOutput) -> Self {
         let RgbLedOutput { red, green, blue } = value;
-        Self::from_bits(u32::from(red) << 16 | u32::from(green) << 8 | u32::from(blue))
+        Self::from_bits((u32::from(red) << 16) | (u32::from(green) << 8) | u32::from(blue))
     }
 }
 
@@ -227,7 +227,7 @@ pub struct BlinkingLedTicker(usize);
 
 impl BlinkingLedTicker {
     const fn output_from_value(value: usize) -> BlinkingLedOutput {
-        #[allow(clippy::cast_possible_truncation)]
+        #[expect(clippy::cast_possible_truncation)]
         BlinkingLedOutput(!value as u8 & 0b11)
     }
 

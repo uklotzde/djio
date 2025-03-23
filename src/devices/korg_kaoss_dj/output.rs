@@ -1,11 +1,12 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+use smol_str::format_smolstr;
 use strum::{EnumCount, EnumIter, FromRepr, IntoEnumIterator as _};
 
 use super::{
-    Deck, CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, CONTROL_INDEX_DECK_BIT_MASK,
-    CONTROL_INDEX_ENUM_BIT_MASK, MIDI_COMMAND_CC, MIDI_COMMAND_NOTE_ON, MIDI_DECK_CUE_BUTTON,
+    CONTROL_INDEX_DECK_A, CONTROL_INDEX_DECK_B, CONTROL_INDEX_DECK_BIT_MASK,
+    CONTROL_INDEX_ENUM_BIT_MASK, Deck, MIDI_COMMAND_CC, MIDI_COMMAND_NOTE_ON, MIDI_DECK_CUE_BUTTON,
     MIDI_DECK_EQ_HI_KNOB, MIDI_DECK_EQ_LO_KNOB, MIDI_DECK_EQ_MID_KNOB, MIDI_DECK_GAIN_KNOB,
     MIDI_DECK_MONITOR_BUTTON, MIDI_DECK_PLAYPAUSE_BUTTON, MIDI_DECK_SHIFT_BUTTON,
     MIDI_DECK_SYNC_BUTTON, MIDI_DECK_TOUCHSTRIP_CENTER_BUTTON,
@@ -245,7 +246,6 @@ fn on_detach<C: MidiOutputConnection>(midi_output_connection: &mut C) -> OutputR
 }
 
 #[derive(Debug)]
-#[allow(missing_debug_implementations)]
 pub struct OutputGateway<C> {
     midi_output_connection: Option<C>,
 }
@@ -271,7 +271,7 @@ impl<C: MidiOutputConnection> ControlOutputGateway for OutputGateway<C> {
     fn send_output(&mut self, output: &Control) -> OutputResult<()> {
         let Control { index, value } = *output;
         let led = Led::try_from(index).map_err(|InvalidOutputControlIndex| OutputError::Send {
-            msg: format!("No LED with control index {index}").into(),
+            msg: format_smolstr!("no LED with control index {index}"),
         })?;
         self.send_led_output(led, value.into())
     }

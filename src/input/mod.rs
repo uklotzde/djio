@@ -27,7 +27,6 @@ where
     I: IntoIterator,
     I::Item: Borrow<InputEvent<T>>,
 {
-    #[allow(unstable_name_collisions)]
     events.into_iter().is_sorted_by_key(|item| item.borrow().ts)
 }
 
@@ -123,7 +122,7 @@ impl SliderInput {
     pub const POSITION_RANGE: RangeInclusive<f32> = Self::MIN_POSITION..=Self::MAX_POSITION;
 
     #[must_use]
-    pub fn clamp_position(position: f32) -> f32 {
+    pub const fn clamp_position(position: f32) -> f32 {
         position.clamp(Self::MIN_POSITION, Self::MAX_POSITION)
     }
 
@@ -168,7 +167,6 @@ impl SliderInput {
     /// Multiply the signal with the returned value to adjust the volume.
     #[must_use]
     #[inline]
-    #[allow(clippy::cast_possible_truncation)]
     pub fn map_position_to_gain_ratio(self, silence_db: f32) -> f32 {
         debug_assert!(silence_db < 0.0);
         let Self { position } = self;
@@ -209,12 +207,12 @@ impl CenterSliderInput {
     pub const CENTER_POSITION: f32 = 0.0;
 
     #[must_use]
-    pub fn clamp_position(position: f32) -> f32 {
+    pub const fn clamp_position(position: f32) -> f32 {
         position.clamp(Self::MIN_POSITION, Self::MAX_POSITION)
     }
 
     #[must_use]
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     pub fn from_u7(input: u8) -> Self {
         debug_assert!(input < 128);
         let position = if input < 64 {
@@ -227,7 +225,7 @@ impl CenterSliderInput {
     }
 
     #[must_use]
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     pub fn from_u14(input: u16) -> Self {
         debug_assert!(input < 16384);
         let position = if input < 8192 {
@@ -281,7 +279,6 @@ impl CenterSliderInput {
     /// Multiply the signal with the returned value to tune the volume.
     #[must_use]
     #[inline]
-    #[allow(clippy::cast_possible_truncation)]
     pub fn map_position_to_gain_ratio(self, min_db: f32, max_db: f32) -> f32 {
         debug_assert!(min_db < 0.0);
         debug_assert!(max_db > 0.0);
@@ -352,7 +349,7 @@ impl StepEncoderInput {
 
 impl From<ControlValue> for StepEncoderInput {
     fn from(from: ControlValue) -> Self {
-        #[allow(clippy::cast_possible_wrap)]
+        #[expect(clippy::cast_possible_wrap)]
         let delta = from.to_bits() as i32;
         Self { delta }
     }
@@ -361,7 +358,7 @@ impl From<ControlValue> for StepEncoderInput {
 impl From<StepEncoderInput> for ControlValue {
     fn from(from: StepEncoderInput) -> Self {
         let StepEncoderInput { delta } = from;
-        #[allow(clippy::cast_sign_loss)]
+        #[expect(clippy::cast_sign_loss)]
         Self::from_bits(delta as u32)
     }
 }
@@ -401,7 +398,7 @@ impl SliderEncoderInput {
     pub const DELTA_PER_CCW_REV: f32 = -1.0;
 
     #[must_use]
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     pub fn from_u7(input: u8) -> Self {
         debug_assert!(input < 128);
         let delta = if input < 64 {
@@ -413,7 +410,7 @@ impl SliderEncoderInput {
     }
 
     #[must_use]
-    #[allow(clippy::cast_possible_wrap)]
+    #[expect(clippy::cast_possible_wrap)]
     pub fn from_u14(input: u16) -> Self {
         debug_assert!(input < 16384);
         let delta = if input < 8192 {
@@ -498,7 +495,7 @@ pub fn split_crossfader_input_amplitude_preserving_approx(
     input: CenterSliderInput,
 ) -> (SliderInput, SliderInput) {
     // <https://signalsmith-audio.co.uk/writing/2021/cheap-energy-crossfade/>
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     fn f_x(x: f64) -> f32 {
         (x.powi(2) * (3.0 - 2.0 * x)) as _
     }
@@ -521,7 +518,7 @@ pub fn split_crossfader_input_energy_preserving_approx(
     input: CenterSliderInput,
 ) -> (SliderInput, SliderInput) {
     // <https://signalsmith-audio.co.uk/writing/2021/cheap-energy-crossfade/>
-    #[allow(clippy::cast_possible_truncation)]
+    #[expect(clippy::cast_possible_truncation)]
     fn f_x(x: f64) -> f32 {
         let y = x * (1.0 - x);
         (y * (1.0 + 1.4186 * y) + x).powi(2) as _

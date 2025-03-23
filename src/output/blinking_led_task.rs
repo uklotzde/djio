@@ -7,7 +7,7 @@ use discro::Publisher;
 
 use crate::{BlinkingLedOutput, BlinkingLedTicker};
 
-#[allow(clippy::manual_async_fn)] // Explicit return type to to enforce the trait bounds
+#[expect(clippy::manual_async_fn)] // Explicit return type to to enforce the trait bounds
 pub fn blinking_led_task(
     period: Duration,
     publisher: Publisher<BlinkingLedOutput>,

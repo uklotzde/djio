@@ -2,14 +2,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 use std::{
-    collections::{hash_map::Entry, HashMap},
+    collections::{HashMap, hash_map::Entry},
     sync::Arc,
 };
 
 use atomic::AtomicValue;
-use thiserror::Error;
+use derive_more::{Display, Error};
 
-use super::{atomic, Address, Descriptor, Direction, SharedAtomicValue};
+use super::{Address, Descriptor, Direction, SharedAtomicValue, atomic};
 
 const INITIAL_CAPACITY: usize = 1024;
 
@@ -20,38 +20,22 @@ const INITIAL_CAPACITY: usize = 1024;
 /// The value is immutable after initial registration. The actual value may vary
 /// depending on the order of registration or other circumstances and must neither
 /// be hard-coded nor stored persistently.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
 #[repr(transparent)]
 pub struct RegisteredId(usize);
 
 /// Metadata of a registered parameter
 #[derive(Debug, Clone)]
-pub struct RegisteredParam<'a> {
-    pub descriptor: Descriptor<'a>,
-    pub address: Address<'a>,
+pub struct RegisteredParam {
+    pub descriptor: Descriptor,
+    pub address: Address,
     pub id: RegisteredId,
 }
 
-impl<'a> RegisteredParam<'a> {
-    #[must_use]
-    pub fn into_owned(self) -> RegisteredParam<'static> {
-        let Self {
-            descriptor,
-            address,
-            id,
-        } = self;
-        RegisteredParam {
-            descriptor: descriptor.into_owned(),
-            address: address.into_owned(),
-            id,
-        }
-    }
-}
-
 /// Map parameter addresses to their registered identifiers.
-#[allow(missing_debug_implementations)]
+#[derive(Debug)]
 struct AddressToIdMap {
-    inner: HashMap<Address<'static>, RegisteredId>,
+    inner: HashMap<Address, RegisteredId>,
 }
 
 impl AddressToIdMap {
@@ -66,12 +50,12 @@ impl AddressToIdMap {
         self.inner.len()
     }
 
-    fn iter(&self) -> impl Iterator<Item = (&Address<'static>, RegisteredId)> {
+    fn iter(&self) -> impl Iterator<Item = (&Address, RegisteredId)> {
         self.inner.iter().map(|(address, &id)| (address, id))
     }
 
     /// Obtain an id for an address.
-    fn get_or_add(&mut self, address: Address<'static>) -> (Address<'static>, RegisteredId) {
+    fn get_or_add(&mut self, address: Address) -> (Address, RegisteredId) {
         // The current length must be obtained before the mutable borrow,
         // even if it remains unused.
         let next_id = self.len();
@@ -93,19 +77,19 @@ impl AddressToIdMap {
         }
     }
 
-    fn get(&self, address: &Address<'_>) -> Option<RegisteredId> {
+    fn get(&self, address: &Address) -> Option<RegisteredId> {
         self.inner.get(address).map(ToOwned::to_owned)
     }
 }
 
 #[derive(Debug)]
-struct RegistryEntry<'a> {
-    address: Address<'a>,
-    descriptor: Option<Descriptor<'a>>,
+struct RegistryEntry {
+    address: Address,
+    descriptor: Option<Descriptor>,
     output_value: Option<SharedAtomicValue>,
 }
 
-impl<'a> RegistryEntry<'a> {
+impl RegistryEntry {
     fn registration(&self, status: RegistrationStatus, id: RegisteredId) -> Registration<'_> {
         let Self {
             address,
@@ -121,19 +105,19 @@ impl<'a> RegistryEntry<'a> {
             header: RegistrationHeader {
                 status,
                 id,
-                address,
+                address: address.clone(),
             },
             descriptor,
         }
     }
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug, Display, Error)]
 pub enum RegisterError {
     /// The address is already in use and the descriptors differ.
     ///
     /// Could only occur when registering a provider.
-    #[error("address occupied")]
+    #[display("address occupied")]
     AddressOccupied,
 }
 
@@ -148,17 +132,17 @@ pub enum RegistrationStatus {
 struct RegisteredEntry<'a> {
     status: RegistrationStatus,
     id: RegisteredId,
-    entry: &'a mut RegistryEntry<'static>,
+    entry: &'a mut RegistryEntry,
 }
 
 /// Common properties of registrations
 ///
 /// Contents borrowed from [`Registry`] entries.
 #[derive(Debug)]
-pub struct RegistrationHeader<'a> {
+pub struct RegistrationHeader {
     pub status: RegistrationStatus,
     pub id: RegisteredId,
-    pub address: &'a Address<'a>,
+    pub address: Address,
 }
 
 /// Registration properties that require a descriptor
@@ -166,7 +150,7 @@ pub struct RegistrationHeader<'a> {
 /// Contents borrowed from [`Registry`] entries.
 #[derive(Debug)]
 pub struct RegisteredDescriptor<'a> {
-    pub descriptor: &'a Descriptor<'a>,
+    pub descriptor: &'a Descriptor,
 
     /// Observable output value
     ///
@@ -182,14 +166,14 @@ pub struct RegisteredDescriptor<'a> {
 /// Registration with mandatory descriptor
 #[derive(Debug)]
 pub struct DescriptorRegistration<'a> {
-    pub header: RegistrationHeader<'a>,
+    pub header: RegistrationHeader,
     pub descriptor: RegisteredDescriptor<'a>,
 }
 
 /// Registration with optional descriptor
 #[derive(Debug)]
 pub struct Registration<'a> {
-    pub header: RegistrationHeader<'a>,
+    pub header: RegistrationHeader,
     pub descriptor: Option<RegisteredDescriptor<'a>>,
 }
 
@@ -197,10 +181,10 @@ pub struct Registration<'a> {
 ///
 /// Permanently maps addresses to ids and stores metadata
 /// about the associated parameters.
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct Registry {
     address_to_id: AddressToIdMap,
-    entries: Vec<RegistryEntry<'static>>,
+    entries: Vec<RegistryEntry>,
 }
 
 const fn registry_entry_id(param_id: RegisteredId) -> usize {
@@ -209,18 +193,18 @@ const fn registry_entry_id(param_id: RegisteredId) -> usize {
 }
 
 impl Registry {
-    pub fn address_to_id_iter(&self) -> impl Iterator<Item = (&Address<'static>, RegisteredId)> {
+    pub fn address_to_id_iter(&self) -> impl Iterator<Item = (&Address, RegisteredId)> {
         self.address_to_id.iter()
     }
 
-    fn register(&mut self, address: Address<'static>) -> RegisteredEntry<'_> {
+    fn register(&mut self, address: Address) -> RegisteredEntry<'_> {
         debug_assert_eq!(self.address_to_id.len(), self.entries.len());
         let (address, id) = self.address_to_id.get_or_add(address);
         let entry_id = registry_entry_id(id);
         if entry_id < self.entries.len() {
             // Occupied
             debug_assert_eq!(self.address_to_id.len(), self.entries.len());
-            #[allow(unsafe_code)]
+            #[expect(unsafe_code)]
             let entry = unsafe { self.entries.get_unchecked_mut(registry_entry_id(id)) };
             RegisteredEntry {
                 status: RegistrationStatus::AlreadyRegistered,
@@ -261,11 +245,11 @@ impl Registry {
     /// provide it together with the descriptor.
     ///
     /// Addresses strings will be used verbatim as the key.
-    #[allow(clippy::missing_panics_doc)]
+    #[expect(clippy::missing_panics_doc)]
     pub fn register_descriptor(
         &mut self,
-        address: Address<'static>,
-        descriptor: Descriptor<'static>,
+        address: Address,
+        descriptor: Descriptor,
     ) -> Result<DescriptorRegistration<'_>, RegisterError> {
         let RegisteredEntry { status, id, entry } = self.register(address);
         let RegistryEntry {
@@ -295,7 +279,7 @@ impl Registry {
             header: RegistrationHeader {
                 status,
                 id,
-                address,
+                address: address.clone(),
             },
             descriptor: RegisteredDescriptor {
                 descriptor,
@@ -308,7 +292,7 @@ impl Registry {
     ///
     /// Addresses can be registered at any time, even before the corresponding descriptor
     /// is registered. The descriptor will not be available until it has been registered.
-    pub fn register_address(&mut self, address: Address<'static>) -> Registration<'_> {
+    pub fn register_address(&mut self, address: Address) -> Registration<'_> {
         let RegisteredEntry { status, id, entry } = self.register(address);
         entry.registration(status, id)
     }
@@ -325,10 +309,10 @@ impl Registry {
     #[must_use]
     pub fn find_registered(
         &self,
-        address: &Address<'_>,
+        address: &Address,
     ) -> Option<(
         RegisteredId,
-        Option<&Descriptor<'_>>,
+        Option<&Descriptor>,
         Option<&SharedAtomicValue>,
     )> {
         self.address_to_id

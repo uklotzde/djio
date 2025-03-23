@@ -3,25 +3,26 @@
 
 use std::{collections::HashMap, marker::PhantomData};
 
+use derive_more::{Display, Error, From};
 use midir::{
     ConnectError, Ignore, InitError, MidiInput, MidiInputConnection, MidiInputPort, MidiInputPorts,
     MidiOutput, MidiOutputConnection, MidiOutputPort, MidiOutputPorts, SendError,
 };
-use thiserror::Error;
 
-use super::{MidiDeviceDescriptor, MidiInputGateway, MidiPortDescriptor, NewMidiInputGateway};
 use crate::{MidiInputHandler, OutputError, PortIndexGenerator, TimeStamp};
 
-#[derive(Debug, Error)]
+use super::{MidiDeviceDescriptor, MidiInputGateway, MidiPortDescriptor, NewMidiInputGateway};
+
+#[derive(Debug, Display, Error, From)]
 pub enum MidiPortError {
-    #[error("disconnected")]
+    #[display("disconnected")]
     Disconnected,
-    #[error(transparent)]
-    Init(#[from] InitError),
-    #[error(transparent)]
-    ConnectInput(#[from] ConnectError<MidiInput>),
-    #[error(transparent)]
-    ConnectOutput(#[from] ConnectError<MidiOutput>),
+    #[from]
+    Init(InitError),
+    #[from]
+    ConnectInput(ConnectError<MidiInput>),
+    #[from]
+    ConnectOutput(ConnectError<MidiOutput>),
 }
 
 impl From<SendError> for OutputError {
@@ -32,20 +33,20 @@ impl From<SendError> for OutputError {
     }
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct MidirInputPort {
     pub descriptor: MidiPortDescriptor,
     pub port: MidiInputPort,
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct MidirOutputPort {
     pub descriptor: MidiPortDescriptor,
     pub port: MidiOutputPort,
 }
 
 /// MIDI device driven by [`midir`].
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct MidirDevice<I>
 where
     I: MidiInputGateway + Send + 'static,
@@ -199,7 +200,7 @@ where
 }
 
 /// Identifies and connects [`MidirDevice`]s.
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 pub struct MidirDeviceManager<I> {
     input: MidiInput,
     output: MidiOutput,
@@ -238,7 +239,7 @@ where
         self.input_ports().into_iter().filter(move |port| {
             self.input
                 .port_name(port)
-                .map_or(false, |port_name| filter_port_name(&port_name))
+                .is_ok_and(|port_name| filter_port_name(&port_name))
         })
     }
 
@@ -249,12 +250,12 @@ where
         self.output_ports().into_iter().filter(move |port| {
             self.output
                 .port_name(port)
-                .map_or(false, |port_name| filter_port_name(&port_name))
+                .is_ok_and(|port_name| filter_port_name(&port_name))
         })
     }
 
     #[must_use]
-    #[allow(clippy::missing_panics_doc)] // Never panics
+    #[expect(clippy::missing_panics_doc)] // Never panics
     pub fn detect_dj_controllers(
         &self,
         device_descriptors: &[&MidiDeviceDescriptor],

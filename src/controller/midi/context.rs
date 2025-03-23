@@ -8,7 +8,7 @@ struct AttachedMidiController<T> {
     controller_thread: Option<crate::ControllerThread>,
 }
 
-#[allow(missing_debug_implementations)]
+#[expect(missing_debug_implementations)]
 #[derive(Default)]
 pub struct SingleMidiControllerContext<T> {
     attached: Option<AttachedMidiController<T>>,
@@ -75,6 +75,6 @@ impl<T: crate::ControllerTypes> SingleMidiControllerContext<T> {
             log::debug!("Ignoring input {event:?}: No MIDI controller attached");
             return None;
         };
-        attached.controller.map_input_event(event).map(Into::into)
+        attached.controller.map_input_event(event)
     }
 }
