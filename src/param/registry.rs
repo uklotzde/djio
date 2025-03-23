@@ -93,13 +93,13 @@ impl RegistryEntry {
         }
     }
 
-    fn registration(&self, status: RegistrationStatus, id: RegisteredId) -> Registration<'_> {
+    const fn registration(&self, status: RegistrationStatus, id: RegisteredId) -> Registration<'_> {
         match self {
             Self::Pending { address } => Registration {
                 header: RegistrationHeader {
                     status,
                     id,
-                    address: address.clone(),
+                    address,
                 },
                 descriptor: None,
             },
@@ -111,7 +111,7 @@ impl RegistryEntry {
                 header: RegistrationHeader {
                     status,
                     id,
-                    address: address.clone(),
+                    address,
                 },
                 descriptor: Some(RegisteredDescriptor {
                     descriptor,
@@ -149,10 +149,10 @@ struct RegisteredEntry<'a> {
 ///
 /// Contents borrowed from [`Registry`] entries.
 #[derive(Debug)]
-pub struct RegistrationHeader {
+pub struct RegistrationHeader<'a> {
     pub status: RegistrationStatus,
     pub id: RegisteredId,
-    pub address: Address,
+    pub address: &'a Address,
 }
 
 /// Registration properties that require a descriptor
@@ -176,14 +176,14 @@ pub struct RegisteredDescriptor<'a> {
 /// Registration with mandatory descriptor
 #[derive(Debug)]
 pub struct DescriptorRegistration<'a> {
-    pub header: RegistrationHeader,
+    pub header: RegistrationHeader<'a>,
     pub descriptor: RegisteredDescriptor<'a>,
 }
 
 /// Registration with optional descriptor
 #[derive(Debug)]
 pub struct Registration<'a> {
-    pub header: RegistrationHeader,
+    pub header: RegistrationHeader<'a>,
     pub descriptor: Option<RegisteredDescriptor<'a>>,
 }
 
@@ -284,7 +284,7 @@ impl Registry {
                     header: RegistrationHeader {
                         status,
                         id,
-                        address: address.clone(),
+                        address,
                     },
                     descriptor: RegisteredDescriptor {
                         descriptor,
@@ -305,7 +305,7 @@ impl Registry {
                     header: RegistrationHeader {
                         status,
                         id,
-                        address: address.clone(),
+                        address,
                     },
                     descriptor: RegisteredDescriptor {
                         descriptor: registered_descriptor,
