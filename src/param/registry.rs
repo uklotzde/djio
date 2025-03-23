@@ -335,14 +335,10 @@ impl Registry {
 
     /// Find the metadata of a parameter by address.
     #[must_use]
-    #[expect(clippy::type_complexity, reason = "TODO")]
-    pub fn find_registered(
-        &self,
+    pub fn find_registered<'a>(
+        &'a self,
         address: &Address,
-    ) -> Option<(
-        RegisteredId,
-        Option<(&Descriptor, Option<&SharedAtomicValue>)>,
-    )> {
+    ) -> Option<(RegisteredId, Option<RegisteredDescriptor<'a>>)> {
         self.address_to_id
             .get(address)
             .and_then(|id| {
@@ -358,7 +354,13 @@ impl Registry {
                         address: _,
                         descriptor,
                         output_value,
-                    } => (id, Some((descriptor, output_value.as_ref()))),
+                    } => (
+                        id,
+                        Some(RegisteredDescriptor {
+                            descriptor,
+                            output_value: output_value.as_ref(),
+                        }),
+                    ),
                 }
             })
     }
