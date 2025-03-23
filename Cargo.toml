@@ -16,7 +16,7 @@ include = ["README.md", "LICENSES", "src/"]
 
 [dependencies]
 anyhow = "1.0.97"
-derive_more = { version = "2.0.1", features = ["display", "error", "from", "deref", "deref_mut"] }
+derive_more = { version = "2.0.1", features = ["display", "error", "from"] }
 float-cmp = "0.10.0"
 futures-core = { version = "0.3.31", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = ["std"] }
@@ -74,7 +74,13 @@ hid-controllers = ["ni-traktor-kontrol-s4mk3"]
 ni-traktor-kontrol-s4mk3 = ["hid"]
 
 # Experimental features
-experimental-param = ["dep:crossbeam-utils", "dep:enum-as-inner"]
+experimental-param = [
+  "dep:crossbeam-utils",
+  "dep:enum-as-inner",
+  "derive_more/as_ref",
+  "derive_more/deref",
+  "derive_more/into",
+]
 
 [lints.rust]
 future_incompatible = "warn"

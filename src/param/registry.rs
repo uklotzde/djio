@@ -83,31 +83,49 @@ impl AddressToIdMap {
 }
 
 #[derive(Debug)]
-struct RegistryEntry {
-    address: Address,
-    descriptor: Option<Descriptor>,
-    output_value: Option<SharedAtomicValue>,
+enum RegistryEntry {
+    Pending {
+        address: Address,
+    },
+    Ready {
+        address: Address,
+        descriptor: Descriptor,
+        output_value: Option<SharedAtomicValue>,
+    },
 }
 
 impl RegistryEntry {
+    const fn address(&self) -> &Address {
+        match self {
+            Self::Pending { address } | Self::Ready { address, .. } => address,
+        }
+    }
+
     fn registration(&self, status: RegistrationStatus, id: RegisteredId) -> Registration<'_> {
-        let Self {
-            address,
-            descriptor,
-            output_value,
-        } = self;
-        debug_assert!(descriptor.is_some() || output_value.is_none());
-        let descriptor = descriptor.as_ref().map(|descriptor| RegisteredDescriptor {
-            descriptor,
-            output_value: output_value.as_ref(),
-        });
-        Registration {
-            header: RegistrationHeader {
-                status,
-                id,
-                address: address.clone(),
+        match self {
+            Self::Pending { address } => Registration {
+                header: RegistrationHeader {
+                    status,
+                    id,
+                    address: address.clone(),
+                },
+                descriptor: None,
             },
-            descriptor,
+            Self::Ready {
+                address,
+                descriptor,
+                output_value,
+            } => Registration {
+                header: RegistrationHeader {
+                    status,
+                    id,
+                    address: address.clone(),
+                },
+                descriptor: Some(RegisteredDescriptor {
+                    descriptor,
+                    output_value: output_value.as_ref(),
+                }),
+            },
         }
     }
 }
@@ -213,11 +231,7 @@ impl Registry {
             }
         } else {
             // Vacant
-            let new_entry = RegistryEntry {
-                address,
-                descriptor: None,
-                output_value: None,
-            };
+            let new_entry = RegistryEntry::Pending { address };
             self.entries.push(new_entry);
             debug_assert_eq!(self.address_to_id.len(), self.entries.len());
             let entry = self
@@ -245,47 +259,69 @@ impl Registry {
     /// provide it together with the descriptor.
     ///
     /// Addresses strings will be used verbatim as the key.
-    #[expect(clippy::missing_panics_doc)]
     pub fn register_descriptor(
         &mut self,
         address: Address,
         descriptor: Descriptor,
     ) -> Result<DescriptorRegistration<'_>, RegisterError> {
         let RegisteredEntry { status, id, entry } = self.register(address);
-        let RegistryEntry {
-            address,
-            descriptor: registered_descriptor,
-            output_value: registered_output_value,
-        } = entry;
-        let descriptor = if let Some(registered_descriptor) = registered_descriptor {
-            if registered_descriptor != &descriptor {
-                return Err(RegisterError::AddressOccupied);
+        match entry {
+            RegistryEntry::Pending { address } => {
+                log::debug!("Registering descriptor @ {address}: {descriptor:?}");
+                let output_value = match descriptor.direction {
+                    Direction::Input => None,
+                    Direction::Output => {
+                        Some(Arc::new(AtomicValue::from(descriptor.value.default)))
+                    }
+                };
+                let address = std::mem::take(address);
+                *entry = RegistryEntry::Ready {
+                    address,
+                    descriptor,
+                    output_value,
+                };
+                let RegistryEntry::Ready {
+                    address,
+                    descriptor,
+                    output_value,
+                } = entry
+                else {
+                    unreachable!("just updated");
+                };
+                Ok(DescriptorRegistration {
+                    header: RegistrationHeader {
+                        status,
+                        id,
+                        address: address.clone(),
+                    },
+                    descriptor: RegisteredDescriptor {
+                        descriptor,
+                        output_value: output_value.as_ref(),
+                    },
+                })
             }
-            log::debug!("Descriptor already registered @ {address}: {descriptor:?}");
-            registered_descriptor
-        } else {
-            log::debug!("Registering descriptor @ {address}: {descriptor:?}");
-            debug_assert!(registered_output_value.is_none());
-            let output_value = match descriptor.direction {
-                Direction::Input => None,
-                Direction::Output => Some(Arc::new(AtomicValue::from(descriptor.value.default))),
-            };
-            *registered_descriptor = Some(descriptor);
-            *registered_output_value = output_value;
-            // Safe unwrap (see above)
-            registered_descriptor.as_ref().unwrap()
-        };
-        Ok(DescriptorRegistration {
-            header: RegistrationHeader {
-                status,
-                id,
-                address: address.clone(),
-            },
-            descriptor: RegisteredDescriptor {
-                descriptor,
-                output_value: registered_output_value.as_ref(),
-            },
-        })
+            RegistryEntry::Ready {
+                address,
+                descriptor: registered_descriptor,
+                output_value: registered_output_value,
+            } => {
+                if registered_descriptor != &descriptor {
+                    return Err(RegisterError::AddressOccupied);
+                }
+                log::debug!("Descriptor already registered @ {address}: {descriptor:?}");
+                Ok(DescriptorRegistration {
+                    header: RegistrationHeader {
+                        status,
+                        id,
+                        address: address.clone(),
+                    },
+                    descriptor: RegisteredDescriptor {
+                        descriptor: registered_descriptor,
+                        output_value: registered_output_value.as_ref(),
+                    },
+                })
+            }
+        }
     }
 
     /// Register a parameter address.
@@ -307,13 +343,13 @@ impl Registry {
 
     /// Find the metadata of a parameter by address.
     #[must_use]
+    #[expect(clippy::type_complexity, reason = "TODO")]
     pub fn find_registered(
         &self,
         address: &Address,
     ) -> Option<(
         RegisteredId,
-        Option<&Descriptor>,
-        Option<&SharedAtomicValue>,
+        Option<(&Descriptor, Option<&SharedAtomicValue>)>,
     )> {
         self.address_to_id
             .get(address)
@@ -323,13 +359,15 @@ impl Registry {
                     .map(|entry| (id, entry))
             })
             .map(|(id, entry)| {
-                let RegistryEntry {
-                    address: entry_address,
-                    descriptor,
-                    output_value,
-                } = entry;
-                debug_assert_eq!(address, entry_address);
-                (id, descriptor.as_ref(), output_value.as_ref())
+                debug_assert_eq!(entry.address(), address);
+                match entry {
+                    RegistryEntry::Pending { address: _ } => (id, None),
+                    RegistryEntry::Ready {
+                        address: _,
+                        descriptor,
+                        output_value,
+                    } => (id, Some((descriptor, output_value.as_ref()))),
+                }
             })
     }
 }

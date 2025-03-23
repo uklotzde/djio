@@ -14,9 +14,9 @@
 //! be sent to the real-time kernel when changed. Values of output parameters must
 //! be polled periodically for updating the corresponding hardware outputs.
 
-use std::cmp::Ordering;
+use std::{cmp::Ordering, ops::Bound};
 
-use derive_more::{Deref, DerefMut, Display, From};
+use derive_more::{AsRef, Deref, Display, From, Into};
 use enum_as_inner::EnumAsInner;
 use smol_str::SmolStr;
 use strum::EnumDiscriminants;
@@ -80,8 +80,12 @@ pub enum Value {
     F32(f32),
 }
 
-/// Human-readable name
-#[derive(Debug, Clone, Eq, PartialEq, From, Display, Deref, DerefMut)]
+/// Human-readable name.
+///
+/// Used as a label.
+#[derive(
+    Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Display, From, Into, AsRef, Deref,
+)]
 pub struct Name(SmolStr);
 
 impl Name {
@@ -91,28 +95,18 @@ impl Name {
     }
 }
 
-impl From<Name> for SmolStr {
-    fn from(from: Name) -> Self {
-        let Name(inner) = from;
-        inner
-    }
-}
-
-/// Human-readable unit label
-#[derive(Debug, Clone, Eq, PartialEq, From, Display, Deref, DerefMut)]
+/// Parameter unit.
+///
+/// A short code for display purposes, preferably according to ISO standards.
+#[derive(
+    Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Display, From, Into, AsRef, Deref,
+)]
 pub struct Unit(SmolStr);
 
 impl Unit {
     #[must_use]
     pub const fn new(inner: SmolStr) -> Self {
         Self(inner)
-    }
-}
-
-impl From<Unit> for SmolStr {
-    fn from(from: Unit) -> Self {
-        let Unit(inner) = from;
-        inner
     }
 }
 
@@ -137,13 +131,13 @@ pub struct Descriptor {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ValueDescriptor {
-    /// Range restrictions
-    pub range: ValueRangeDescriptor,
-
     /// Default value for initialization and reset.
     ///
     /// The default value implicitly determines the value type.
     pub default: Value,
+
+    /// Range restrictions
+    pub range: ValueRangeDescriptor,
 }
 
 impl ValueDescriptor {
@@ -153,63 +147,78 @@ impl ValueDescriptor {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+/// Value limits.
+///
+/// Both `min` and `max` value must be of the same type if bounded.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ValueRangeDescriptor {
-    /// Minimum value (inclusive)
-    pub min: Option<Value>,
+    /// Minimum value.
+    pub min: Bound<Value>,
 
-    /// Maximum value (inclusive)
-    pub max: Option<Value>,
+    /// Maximum value.
+    pub max: Bound<Value>,
 }
 
 impl ValueRangeDescriptor {
     #[must_use]
     pub const fn unbounded() -> Self {
         Self {
-            min: None,
-            max: None,
+            min: Bound::Unbounded,
+            max: Bound::Unbounded,
         }
     }
 
     /// Check if a value is in range.
     ///
     /// Comparing values of different types is not allowed. The result
-    /// is `false` in this case and a debug assertion is triggered.
+    /// is `None` in this case and a debug assertions is triggered.
     #[must_use]
-    pub fn contains(&self, value: Value) -> bool {
+    pub fn contains_value(&self, value: Value) -> Option<bool> {
         let Self { min, max } = self;
-        if let Some(min) = min {
-            debug_assert_eq!(ValueType::from(min), ValueType::from(value));
-            match value.partial_cmp(min) {
-                Some(Ordering::Equal | Ordering::Greater) => (),
-                Some(Ordering::Less) | None => return false,
-            }
+        match min {
+            Bound::Unbounded => (),
+            Bound::Included(min_inclusive) => match value.partial_cmp(min_inclusive)? {
+                Ordering::Equal | Ordering::Greater => (),
+                Ordering::Less => return Some(false),
+            },
+            Bound::Excluded(min_exclusive) => match value.partial_cmp(min_exclusive)? {
+                Ordering::Greater => (),
+                Ordering::Less | Ordering::Equal => return Some(false),
+            },
         }
-        if let Some(max) = max {
-            debug_assert_eq!(ValueType::from(max), ValueType::from(value));
-            match value.partial_cmp(max) {
-                Some(Ordering::Equal | Ordering::Less) => (),
-                Some(Ordering::Greater) | None => return false,
-            }
+        match max {
+            Bound::Unbounded => (),
+            Bound::Included(max_inclusive) => match value.partial_cmp(max_inclusive)? {
+                Ordering::Less | Ordering::Equal => (),
+                Ordering::Greater => return Some(false),
+            },
+            Bound::Excluded(max_exclusive) => match value.partial_cmp(max_exclusive)? {
+                Ordering::Less => (),
+                Ordering::Equal | Ordering::Greater => return Some(false),
+            },
         }
-        true
+        Some(true)
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, From, Display, Deref, DerefMut)]
+impl Default for ValueRangeDescriptor {
+    fn default() -> Self {
+        Self::unbounded()
+    }
+}
+
+#[derive(
+    Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Display, From, Into, AsRef, Deref,
+)]
 pub struct Address(SmolStr);
 
+/// Stringified parameter address.
+///
+/// Addresses are supposed to be stable and permanent, i.e. they do not change between sessions.
 impl Address {
     #[must_use]
     pub const fn new(inner: SmolStr) -> Self {
         Self(inner)
-    }
-}
-
-impl From<Address> for SmolStr {
-    fn from(from: Address) -> Self {
-        let Address(inner) = from;
-        inner
     }
 }
 

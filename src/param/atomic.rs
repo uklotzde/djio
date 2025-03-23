@@ -13,6 +13,8 @@ use enum_as_inner::EnumAsInner;
 use super::{Value, ValueType};
 
 /// Atomic f32 value with limited functionality.
+///
+/// Implemented by bitwise mapping to/from [`AtomicU32`].
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AtomicF32 {
@@ -28,6 +30,7 @@ impl AtomicF32 {
         }
     }
 
+    /// [`AtomicU32::load`]
     #[must_use]
     pub fn load(&self, ordering: Ordering) -> f32 {
         let bits = self.bits.load(ordering);
@@ -40,14 +43,48 @@ impl AtomicF32 {
         f32::from_bits(bits)
     }
 
+    /// [`AtomicU32::store`]
     pub fn store(&self, value: f32, ordering: Ordering) {
         let bits = value.to_bits();
         self.bits.store(bits, ordering);
     }
 
+    /// [`AtomicU32::swap`]
     pub fn swap(&self, value: f32, ordering: Ordering) -> f32 {
         let bits = value.to_bits();
         f32::from_bits(self.bits.swap(bits, ordering))
+    }
+
+    /// [`AtomicU32::compare_exchange`]
+    pub fn compare_exchange(
+        &self,
+        current: f32,
+        new: f32,
+        success: Ordering,
+        failure: Ordering,
+    ) -> Result<f32, f32> {
+        let current_bits = current.to_bits();
+        let new_bits = new.to_bits();
+        self.bits
+            .compare_exchange(current_bits, new_bits, success, failure)
+            .map(f32::from_bits)
+            .map_err(f32::from_bits)
+    }
+
+    /// [`AtomicU32::compare_exchange_weak`]
+    pub fn compare_exchange_weak(
+        &self,
+        current: f32,
+        new: f32,
+        success: Ordering,
+        failure: Ordering,
+    ) -> Result<f32, f32> {
+        let current_bits = current.to_bits();
+        let new_bits = new.to_bits();
+        self.bits
+            .compare_exchange_weak(current_bits, new_bits, success, failure)
+            .map(f32::from_bits)
+            .map_err(f32::from_bits)
     }
 }
 
