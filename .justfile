@@ -12,8 +12,10 @@ fmt:
 
 # Run clippy with various feature combinations
 clippy:
+    cargo clippy --locked --workspace --all-targets
     cargo clippy --locked --workspace --all-targets --no-default-features
     cargo clippy --locked --workspace --all-targets --no-default-features --features all-controllers
+    cargo clippy --locked --workspace --all-targets --all-features
     cargo clippy --locked --workspace --no-deps --all-targets --all-features -- -D warnings --cap-lints warn
 
 # Run cargo check for the WASM target with default features enabled
