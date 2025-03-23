@@ -24,14 +24,6 @@ const INITIAL_CAPACITY: usize = 1024;
 #[repr(transparent)]
 pub struct RegisteredId(usize);
 
-/// Metadata of a registered parameter
-#[derive(Debug, Clone)]
-pub struct RegisteredParam {
-    pub descriptor: Descriptor,
-    pub address: Address,
-    pub id: RegisteredId,
-}
-
 /// Map parameter addresses to their registered identifiers.
 #[derive(Debug)]
 struct AddressToIdMap {
