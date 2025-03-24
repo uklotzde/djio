@@ -125,31 +125,6 @@ pub enum AtomicValue {
 }
 
 impl AtomicValue {
-    pub fn load_bool(&self) -> Option<bool> {
-        self.as_bool().map(|atomic| atomic.load(Ordering::Relaxed))
-    }
-
-    pub fn load_i32(&self) -> Option<i32> {
-        self.as_i32().map(|atomic| atomic.load(Ordering::Relaxed))
-    }
-
-    pub fn load_u32(&self) -> Option<u32> {
-        self.as_u32().map(|atomic| atomic.load(Ordering::Relaxed))
-    }
-
-    pub fn load_f32(&self) -> Option<f32> {
-        self.as_f32().map(|atomic| atomic.load(Ordering::Relaxed))
-    }
-
-    pub fn load(&self) -> Value {
-        match self {
-            Self::Bool(atomic) => Value::Bool(atomic.load(Ordering::Relaxed)),
-            Self::I32(atomic) => Value::I32(atomic.load(Ordering::Relaxed)),
-            Self::U32(atomic) => Value::U32(atomic.load(Ordering::Relaxed)),
-            Self::F32(atomic) => Value::F32(atomic.load(Ordering::Relaxed)),
-        }
-    }
-
     #[must_use]
     pub const fn value_type(&self) -> ValueType {
         match self {
@@ -160,28 +135,93 @@ impl AtomicValue {
         }
     }
 
+    #[must_use]
+    pub fn load_bool(&self) -> Option<bool> {
+        self.as_bool().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_i32(&self) -> Option<i32> {
+        self.as_i32().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_u32(&self) -> Option<u32> {
+        self.as_u32().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_f32(&self) -> Option<f32> {
+        self.as_f32().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load(&self) -> Value {
+        match self {
+            Self::Bool(atomic) => Value::Bool(atomic.load(Ordering::Relaxed)),
+            Self::I32(atomic) => Value::I32(atomic.load(Ordering::Relaxed)),
+            Self::U32(atomic) => Value::U32(atomic.load(Ordering::Relaxed)),
+            Self::F32(atomic) => Value::F32(atomic.load(Ordering::Relaxed)),
+        }
+    }
+
+    #[must_use]
     pub fn load_consume_bool(&self) -> Option<bool> {
         self.as_bool().map(AtomicConsume::load_consume)
     }
 
+    #[must_use]
     pub fn load_consume_i32(&self) -> Option<i32> {
         self.as_i32().map(AtomicConsume::load_consume)
     }
 
+    #[must_use]
     pub fn load_consume_u32(&self) -> Option<u32> {
         self.as_u32().map(AtomicConsume::load_consume)
     }
 
+    #[must_use]
     pub fn load_consume_f32(&self) -> Option<f32> {
         self.as_f32().map(AtomicConsume::load_consume)
     }
 
+    #[must_use]
     pub fn load_consume(&self) -> Value {
         match self {
             Self::Bool(atomic) => Value::Bool(atomic.load_consume()),
             Self::I32(atomic) => Value::I32(atomic.load_consume()),
             Self::U32(atomic) => Value::U32(atomic.load_consume()),
             Self::F32(atomic) => Value::F32(atomic.load_consume()),
+        }
+    }
+
+    #[must_use]
+    pub fn load_relaxed_bool(&self) -> Option<bool> {
+        self.as_bool().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_relaxed_i32(&self) -> Option<i32> {
+        self.as_i32().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_relaxed_u32(&self) -> Option<u32> {
+        self.as_u32().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_relaxed_f32(&self) -> Option<f32> {
+        self.as_f32().map(|atomic| atomic.load(Ordering::Relaxed))
+    }
+
+    #[must_use]
+    pub fn load_relaxed(&self) -> Value {
+        match self {
+            Self::Bool(atomic) => Value::Bool(atomic.load(Ordering::Relaxed)),
+            Self::I32(atomic) => Value::I32(atomic.load(Ordering::Relaxed)),
+            Self::U32(atomic) => Value::U32(atomic.load(Ordering::Relaxed)),
+            Self::F32(atomic) => Value::F32(atomic.load(Ordering::Relaxed)),
         }
     }
 
@@ -265,6 +305,9 @@ impl AtomicValue {
             .swap(value, ATOMIC_STORE_ORDERING)
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn store(&self, value: Value) {
         debug_assert_eq!(self.value_type(), value.into());
         match value {
@@ -275,6 +318,9 @@ impl AtomicValue {
         }
     }
 
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
     pub fn swap(&self, value: Value) -> Value {
         debug_assert_eq!(self.value_type(), value.into());
         match value {

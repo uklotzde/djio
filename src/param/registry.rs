@@ -9,7 +9,7 @@ use std::{
 use atomic::AtomicValue;
 use derive_more::{Display, Error};
 
-use super::{Address, Descriptor, Direction, SharedAtomicValue, atomic};
+use super::{Address, Descriptor, SharedAtomicValue, Value, atomic};
 
 const INITIAL_CAPACITY: usize = 1024;
 
@@ -75,22 +75,80 @@ impl AddressToIdMap {
 }
 
 #[derive(Debug)]
-pub enum RegistryEntry {
+enum RegistryEntry {
     Pending {
         address: Address,
     },
     Ready {
         address: Address,
         descriptor: Descriptor,
-        output_value: Option<SharedAtomicValue>,
+        shared_value: SharedAtomicValue,
     },
 }
 
-impl RegistryEntry {
+#[derive(Debug, Clone, Copy)]
+pub struct RegistryEntryRef<'a>(&'a RegistryEntry);
+
+impl RegistryEntryRef<'_> {
     #[must_use]
-    pub const fn address(&self) -> &Address {
-        match self {
-            Self::Pending { address } | Self::Ready { address, .. } => address,
+    pub const fn address(&self) -> &'_ Address {
+        let Self(entry) = self;
+        match entry {
+            RegistryEntry::Pending { address } | RegistryEntry::Ready { address, .. } => address,
+        }
+    }
+
+    #[must_use]
+    pub const fn descriptor(&self) -> Option<&'_ Descriptor> {
+        let Self(entry) = self;
+        match entry {
+            RegistryEntry::Pending { address: _ } => None,
+            RegistryEntry::Ready { descriptor, .. } => Some(descriptor),
+        }
+    }
+
+    /// Reads the shared value.
+    ///
+    /// Uses a "consume" memory ordering, which is supposed to sufficient and might
+    /// be faster that an "acquire" memory ordering.
+    #[must_use]
+    pub fn load_consume_shared_value(&self) -> Option<Value> {
+        let Self(entry) = self;
+        match entry {
+            RegistryEntry::Pending { address: _ } => None,
+            RegistryEntry::Ready { shared_value, .. } => Some(shared_value.load_consume()),
+        }
+    }
+
+    /// Reads the shared value.
+    ///
+    /// Uses a "relaxed" memory ordering.
+    #[must_use]
+    pub fn load_relaxed_shared_value(&self) -> Option<Value> {
+        let Self(entry) = self;
+        match entry {
+            RegistryEntry::Pending { address: _ } => None,
+            RegistryEntry::Ready { shared_value, .. } => Some(shared_value.load_relaxed()),
+        }
+    }
+
+    /// Writes the shared value.
+    ///
+    /// Returns `true` if the shared values exists and has been updated.
+    /// Returns `false` if the new value has been discarded.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the value type does not match.
+    #[expect(clippy::must_use_candidate)]
+    pub fn store_shared_value(&self, new_value: Value) -> bool {
+        let Self(entry) = self;
+        match entry {
+            RegistryEntry::Pending { address: _ } => false,
+            RegistryEntry::Ready { shared_value, .. } => {
+                shared_value.store(new_value);
+                true
+            }
         }
     }
 }
@@ -116,11 +174,28 @@ pub enum RegistrationStatus {
 }
 
 /// Registration with optional descriptor
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Registration<'a> {
-    pub status: RegistrationStatus,
-    pub id: RegisteredId,
-    pub entry: &'a RegistryEntry,
+    status: RegistrationStatus,
+    id: RegisteredId,
+    entry: &'a RegistryEntry,
+}
+
+impl Registration<'_> {
+    #[must_use]
+    pub const fn status(&self) -> RegistrationStatus {
+        self.status
+    }
+
+    #[must_use]
+    pub const fn id(&self) -> RegisteredId {
+        self.id
+    }
+
+    #[must_use]
+    pub const fn entry(&self) -> RegistryEntryRef<'_> {
+        RegistryEntryRef(self.entry)
+    }
 }
 
 // Intermediate, internal type with borrowed contents
@@ -211,24 +286,19 @@ impl Registry {
         match entry {
             RegistryEntry::Pending { address } => {
                 log::debug!("Registering descriptor @ {address}: {descriptor:?}");
-                let output_value = match descriptor.direction {
-                    Direction::Input => None,
-                    Direction::Output => {
-                        Some(Arc::new(AtomicValue::from(descriptor.value.default)))
-                    }
-                };
+                let shared_value = Arc::new(AtomicValue::from(descriptor.value.default));
                 let address = std::mem::take(address);
                 *entry = RegistryEntry::Ready {
                     address,
                     descriptor,
-                    output_value,
+                    shared_value,
                 };
                 Ok(Registration { status, id, entry })
             }
             RegistryEntry::Ready {
                 address,
                 descriptor: registered_descriptor,
-                output_value: _,
+                shared_value: _,
             } => {
                 log::debug!("Descriptor already registered @ {address}: {registered_descriptor:?}");
                 if descriptor != *registered_descriptor {
@@ -258,8 +328,10 @@ impl Registry {
 
     /// Get the entry of a parameter by id.
     #[must_use]
-    pub fn get_entry(&self, id: RegisteredId) -> Option<&RegistryEntry> {
-        self.entries.get(registry_entry_id(id))
+    pub fn get_entry(&self, id: RegisteredId) -> Option<RegistryEntryRef<'_>> {
+        self.entries
+            .get(registry_entry_id(id))
+            .map(RegistryEntryRef)
     }
 }
 

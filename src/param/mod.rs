@@ -29,7 +29,7 @@ pub use self::ramping::{RampingF32, RampingMode, RampingProfile};
 
 mod registry;
 pub use self::registry::{
-    RegisteredId, Registration, RegistrationError, RegistrationStatus, Registry, RegistryEntry,
+    RegisteredId, Registration, RegistrationError, RegistrationStatus, Registry, RegistryEntryRef,
 };
 
 /// Direction
@@ -136,6 +136,8 @@ pub struct ValueDescriptor {
     pub default: Value,
 
     /// Range restrictions
+    ///
+    /// The value type of the boundary values must match the value type of the default value.
     pub range: ValueRangeDescriptor,
 }
 
@@ -164,6 +166,31 @@ impl ValueRangeDescriptor {
         Self {
             min: Bound::Unbounded,
             max: Bound::Unbounded,
+        }
+    }
+
+    #[must_use]
+    pub fn value_type(&self) -> Option<ValueType> {
+        match self {
+            Self {
+                min: Bound::Unbounded,
+                max: Bound::Unbounded,
+            } => None,
+            Self {
+                min: Bound::Included(min) | Bound::Excluded(min),
+                max: Bound::Unbounded,
+            } => Some(min.into()),
+            Self {
+                min: Bound::Unbounded,
+                max: Bound::Included(max) | Bound::Excluded(max),
+            } => Some(max.into()),
+            Self {
+                min: Bound::Included(min) | Bound::Excluded(min),
+                max: Bound::Included(max) | Bound::Excluded(max),
+            } => {
+                debug_assert_eq!(ValueType::from(min), ValueType::from(max));
+                Some(min.into())
+            }
         }
     }
 

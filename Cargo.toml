@@ -20,7 +20,7 @@ derive_more = { version = "2.0.1", features = ["display", "error", "from"] }
 float-cmp = "0.10.0"
 futures-core = { version = "0.3.31", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = ["std"] }
-log = "0.4.26"
+log = "0.4.27"
 smol_str = "0.3.2"
 strum = { version = "0.27.1", features = ["derive"] }
 
