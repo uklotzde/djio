@@ -59,7 +59,13 @@ impl AddressToIdMap {
             let address = addressable.into();
             let id = RegisteredId(self.len());
             // TODO: Avoid hashing addressable twice when inserting a new entry.
-            self.inner.insert(address.clone(), id);
+            #[expect(
+                unsafe_code,
+                reason = "we just checked that the key is not contained in the map"
+            )]
+            unsafe {
+                self.inner.insert_unique_unchecked(address.clone(), id);
+            }
             (address, id)
         }
     }
