@@ -28,6 +28,7 @@ strum = { version = "0.27.1", features = ["derive"] }
 discro = { version = "0.34.0", optional = true }
 midir = { version = "0.10.1", optional = true }
 tokio = { version = "1.44.1", default-features = false, optional = true }
+hashbrown = { version = "0.15.2", optional = true }
 
 # Optional dependencies (experimental features)
 crossbeam-utils = { version = "0.8.21", optional = true }
@@ -77,6 +78,7 @@ ni-traktor-kontrol-s4mk3 = ["hid"]
 experimental-param = [
   "dep:crossbeam-utils",
   "dep:enum-as-inner",
+  "dep:hashbrown",
   "derive_more/as_ref",
   "derive_more/deref",
   "derive_more/into",

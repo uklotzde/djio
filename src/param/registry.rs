@@ -1,13 +1,11 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{
-    collections::{HashMap, hash_map::Entry},
-    sync::Arc,
-};
+use std::{hash::Hash, sync::Arc};
 
 use atomic::AtomicValue;
 use derive_more::{Display, Error};
+use hashbrown::HashMap;
 
 use super::{Address, Descriptor, SharedAtomicValue, Value, atomic};
 
@@ -47,30 +45,27 @@ impl AddressToIdMap {
     }
 
     /// Obtain an id for an address.
-    fn get_or_add(&mut self, address: Address) -> (Address, RegisteredId) {
-        // The current length must be obtained before the mutable borrow,
-        // even if it remains unused.
-        let next_id = self.len();
-        match self.inner.entry(address) {
-            Entry::Occupied(entry) => {
-                let id = *entry.get();
-                // TODO: Replace needless clone() with entry.replace_key()
-                // after #![feature(map_entry_replace)] has been stabilized.
-                //let address = entry.replace_key();
-                let address = entry.key().clone();
-                (address, id)
-            }
-            Entry::Vacant(entry) => {
-                let id = RegisteredId(next_id);
-                let address = entry.key().clone();
-                entry.insert(id);
-                (address, id)
-            }
+    fn get_or_add(
+        &mut self,
+        addressable: impl AsRef<str> + Into<Address>,
+    ) -> (Address, RegisteredId) {
+        if let Some((address, id)) = self.inner.get_key_value(addressable.as_ref()) {
+            // Clone an reuse the address of the existing entry in O(1) since we
+            // do not know what the implementation of Into<Address> actually does.
+            debug_assert_eq!(*address, addressable.into());
+            (address.clone(), *id)
+        } else {
+            // Insert a new entry.
+            let address = addressable.into();
+            let id = RegisteredId(self.len());
+            // TODO: Avoid hashing addressable twice when inserting a new entry.
+            self.inner.insert(address.clone(), id);
+            (address, id)
         }
     }
 
-    fn get(&self, address: &Address) -> Option<RegisteredId> {
-        self.inner.get(address).map(ToOwned::to_owned)
+    fn get(&self, addressable: impl AsRef<str>) -> Option<RegisteredId> {
+        self.inner.get(addressable.as_ref()).map(ToOwned::to_owned)
     }
 }
 
@@ -233,9 +228,9 @@ impl Registry {
         self.address_to_id.iter()
     }
 
-    fn register(&mut self, address: Address) -> RegistrationMut<'_> {
+    fn register(&mut self, addressable: impl AsRef<str> + Into<Address>) -> RegistrationMut<'_> {
         debug_assert_eq!(self.address_to_id.len(), self.entries.len());
-        let (address, id) = self.address_to_id.get_or_add(address);
+        let (address, id) = self.address_to_id.get_or_add(addressable);
         let entry_id = registry_entry_id(id);
         if entry_id < self.entries.len() {
             // Occupied
@@ -279,10 +274,10 @@ impl Registry {
     /// Addresses strings will be used verbatim as the key.
     pub fn register_descriptor(
         &mut self,
-        address: Address,
+        addressable: impl AsRef<str> + Into<Address>,
         descriptor: Descriptor,
     ) -> Result<Registration<'_>, RegistrationError> {
-        let RegistrationMut { status, id, entry } = self.register(address);
+        let RegistrationMut { status, id, entry } = self.register(addressable);
         match entry {
             RegistryEntry::Pending { address } => {
                 log::debug!("Registering descriptor @ {address}: {descriptor:?}");
@@ -316,14 +311,17 @@ impl Registry {
     ///
     /// Addresses can be registered at any time, even before the corresponding descriptor
     /// is registered. The descriptor will not be available until it has been registered.
-    pub fn register_address(&mut self, address: Address) -> Registration<'_> {
-        self.register(address).into()
+    pub fn register_address(
+        &mut self,
+        addressable: impl AsRef<str> + Into<Address>,
+    ) -> Registration<'_> {
+        self.register(addressable).into()
     }
 
     /// Find the [`RegisteredId`] for the given address.
     #[must_use]
-    pub fn resolve_address(&self, address: &Address) -> Option<RegisteredId> {
-        self.address_to_id.get(address)
+    pub fn resolve_address(&self, addressable: impl AsRef<str>) -> Option<RegisteredId> {
+        self.address_to_id.get(addressable)
     }
 
     /// Get the entry of a parameter by id.
@@ -342,5 +340,45 @@ impl Default for Registry {
             address_to_id: AddressToIdMap::with_capacity(INITIAL_CAPACITY + INITIAL_CAPACITY / 2),
             entries: Vec::with_capacity(INITIAL_CAPACITY),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::borrow::Cow;
+
+    use smol_str::SmolStr;
+
+    use crate::param::{Descriptor, Direction, RegistrationStatus, Value, ValueDescriptor};
+
+    use super::{RegisteredId, Registry};
+
+    #[test]
+    fn registry() {
+        let mut registry = Registry::default();
+
+        let consumer1 = registry.register_address("addr1");
+        assert_eq!(consumer1.id(), RegisteredId(0));
+        assert_eq!(consumer1.status(), RegistrationStatus::NewlyRegistered);
+        assert_eq!(consumer1.entry().address().as_str(), "addr1");
+        assert!(consumer1.entry().descriptor().is_none());
+
+        registry.register_address("addr2".to_owned());
+        registry.register_address(Cow::Borrowed("addr3"));
+        registry.register_address(SmolStr::new_static("addr4"));
+
+        let desc1 = Descriptor {
+            name: "name1".into(),
+            unit: None,
+            direction: Direction::Input,
+            value: ValueDescriptor::default(Value::Bool(true)),
+        };
+        let provider1 = registry
+            .register_descriptor("addr1", desc1.clone())
+            .unwrap();
+        assert_eq!(provider1.id(), RegisteredId(0));
+        assert_eq!(provider1.status(), RegistrationStatus::AlreadyRegistered);
+        assert_eq!(provider1.entry().address().as_str(), "addr1");
+        assert_eq!(provider1.entry().descriptor(), Some(&desc1));
     }
 }

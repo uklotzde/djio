@@ -14,6 +14,7 @@
 //! be sent to the real-time kernel when changed. Values of output parameters must
 //! be polled periodically for updating the corresponding hardware outputs.
 
+use std::borrow::{Borrow, Cow};
 use std::{cmp::Ordering, ops::Bound};
 
 use derive_more::{AsRef, Deref, Display, From, Into};
@@ -94,6 +95,36 @@ impl Name {
     }
 }
 
+impl From<&str> for Name {
+    fn from(from: &str) -> Self {
+        Self(from.into())
+    }
+}
+
+impl From<Cow<'_, str>> for Name {
+    fn from(from: Cow<'_, str>) -> Self {
+        Self(from.into())
+    }
+}
+
+impl From<String> for Name {
+    fn from(from: String) -> Self {
+        Self(from.into())
+    }
+}
+
+impl AsRef<str> for Name {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+impl Borrow<str> for Name {
+    fn borrow(&self) -> &str {
+        self.0.borrow()
+    }
+}
+
 /// Parameter unit.
 ///
 /// A short code for display purposes, preferably according to ISO standards.
@@ -106,6 +137,35 @@ impl Unit {
     #[must_use]
     pub const fn new(inner: SmolStr) -> Self {
         Self(inner)
+    }
+}
+impl From<&str> for Unit {
+    fn from(from: &str) -> Self {
+        Self(from.into())
+    }
+}
+
+impl From<Cow<'_, str>> for Unit {
+    fn from(from: Cow<'_, str>) -> Self {
+        Self(from.into())
+    }
+}
+
+impl From<String> for Unit {
+    fn from(from: String) -> Self {
+        Self(from.into())
+    }
+}
+
+impl AsRef<str> for Unit {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+impl Borrow<str> for Unit {
+    fn borrow(&self) -> &str {
+        self.0.borrow()
     }
 }
 
@@ -142,6 +202,14 @@ pub struct ValueDescriptor {
 }
 
 impl ValueDescriptor {
+    #[must_use]
+    pub const fn default(default: Value) -> Self {
+        Self {
+            default,
+            range: ValueRangeDescriptor::unbounded(),
+        }
+    }
+
     #[must_use]
     pub fn value_type(&self) -> ValueType {
         self.default.into()
@@ -248,9 +316,50 @@ impl Address {
     }
 }
 
+impl From<&str> for Address {
+    fn from(from: &str) -> Self {
+        Self(from.into())
+    }
+}
+
+impl From<Cow<'_, str>> for Address {
+    fn from(from: Cow<'_, str>) -> Self {
+        Self(from.into())
+    }
+}
+
+impl From<String> for Address {
+    fn from(from: String) -> Self {
+        Self(from.into())
+    }
+}
+
+impl AsRef<str> for Address {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+impl Borrow<str> for Address {
+    fn borrow(&self) -> &str {
+        self.0.borrow()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_value_descriptor() {
+        assert_eq!(
+            ValueDescriptor::default(Value::Bool(true)),
+            ValueDescriptor {
+                default: Value::Bool(true),
+                range: Default::default(),
+            }
+        );
+    }
 
     #[test]
     fn default_value_range_is_unbounded() {
