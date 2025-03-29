@@ -14,8 +14,11 @@
 //! be sent to the real-time kernel when changed. Values of output parameters must
 //! be polled periodically for updating the corresponding hardware outputs.
 
-use std::borrow::{Borrow, Cow};
-use std::{cmp::Ordering, ops::Bound};
+use std::{
+    borrow::{Borrow, Cow},
+    cmp::Ordering,
+    ops::Bound,
+};
 
 use derive_more::{AsRef, Deref, Display, From, Into};
 use enum_as_inner::EnumAsInner;

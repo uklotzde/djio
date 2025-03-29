@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-use std::{hash::Hash, sync::Arc};
+use std::{
+    hash::{BuildHasher as _, Hash},
+    sync::Arc,
+};
 
 use atomic::AtomicValue;
 use derive_more::{Display, Error};
-use hashbrown::{HashMap, hash_map::EntryRef};
+use hashbrown::{DefaultHashBuilder, HashTable};
 
 use super::{Address, Descriptor, Value, atomic};
 
@@ -23,25 +26,49 @@ const INITIAL_CAPACITY: usize = 1024;
 pub struct RegisteredId(usize);
 
 /// Map parameter addresses to their registered identifiers.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct AddressToIdMap {
-    inner: HashMap<Address, RegisteredId>,
+    hash_table: HashTable<(Address, RegisteredId)>,
+    hash_builder: DefaultHashBuilder,
 }
 
 impl AddressToIdMap {
     #[must_use]
     fn with_capacity(initial_capacity: usize) -> Self {
         Self {
-            inner: HashMap::with_capacity(initial_capacity),
+            hash_table: HashTable::with_capacity(initial_capacity),
+            hash_builder: Default::default(),
         }
     }
 
     fn len(&self) -> usize {
-        self.inner.len()
+        self.hash_table.len()
     }
 
     fn iter(&self) -> impl Iterator<Item = (&Address, RegisteredId)> {
-        self.inner.iter().map(|(address, &id)| (address, id))
+        self.hash_table.iter().map(|(address, id)| (address, *id))
+    }
+
+    fn hash_addressable(&self, addressable: &impl AsRef<str>) -> u64 {
+        self.hash_builder.hash_one(addressable.as_ref())
+    }
+
+    fn get(&self, addressable: &impl AsRef<str>) -> Option<(&Address, RegisteredId)> {
+        let hash = self.hash_addressable(addressable);
+        self.get_hashed(addressable, hash)
+    }
+
+    fn get_hashed(
+        &self,
+        addressable: &impl AsRef<str>,
+        hash: u64,
+    ) -> Option<(&Address, RegisteredId)> {
+        debug_assert_eq!(hash, self.hash_addressable(addressable));
+        self.hash_table
+            .find(hash, |(address, _id)| {
+                address.as_str().eq(addressable.as_ref())
+            })
+            .map(|(address, id)| (address, *id))
     }
 
     /// Obtain an id for an address.
@@ -50,43 +77,21 @@ impl AddressToIdMap {
         addressable: impl AsRef<str> + Into<Address>,
     ) -> (Address, RegisteredId) {
         let next_id = RegisteredId(self.len());
-        match self.inner.entry_ref(addressable.as_ref()) {
-            EntryRef::Occupied(entry) => {
-                // Clone and reuse the address of the existing entry in O(1) since we
-                // do not know what the implementation of Into<Address> actually does.
-                let address = entry.key();
-                let id = entry.get();
-                debug_assert_eq!(*address, addressable.into());
-                debug_assert_ne!(*id, next_id);
-                (address.clone(), *id)
-            }
-            EntryRef::Vacant(_entry) => {
-                // Insert a new entry.
-                // TODO: How to insert VacantEntryRef by using `Into::Addressable`
-                // instead of converting the intermediate, borrowed `&str` obtained
-                // from `AsRef<str>` into `Address`? Otherwise `VacantEntryRef::insert_entry()`
-                // would be inefficient when `addressable` is `String`/`SmolStr`/`&SmolStr`.
-                //
-                //let entry = entry.insert_entry(next_id); // &str -> Address
-                //let address = entry.key();
-                //let id = entry.get();
-                //
-                // Recomputing the hash required for `insert_unique_unchecked()` is supposed
-                // to be more efficient than converting the intermediate, borrowed `&str`
-                // instead of `addressable` into `Address`.
-                #[expect(unsafe_code, reason = "vacant entry")]
-                let (address, id) = unsafe {
-                    self.inner
-                        .insert_unique_unchecked(addressable.into(), next_id)
-                };
-                debug_assert_eq!(*id, next_id);
-                (address.clone(), *id)
-            }
+        let hash = self.hash_addressable(&addressable);
+        if let Some((address, id)) = self.get_hashed(&addressable, hash) {
+            // Clone and reuse the address of the existing entry in O(1) since we
+            // do not know what the implementation of Into<Address> actually does.
+            debug_assert_eq!(*address, addressable.into());
+            return (address.clone(), id);
         }
-    }
-
-    fn get(&self, addressable: impl AsRef<str>) -> Option<RegisteredId> {
-        self.inner.get(addressable.as_ref()).map(ToOwned::to_owned)
+        // Insert a new entry.
+        let entry =
+            self.hash_table
+                .insert_unique(hash, (addressable.into(), next_id), |(address, _id)| {
+                    self.hash_builder.hash_one(address)
+                });
+        let (address, id) = entry.get();
+        (address.clone(), *id)
     }
 }
 
@@ -339,9 +344,15 @@ impl Registry {
         self.register(addressable).into()
     }
 
-    /// Find the [`RegisteredId`] for the given address.
+    /// Find the [`RegisteredId`] for the given address(able).
+    ///
+    /// Returns both a reference to the found [`Address`] (for efficient cloning)
+    /// and the corresponding [`RegisteredId`].
     #[must_use]
-    pub fn resolve_address(&self, addressable: impl AsRef<str>) -> Option<RegisteredId> {
+    pub fn resolve_address(
+        &self,
+        addressable: &impl AsRef<str>,
+    ) -> Option<(&Address, RegisteredId)> {
         self.address_to_id.get(addressable)
     }
 
