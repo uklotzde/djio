@@ -7,7 +7,7 @@ use atomic::AtomicValue;
 use derive_more::{Display, Error};
 use hashbrown::{HashMap, hash_map::EntryRef};
 
-use super::{Address, Descriptor, SharedAtomicValue, Value, atomic};
+use super::{Address, Descriptor, Value, atomic};
 
 const INITIAL_CAPACITY: usize = 1024;
 
@@ -84,7 +84,7 @@ enum RegistryEntry {
     Ready {
         address: Address,
         descriptor: Descriptor,
-        shared_value: SharedAtomicValue,
+        shared_value: Arc<AtomicValue>,
     },
 }
 

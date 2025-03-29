@@ -2,10 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 
 //! Atomic parameter values
-use std::sync::{
-    Arc, Weak,
-    atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering},
-};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU32, Ordering};
 
 use crossbeam_utils::atomic::AtomicConsume;
 use enum_as_inner::EnumAsInner;
@@ -14,7 +11,7 @@ use super::{Value, ValueType};
 
 /// Atomic f32 value with limited functionality.
 ///
-/// Implemented by bitwise mapping to/from [`AtomicU32`].
+/// Implemented by a bitwise mapping to/from [`AtomicU32`].
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct AtomicF32 {
@@ -350,6 +347,3 @@ impl From<Value> for AtomicValue {
         }
     }
 }
-
-pub type SharedAtomicValue = Arc<AtomicValue>;
-pub type WeakAtomicValue = Weak<AtomicValue>;

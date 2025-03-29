@@ -23,7 +23,7 @@ use smol_str::SmolStr;
 use strum::EnumDiscriminants;
 
 mod atomic;
-pub use self::atomic::{AtomicValue, SharedAtomicValue, WeakAtomicValue};
+pub use self::atomic::AtomicValue;
 
 mod ramping;
 pub use self::ramping::{RampingF32, RampingMode, RampingProfile};
