@@ -60,11 +60,25 @@ impl AddressToIdMap {
                 debug_assert_ne!(*id, next_id);
                 (address.clone(), *id)
             }
-            EntryRef::Vacant(entry) => {
+            EntryRef::Vacant(_entry) => {
                 // Insert a new entry.
-                let entry = entry.insert_entry(next_id);
-                let address = entry.key();
-                let id = entry.get();
+                // TODO: How to insert VacantEntryRef by using `Into::Addressable`
+                // instead of converting the intermediate, borrowed `&str` obtained
+                // from `AsRef<str>` into `Address`? Otherwise `VacantEntryRef::insert_entry()`
+                // would be inefficient when `addressable` is `String`/`SmolStr`/`&SmolStr`.
+                //
+                //let entry = entry.insert_entry(next_id); // &str -> Address
+                //let address = entry.key();
+                //let id = entry.get();
+                //
+                // Recomputing the hash required for `insert_unique_unchecked()` is supposed
+                // to be more efficient than converting the intermediate, borrowed `&str`
+                // instead of `addressable` into `Address`.
+                #[expect(unsafe_code, reason = "vacant entry")]
+                let (address, id) = unsafe {
+                    self.inner
+                        .insert_unique_unchecked(addressable.into(), next_id)
+                };
                 debug_assert_eq!(*id, next_id);
                 (address.clone(), *id)
             }
