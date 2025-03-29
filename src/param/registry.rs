@@ -5,7 +5,7 @@ use std::{hash::Hash, sync::Arc};
 
 use atomic::AtomicValue;
 use derive_more::{Display, Error};
-use hashbrown::HashMap;
+use hashbrown::{HashMap, hash_map::EntryRef};
 
 use super::{Address, Descriptor, SharedAtomicValue, Value, atomic};
 
@@ -49,24 +49,25 @@ impl AddressToIdMap {
         &mut self,
         addressable: impl AsRef<str> + Into<Address>,
     ) -> (Address, RegisteredId) {
-        if let Some((address, id)) = self.inner.get_key_value(addressable.as_ref()) {
-            // Clone an reuse the address of the existing entry in O(1) since we
-            // do not know what the implementation of Into<Address> actually does.
-            debug_assert_eq!(*address, addressable.into());
-            (address.clone(), *id)
-        } else {
-            // Insert a new entry.
-            let address = addressable.into();
-            let id = RegisteredId(self.len());
-            // TODO: Avoid hashing addressable twice when inserting a new entry.
-            #[expect(
-                unsafe_code,
-                reason = "we just checked that the key is not contained in the map"
-            )]
-            unsafe {
-                self.inner.insert_unique_unchecked(address.clone(), id);
+        let next_id = RegisteredId(self.len());
+        match self.inner.entry_ref(addressable.as_ref()) {
+            EntryRef::Occupied(entry) => {
+                // Clone and reuse the address of the existing entry in O(1) since we
+                // do not know what the implementation of Into<Address> actually does.
+                let address = entry.key();
+                let id = entry.get();
+                debug_assert_eq!(*address, addressable.into());
+                debug_assert_ne!(*id, next_id);
+                (address.clone(), *id)
             }
-            (address, id)
+            EntryRef::Vacant(entry) => {
+                // Insert a new entry.
+                let entry = entry.insert_entry(next_id);
+                let address = entry.key();
+                let id = entry.get();
+                debug_assert_eq!(*id, next_id);
+                (address.clone(), *id)
+            }
         }
     }
 
