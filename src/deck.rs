@@ -25,7 +25,7 @@ pub struct Cue {
     pub position: Position,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlayState {
     /// Paused
     Paused {
@@ -74,7 +74,7 @@ pub struct Playhead {
     pub is_playing: bool,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Playable {
     pub play_state: PlayState,
 
@@ -84,7 +84,7 @@ pub struct Playable {
     pub duration: Option<Duration>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TempoInput {
     pub range_min: f32,
     pub range_max: f32,
@@ -120,10 +120,14 @@ pub struct PlaybackParams {
     ///
     /// Controls the tempo when the media is playing.
     ///
-    /// A value of 1.0 means normal playback speed. A value of 0.0 means halt.
-    /// If the playback rate is negative, the media will be played backwards.
+    /// - Nominal tempo (default): 1.0
+    /// - Slowed down by 6%: 0.94
+    /// - Sped up by 6%: 1.06
+    /// - Halted or paused: 0.0
+    /// - Reversed with nominal tempo: -1.0
     ///
-    /// If the playback rate affects the pitch, depends on `pitch_semitones`.
+    /// If the playback rate affects the pitch depends on the value of
+    /// `pitch_semitones`.
     pub rate: f32,
 
     /// Pitch
@@ -144,7 +148,7 @@ impl Default for PlaybackParams {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Player {
     /// Cue
     pub cue: Cue,
@@ -156,7 +160,7 @@ pub struct Player {
 /// [`Player`] with all fields optional
 ///
 /// Fields that are `None` will not be updated.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct UpdatePlayer {
     pub cue: Option<Cue>,
     pub playback_params: Option<PlaybackParams>,
