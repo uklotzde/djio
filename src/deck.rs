@@ -214,20 +214,20 @@ impl Observables {
 }
 
 pub trait Adapter {
-    /// Read the current playhead
+    /// Reads the current playhead.
     #[must_use]
     fn read_playhead(&self) -> Option<Playhead>;
 
-    /// Set the playhead position
+    /// Sets the playhead position.
     ///
     /// The playhead position might not become effective immediately,
     /// i.e. [`Self::read_playhead()`] could still return the old position
     /// after returning from this method.
     fn set_playhead_position(&mut self, position: Position);
 
-    /// Update selected [`Player`] properties
+    /// Updates selected [`Player`] properties.
     ///
-    /// If `playhead` is `Some`, then this value should be used instead
-    /// of reading the current value.
-    fn update_player(&mut self, playhead: Option<Playhead>, update_player: UpdatePlayer);
+    /// If `with_playhead` is `Some`, then this value should be used instead
+    /// of reading the current value when needed.
+    fn update_player(&mut self, update_player: UpdatePlayer, with_playhead: Option<Playhead>);
 }
