@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
-#![allow(rustdoc::invalid_rust_codeblocks)]
+#![expect(rustdoc::invalid_rust_codeblocks)]
 #![doc = include_str!("../README.md")]
 
 use std::{

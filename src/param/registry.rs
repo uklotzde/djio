@@ -8,7 +8,7 @@ use std::{
 
 use atomic::AtomicValue;
 use derive_more::{Display, Error};
-use hashbrown::{DefaultHashBuilder, HashTable};
+use hashbrown::{DefaultHashBuilder, HashTable, hash_table::Entry};
 
 use super::{Address, Descriptor, Value, atomic};
 
@@ -49,49 +49,47 @@ impl AddressToIdMap {
         self.hash_table.iter().map(|(address, id)| (address, *id))
     }
 
-    fn hash_addressable(&self, addressable: &impl AsRef<str>) -> u64 {
-        self.hash_builder.hash_one(addressable.as_ref())
-    }
-
-    fn get(&self, addressable: &impl AsRef<str>) -> Option<(&Address, RegisteredId)> {
-        let hash = self.hash_addressable(addressable);
-        self.get_hashed(addressable, hash)
-    }
-
-    fn get_hashed(
-        &self,
-        addressable: &impl AsRef<str>,
-        hash: u64,
-    ) -> Option<(&Address, RegisteredId)> {
-        debug_assert_eq!(hash, self.hash_addressable(addressable));
-        self.hash_table
+    fn find(&self, addressable: &impl AsRef<str>) -> Option<(&Address, RegisteredId)> {
+        let Self {
+            hash_builder,
+            hash_table,
+        } = self;
+        let hash = hash_builder.hash_one(addressable.as_ref());
+        hash_table
             .find(hash, |(address, _id)| {
                 address.as_str().eq(addressable.as_ref())
             })
             .map(|(address, id)| (address, *id))
     }
 
-    /// Obtain an id for an address.
-    fn get_or_add(
+    fn find_or_add(
         &mut self,
         addressable: impl AsRef<str> + Into<Address>,
-    ) -> (Address, RegisteredId) {
-        let next_id = RegisteredId(self.len());
-        let hash = self.hash_addressable(&addressable);
-        if let Some((address, id)) = self.get_hashed(&addressable, hash) {
-            // Clone and reuse the address of the existing entry in O(1) since we
-            // do not know what the implementation of Into<Address> actually does.
-            debug_assert_eq!(*address, addressable.into());
-            return (address.clone(), id);
+    ) -> (&Address, RegisteredId) {
+        let Self {
+            hash_builder,
+            hash_table,
+        } = self;
+        let next_id = RegisteredId(hash_table.len());
+        let hash = hash_builder.hash_one(addressable.as_ref());
+        match self.hash_table.entry(
+            hash,
+            |(address, _id)| address.as_str().eq(addressable.as_ref()),
+            |(address, _)| hash_builder.hash_one(address),
+        ) {
+            Entry::Occupied(occupied) => {
+                // Clone and reuse the address of the existing entry in O(1) since we
+                // do not know what the implementation of Into<Address> actually does.
+                let (address, id) = occupied.into_mut();
+                debug_assert_eq!(*address, addressable.into());
+                (address, *id)
+            }
+            Entry::Vacant(vacant) => {
+                let occupied = vacant.insert((addressable.into(), next_id));
+                let (address, id) = occupied.into_mut();
+                (address, *id)
+            }
         }
-        // Insert a new entry.
-        let entry =
-            self.hash_table
-                .insert_unique(hash, (addressable.into(), next_id), |(address, _id)| {
-                    self.hash_builder.hash_one(address)
-                });
-        let (address, id) = entry.get();
-        (address.clone(), *id)
     }
 }
 
@@ -244,9 +242,9 @@ pub struct Registry {
     entries: Vec<RegistryEntry>,
 }
 
-const fn registry_entry_id(param_id: RegisteredId) -> usize {
-    let RegisteredId(entry_id) = param_id;
-    entry_id
+const fn registry_entry_index(id: RegisteredId) -> usize {
+    let RegisteredId(index) = id;
+    index
 }
 
 impl Registry {
@@ -256,13 +254,13 @@ impl Registry {
 
     fn register(&mut self, addressable: impl AsRef<str> + Into<Address>) -> RegistrationMut<'_> {
         debug_assert_eq!(self.address_to_id.len(), self.entries.len());
-        let (address, id) = self.address_to_id.get_or_add(addressable);
-        let entry_id = registry_entry_id(id);
-        if entry_id < self.entries.len() {
+        let (address, id) = self.address_to_id.find_or_add(addressable);
+        let entry_index = registry_entry_index(id);
+        if entry_index < self.entries.len() {
             // Occupied
             debug_assert_eq!(self.address_to_id.len(), self.entries.len());
-            #[expect(unsafe_code)]
-            let entry = unsafe { self.entries.get_unchecked_mut(registry_entry_id(id)) };
+            #[expect(unsafe_code, reason = "index has just been checked")]
+            let entry = unsafe { self.entries.get_unchecked_mut(entry_index) };
             RegistrationMut {
                 status: RegistrationStatus::AlreadyRegistered,
                 id,
@@ -270,7 +268,9 @@ impl Registry {
             }
         } else {
             // Vacant
-            let new_entry = RegistryEntry::Pending { address };
+            let new_entry = RegistryEntry::Pending {
+                address: address.clone(),
+            };
             self.entries.push(new_entry);
             debug_assert_eq!(self.address_to_id.len(), self.entries.len());
             let entry = self
@@ -353,14 +353,14 @@ impl Registry {
         &self,
         addressable: &impl AsRef<str>,
     ) -> Option<(&Address, RegisteredId)> {
-        self.address_to_id.get(addressable)
+        self.address_to_id.find(addressable)
     }
 
     /// Get the entry of a parameter by id.
     #[must_use]
     pub fn get_entry(&self, id: RegisteredId) -> Option<RegistryEntryRef<'_>> {
         self.entries
-            .get(registry_entry_id(id))
+            .get(registry_entry_index(id))
             .map(RegistryEntryRef)
     }
 }
