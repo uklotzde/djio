@@ -12,9 +12,7 @@ impl BufferRecycler {
     pub fn new() -> Self {
         Self {
             // One slot per report id
-            recycled: std::iter::repeat(Vec::new())
-                .take(usize::from(u8::MAX) + 1)
-                .collect(),
+            recycled: std::iter::repeat_n(Vec::new(), usize::from(u8::MAX) + 1).collect(),
         }
     }
 

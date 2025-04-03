@@ -10,7 +10,7 @@ readme = "README.md"
 repository = "https://github.com/uklotzde/djio"
 keywords = ["dj", "controller", "midi", "hid"]
 categories = ["hardware-support"]
-rust-version = "1.85"
+rust-version = "1.86"
 edition = "2024"
 include = ["README.md", "LICENSES", "src/"]
 

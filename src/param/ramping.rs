@@ -153,7 +153,7 @@ impl RampingF32 {
             self.current_step += steps;
         } else {
             self.current_step = self.config.profile.steps;
-        };
+        }
     }
 }
 

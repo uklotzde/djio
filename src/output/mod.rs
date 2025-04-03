@@ -232,7 +232,7 @@ impl BlinkingLedTicker {
     }
 
     #[must_use]
-    pub fn tick(&mut self) -> BlinkingLedOutput {
+    pub const fn tick(&mut self) -> BlinkingLedOutput {
         let value = self.0;
         self.0 = self.0.wrapping_add(1);
         Self::output_from_value(value)
@@ -295,7 +295,7 @@ impl VirtualLed {
     /// Update the blinking output
     ///
     /// The output is updated accordingly while the state remains unchanged.
-    pub fn update_blinking_output(&mut self, blinking_led_output: BlinkingLedOutput) {
+    pub const fn update_blinking_output(&mut self, blinking_led_output: BlinkingLedOutput) {
         let Self { state, output } = self;
         *output = state.output(blinking_led_output);
     }

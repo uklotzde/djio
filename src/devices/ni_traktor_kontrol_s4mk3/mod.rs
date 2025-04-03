@@ -210,9 +210,11 @@ impl DeviceContext {
             command_rx,
             recycle_report_buffer_tx,
             // One slot per report id
-            report_stats_by_id: std::iter::repeat(ReportStats::default())
-                .take(usize::from(u8::MAX) + 1)
-                .collect(),
+            report_stats_by_id: std::iter::repeat_n(
+                ReportStats::default(),
+                usize::from(u8::MAX) + 1,
+            )
+            .collect(),
         };
         let info = connected_device.info().clone();
         let environment = Environment {
