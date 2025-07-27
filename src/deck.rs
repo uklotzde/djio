@@ -94,7 +94,7 @@ pub struct TempoInput {
 impl TempoInput {
     #[must_use]
     pub fn playback_rate(&self) -> f32 {
-        let range_center = (self.range_min + self.range_max) / 2.0;
+        let range_center = self.range_min.midpoint(self.range_max);
         PLAYBACK_RATE_DEFAULT
             + self
                 .center_slider

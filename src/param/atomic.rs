@@ -88,7 +88,6 @@ impl AtomicF32 {
 impl AtomicConsume for AtomicF32 {
     type Val = f32;
 
-    #[must_use]
     fn load_consume(&self) -> Self::Val {
         Self::load_consume(self)
     }
