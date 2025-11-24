@@ -10,25 +10,25 @@ readme = "README.md"
 repository = "https://github.com/uklotzde/djio"
 keywords = ["dj", "controller", "midi", "hid"]
 categories = ["hardware-support"]
-rust-version = "1.86"
+rust-version = "1.91"
 edition = "2024"
 include = ["README.md", "LICENSES", "src/"]
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.100"
 derive_more = { version = "2.0.1", features = ["display", "error", "from"] }
 float-cmp = "0.10.0"
 futures-core = { version = "0.3.31", default-features = false }
 futures-util = { version = "0.3.31", default-features = false, features = ["std"] }
-log = "0.4.27"
-smol_str = "0.3.2"
+log = "0.4.28"
+smol_str = "0.3.4"
 strum = { version = "0.27.2", features = ["derive"] }
 
 # Optional dependencies
 discro = { version = "0.34.1", optional = true }
-midir = { version = "0.10.1", optional = true }
-tokio = { version = "1.47.0", default-features = false, optional = true }
-hashbrown = { version = "0.15.4", optional = true }
+midir = { version = "0.10.3", optional = true }
+tokio = { version = "1.48.0", default-features = false, optional = true }
+hashbrown = { version = "0.16.1", optional = true }
 
 # Optional dependencies (experimental features)
 crossbeam-utils = { version = "0.8.21", optional = true }
@@ -39,7 +39,7 @@ enum-as-inner = { version = "0.6.1", optional = true }
 hidapi = { version = "2.6.3", optional = true }
 
 [dev-dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.100"
 hidapi = "2.6.3"
 pretty_env_logger = "0.5.0"
 

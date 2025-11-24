@@ -200,7 +200,7 @@ fn thread_fn<C: CommandReceiver + EventHandler>(environment: &mut Environment<C>
         context,
     } = environment;
     // Double-buffering for deduplication of subsequent incoming reports
-    let mut read_slots = vec![ReadSlot::new(), ReadSlot::new()];
+    let mut read_slots = vec![ReadSlot::new(), ReadSlot::new()].into_boxed_slice();
     let mut last_read_slot_index = 0;
     let mut last_read_cycle_started = Instant::now();
     while let Ok(command) = context.try_recv_command() {
