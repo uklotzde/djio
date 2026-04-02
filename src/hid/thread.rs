@@ -239,7 +239,9 @@ fn thread_fn<C: CommandReceiver + EventHandler>(environment: &mut Environment<C>
         let elapsed_since_last_read_cycle =
             read_cycle_started.duration_since(last_read_cycle_started);
         let mut next_read_timeout = if FIRST_READ_TIMEOUT > elapsed_since_last_read_cycle {
-            let next_read_timeout = FIRST_READ_TIMEOUT - elapsed_since_last_read_cycle;
+            let next_read_timeout = FIRST_READ_TIMEOUT
+                .checked_sub(elapsed_since_last_read_cycle)
+                .expect("infallible");
             // Truncate to milliseconds as expected by hidapi
             #[expect(clippy::cast_possible_truncation)]
             if next_read_timeout < MIN_READ_TIMEOUT {

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: The djio authors
 // SPDX-License-Identifier: MPL-2.0
 
+use derive_more::Display;
 use smol_str::SmolStr;
 use strum::{EnumCount, EnumIter, FromRepr};
 
@@ -44,7 +45,7 @@ pub const CONTROLLER_DESCRIPTOR: &ControllerDescriptor = &ControllerDescriptor {
     num_effect_units: 0,
 };
 
-#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount)]
+#[derive(Debug, Clone, Copy, FromRepr, EnumIter, EnumCount, Display)]
 #[repr(u8)]
 pub enum Deck {
     /// Left deck

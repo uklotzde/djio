@@ -170,7 +170,8 @@ impl DerefMut for HidApi {
 
 impl HidApi {
     pub fn new() -> HidResult<Self> {
-        let inner = hidapi::HidApi::new_without_enumerate()?;
+        hidapi::HidApi::disable_device_discovery();
+        let inner = hidapi::HidApi::new()?;
         Ok(Self(inner))
     }
 
